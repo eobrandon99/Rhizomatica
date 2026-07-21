@@ -1036,33 +1036,5 @@
   </script>
 
   <div id="copyright">Rhizomatica. Copyright 2026, Evan Brandon.</div>
-
-<!-- AUTO-RELOAD-INJECTED -->
-<script>
-(function () {
-  const url = window.location.href;
-  let lastSeen = null;
-
-  async function checkForUpdate() {
-    try {
-      const res = await fetch(url, { method: "HEAD", cache: "no-store" });
-      const mod = res.headers.get("Last-Modified") || res.headers.get("ETag");
-      if (lastSeen && mod && mod !== lastSeen) {
-        window.location.reload();
-        return;
-      }
-      if (mod) {
-        lastSeen = mod;
-      }
-    } catch (err) {
-      // ignore transient errors
-    }
-  }
-
-  setInterval(checkForUpdate, 2000);
-  checkForUpdate();
-})();
-</script>
-
 </body>
 </html>
