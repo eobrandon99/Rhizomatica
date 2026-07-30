@@ -22,6 +22,7 @@ import json
 import re
 import webbrowser
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 import pandas as pd
 
@@ -106,12 +107,122 @@ def format_box(value):
     return f"[{text}]"
 
 
-def read_input():
-    if not INPUT_FILE.exists():
-        raise FileNotFoundError(f"Expected facets.xlsx next to script, but not found: {INPUT_FILE}")
-    df = pd.read_excel(INPUT_FILE)
-    df.columns = df.columns.str.strip()
-    return df
+def read_input(input_path: Path | None = None):
+    path = Path(input_path or INPUT_FILE)
+    if not path.exists():
+        raise FileNotFoundError(f"Expected an input file, but not found: {path}")
+
+    suffix = path.suffix.lower()
+    if suffix == ".xml":
+        xml_text = path.read_text(encoding="utf-8")
+        return build_records_from_xml(xml_text, source_path=path)
+
+    if suffix == ".xlsx":
+        df = pd.read_excel(path)
+        df.columns = df.columns.str.strip()
+        return build_records(df)
+
+    raise ValueError(f"Unsupported input format: {path}")
+
+
+def _strip_text(value):
+    if value is None:
+        return ""
+    text = re.sub(r"\s+", " ", str(value)).strip()
+    return "" if text.lower() in {"nan", "nat", "none", "null"} else text
+
+
+def _local_name(tag):
+    return tag.split("}", 1)[-1] if "}" in tag else tag
+
+
+def _find_first_text(parent, names):
+    if parent is None:
+        return ""
+    for node in parent.iter():
+        if _local_name(node.tag) in names:
+            text = _strip_text("".join(node.itertext()))
+            if text:
+                return text
+    return ""
+
+
+def _collect_facets(component):
+    facets = []
+    for node in component.iter():
+        local_name = _local_name(node.tag)
+        if local_name in {"persname", "corpname", "subject", "genreform", "geogname", "occupation", "function", "name"}:
+            text = _strip_text("".join(node.itertext()))
+            if text:
+                facets.append(text)
+    level = component.attrib.get("level")
+    if level:
+        facets.append(f"level:{level.lower()}")
+    return facets
+
+
+def build_records_from_xml(xml_text, source_path=None):
+    root = ET.fromstring(xml_text)
+
+    collection_title = _find_first_text(root, ["titleproper"]) or "Encoded Archival Standards Network"
+    components = [node for node in root.iter() if _local_name(node.tag) == "c"]
+
+    if not components:
+        components = [root]
+
+    rows = []
+    facet_counts = {}
+
+    for idx, component in enumerate(components):
+        did = next((child for child in component if _local_name(child.tag) == "did"), None)
+        row_id = _find_first_text(did, ["unitid"]) or f"row_{idx + 1}"
+        title = _find_first_text(did, ["unittitle"]) or row_id
+        date_expr = _find_first_text(component, ["unitdate"]) or ""
+        scope_content = _find_first_text(component, ["scopecontent"]) or ""
+        physical_desc = _find_first_text(component, ["extent"]) or _find_first_text(component, ["physdesc"]) or ""
+        container_instance = _find_first_text(component, ["container"]) or ""
+        facets = [facet for facet in _collect_facets(component) if facet]
+
+        for facet in facets:
+            facet_counts[facet] = facet_counts.get(facet, 0) + 1
+
+        begin = parse_yearish(date_expr, is_end=False)
+        end = parse_yearish(date_expr, is_end=True)
+        if pd.isna(begin):
+            begin = pd.NaT
+        if pd.isna(end):
+            end = begin
+
+        if date_expr:
+            display_date = date_expr
+        elif pd.notna(begin) and pd.notna(end) and begin != end:
+            display_date = f"{begin.date().isoformat()} to {end.date().isoformat()}"
+        elif pd.notna(begin):
+            display_date = begin.date().isoformat()
+        else:
+            display_date = "undated"
+
+        rows.append(
+            {
+                "id": row_id,
+                "display_date": display_date,
+                "container_instance": container_instance,
+                "scope_content": scope_content,
+                "physical_desc": physical_desc,
+                "box": format_box(container_instance),
+                "begin": begin.date().isoformat() if pd.notna(begin) else "",
+                "end": end.date().isoformat() if pd.notna(end) else "",
+                "facets": facets,
+                "title": title,
+                "date_expr": date_expr,
+            }
+        )
+
+    facet_list = [
+        {"id": facet, "label": facet, "count": facet_counts.get(facet, 0)}
+        for facet in facet_counts
+    ]
+    return collection_title, rows, facet_list
 
 
 def build_records(df):
@@ -1267,17 +1378,27 @@ def build_html(collection_title, rows, facets):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Generate a multifacet network HTML page from facets.xlsx")
+    parser = argparse.ArgumentParser(description="Generate a multifacet network HTML page from spreadsheet or XML archival data")
+    parser.add_argument("--input", default=str(INPUT_FILE), help="Path to an Excel (.xlsx) or XML (.xml) input file")
     parser.add_argument("--open", action="store_true", help="Open the generated HTML in your default browser")
     args = parser.parse_args(argv)
 
-    df = read_input()
-    print("Columns:", list(df.columns))
-    print("Rows:", len(df))
-
-    title, rows, facets = build_records(df)
-    if not rows:
-        raise ValueError("The spreadsheet has no rows to render.")
+    input_path = Path(args.input).expanduser().resolve()
+    if input_path.suffix.lower() == ".xml":
+        title, rows, facets = read_input(input_path)
+        if not rows:
+            raise ValueError("The XML source has no archival components to render.")
+    else:
+        result = read_input(input_path)
+        if isinstance(result, tuple):
+            title, rows, facets = result
+        else:
+            df = result
+            print("Columns:", list(df.columns))
+            print("Rows:", len(df))
+            title, rows, facets = build_records(df)
+        if not rows:
+            raise ValueError("The spreadsheet has no rows to render.")
 
     html = build_html(title, rows, facets)
     OUTPUT_FILE.write_text(html, encoding="utf-8")

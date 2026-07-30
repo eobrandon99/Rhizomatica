@@ -1,0 +1,22 @@
+<ead>
+  <eadheader>
+    <filedesc>
+      <titlestmt>
+        <titleproper>Sample Collection</titleproper>
+      </titlestmt>
+    </filedesc>
+  </eadheader>
+  <archdesc level="collection">
+    <dsc>
+      <c level="file">
+        <did>
+          <unitid>MS-001</unitid>
+          <unittitle>Letter to Ada</unittitle>
+        </did>
+        <unitdate normal="1932">1932</unitdate>
+        <scopecontent><p>Correspondence from 1932.</p></scopecontent>
+        <controlaccess><persname>Ada Lovelace</persname><subject>Letters</subject></controlaccess>
+      </c>
+    </dsc>
+  </archdesc>
+</ead>
