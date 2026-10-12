@@ -136,9 +136,9 @@ def main():
         help="Name of the generated HTML file.",
     )
     parser.add_argument(
-        "--spreadsheet",
-        default="facets.xlsx",
-        help="Spreadsheet file to watch for changes.",
+        "--source",
+        default="ead.xml",
+        help="Source data file to watch for changes.",
     )
     parser.add_argument(
         "--port",
@@ -167,7 +167,7 @@ def main():
 
     base_dir = generator_script.parent
     html_path = base_dir / args.html
-    spreadsheet_path = (base_dir / args.spreadsheet).resolve()
+    source_path = (base_dir / args.source).resolve()
 
     run_generator(generator_script)
 
@@ -178,7 +178,7 @@ def main():
     httpd = serve_and_open(base_dir, html_path.name, args.port)
 
     try:
-        watch_and_regenerate(generator_script, [spreadsheet_path, generator_script], html_path, args.interval)
+        watch_and_regenerate(generator_script, [source_path, generator_script], html_path, args.interval)
     finally:
         httpd.shutdown()
 

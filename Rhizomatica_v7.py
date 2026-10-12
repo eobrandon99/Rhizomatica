@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build an interactive multifacet network from facets.xlsx.
+"""Build an interactive multifacet network from ead.xml.
 
 Features:
 - Multi-select facet spotlight with intersection filtering.
@@ -8,207 +8,564 @@ Features:
 - Hover/click file nodes or file list items to show a detail card below the
   facet spotlight area.
 
+Data model:
+- Every EAD hierarchy node (<c01>, <c02>, ...) with no <c0N> children becomes
+  a row (a file).
+- Every node that DOES have children becomes a facet, and all of its
+  descendant files are tagged with it (and every facet above it).
+- Words that recur across multiple files' titles become keyword facets too
+  (see keyword_min_file_ratio in config.json).
+
 Input:
-- facets.xlsx in the same folder as this script.
+- Files named <prefix>-ead.xml in the input/ folder.
+- config.json (optional) in the same folder, for keyword_min_file_ratio.
 
 Output:
-- network_output.html in the same folder as this script.
+- Files named <prefix>-rhizome.html in the output/ folder.
 """
 
 from __future__ import annotations
 
 import argparse
+import calendar
 import json
+import math
 import re
 import webbrowser
+import xml.etree.ElementTree as ET
+from collections import defaultdict
+from datetime import date
 from pathlib import Path
 
-import pandas as pd
+INPUT_DIR = Path(__file__).with_name("input")
+CONFIG_FILE = Path(__file__).with_name("config.json")
+OUTPUT_DIR = Path(__file__).with_name("output")
 
-INPUT_FILE = Path(__file__).with_name("facets.xlsx")
-OUTPUT_FILE = Path(__file__).with_name("network_output.html")
-
-COLUMN_ALIASES = {
-    "id": ["ID", "id", "Identifier", "identifier", "Row", "row"],
-    "date_expression": ["date_expression", "date expression", "Date Expression", "date", "Date"],
-    "date_begin": ["date_begin", "date begin", "Date Begin", "begin", "Start", "start_date"],
-    "date_end": ["date_end", "date end", "Date End", "end", "Finish", "end_date"],
-    "collection_title": ["Collection title", "collection title", "collection_title", "title", "Title"],
-    "physical_instance": [
-        "physical_instance",
-        "physical instance",
-        "container_instance",
-        "container instance",
-        "box",
-        "Box",
-        "box address",
-        "Box Address",
-    ],
-    "scope_content": ["scope_content", "scope content", "Scope Content", "notes", "Note", "scope"],
-    "physical_desc": ["physical_desc", "physical desc", "Physical Desc", "physical description", "description"],
+DEFAULT_CONFIG = {
+  "keyword_min_file_ratio": 0.1,
+    "facet_redundancy_ratio": 0.7,
 }
 
+STOPWORDS = frozenset(
+    """
+    a an the and or but if then than so of in on at by for to from with
+    as is are was were be been being this that these those it its their
+    his her you your our we they he she i not no nor too very can will
+    just should now into during about above below between after before
+    over under again further once here there when where why how all any
+    both each few more most other some such only own same other
+    """.split()
+)
 
-def find_column(columns, aliases, label, required=True):
-    lookup = {str(c).strip().lower(): c for c in columns}
-    for alias in aliases:
-        key = alias.strip().lower()
-        if key in lookup:
-            return lookup[key]
-    if required:
-        raise ValueError(f"Could not find a column for {label}. Available columns: {list(columns)}")
-    return None
+# Common archival/business vocabulary that is capitalized only because
+# titles are written in title case, not because it names an entity (e.g.
+# "Meeting", "Report", "Trip"). Single-word candidates in this list are
+# dropped unless they also show up written in ALL CAPS somewhere (making
+# them look like an acronym rather than a generic word) -- see
+# extract_keyword_facets. Multi-word phrases are never affected by this
+# list, since a recurring multi-word phrase is distinctive regardless of
+# how common its individual words are.
+GENERIC_WORDS = frozenset(
+    """
+    meeting meetings report reports reporting trip trips visit visits
+    deployment deployments release releases review reviews notes note
+    correspondence materials material event events site sites panel
+    panels group groups committee team teams tutorial tutorials
+    universities university vol volume current work works research
+    draft drafts letter letters memo memos memorandum agenda agendas
+    minutes proposal proposals plan plans program programs document
+    documents series folder folders item items file files record
+    records paper papers summary summaries overview background session
+    sessions workshop workshops conference conferences presentation
+    presentations demonstration demonstrations demo demos article
+    articles newsletter newsletters bulletin bulletins issue issues
+    interim final progress management advisory technical activities
+    activity information guide guides reference references manual
+    manuals installing installation using sending support project
+    projects
+    """.split()
+)
+
+C_LEVEL_RE = re.compile(r"^c\d*$")
+WORD_RE = re.compile(r"[a-zA-Z']+")
+SEGMENT_SPLIT_RE = re.compile(r"[,:;()\[\]\"/]+|\.\s+")
+# Dotted abbreviations like "U.S." or "U.S.A." have no space between the
+# periods, so they'd otherwise tokenize as separate single letters ("U",
+# "S") that never meet the single-word length filter. Collapse them to
+# "US" / "USA" before tokenizing so they're recognized as one acronym --
+# and so they match up with "US"/"United States" elsewhere in the title.
+ABBREVIATION_RE = re.compile(r"\b(?:[A-Za-z]\.){2,}(?![A-Za-z])")
+AO_URI_RE = re.compile(r"/archival_objects/(\d+)")
+MAX_NGRAM = 4
 
 
-def as_text(value):
-    if pd.isna(value):
+def load_config():
+    config = dict(DEFAULT_CONFIG)
+    if CONFIG_FILE.exists():
+        try:
+            loaded = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                config.update(loaded)
+        except (json.JSONDecodeError, OSError) as exc:
+            print(f"Warning: could not read {CONFIG_FILE.name} ({exc}); using defaults.")
+    return config
+
+
+def local_tag(elem):
+    tag = elem.tag
+    return tag.split("}", 1)[1] if "}" in tag else tag
+
+
+def strip_namespaces(root):
+    for elem in root.iter():
+        elem.tag = local_tag(elem)
+    return root
+
+
+def text_of(elem):
+    if elem is None:
         return ""
-    text = str(value).strip()
-    return "" if text.lower() in {"nan", "nat", "none", "null"} else text
+    return "".join(elem.itertext()).strip()
 
 
-def parse_yearish(value, is_end=False):
-    if pd.isna(value):
-        return pd.NaT
-    if isinstance(value, pd.Timestamp):
-        return value.normalize()
-    if isinstance(value, (int, float)) and not pd.isna(value):
-        n = int(value)
-        if 1000 <= n <= 9999:
-            return pd.Timestamp(f"{n}-12-31" if is_end else f"{n}-01-01")
-    s = str(value).strip()
-    if not s or s.lower() in {"nan", "nat", "none", "null"}:
-        return pd.NaT
-    if re.fullmatch(r"\d{4}\.0", s):
-        s = s[:-2]
-    if re.fullmatch(r"\d{4}", s):
-        return pd.Timestamp(f"{s}-12-31" if is_end else f"{s}-01-01")
-    match = re.search(r"(1[5-9]\d{2}|20\d{2})", s)
-    if match:
-        year = match.group(1)
-        return pd.Timestamp(f"{year}-12-31" if is_end else f"{year}-01-01")
-    parsed = pd.to_datetime(s, errors="coerce")
-    return parsed.normalize() if pd.notna(parsed) else pd.NaT
+def slugify(text):
+    slug = re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+    return slug or "facet"
 
 
-def is_active(val):
-    if pd.isna(val):
-        return False
-    if isinstance(val, str):
-        return val.strip().upper() in {"YES", "Y", "TRUE", "1", "X", "CHECKED"}
-    return bool(val)
-
-
-def format_box(value):
-    text = as_text(value)
-    if not text:
+def parse_normal_date(token, is_end):
+    token = token.strip()
+    if not token:
         return ""
-    return f"[{text}]"
+    parts = token.split("-")
+    try:
+        year = int(parts[0])
+    except ValueError:
+        return ""
+    if len(parts) >= 3:
+        month, day = int(parts[1]), int(parts[2])
+    elif len(parts) == 2:
+        month = int(parts[1])
+        day = calendar.monthrange(year, month)[1] if is_end else 1
+    else:
+        month, day = (12, 31) if is_end else (1, 1)
+    try:
+        return date(year, month, day).isoformat()
+    except ValueError:
+        return ""
 
 
-def read_input():
-    if not INPUT_FILE.exists():
-        raise FileNotFoundError(f"Expected facets.xlsx next to script, but not found: {INPUT_FILE}")
-    df = pd.read_excel(INPUT_FILE)
-    df.columns = df.columns.str.strip()
-    return df
+def extract_did_fields(node):
+    did = node.find("did") if local_tag(node) != "did" else node
+    if did is None:
+        for child in node:
+            if local_tag(child) == "did":
+                did = child
+                break
+
+    unittitle = ""
+    date_expr = ""
+    normal = ""
+    container_instance = ""
+    if did is not None:
+        for child in did:
+            tag = local_tag(child)
+            if tag == "unittitle":
+                unittitle = text_of(child)
+            elif tag == "unitdate":
+                date_expr = text_of(child)
+                normal = child.get("normal", "")
+            elif tag == "container":
+                label = child.get("label", "").strip()
+                number = text_of(child)
+                container_instance = f"{label} {number}".strip()
+
+    begin, end = "", ""
+    if normal:
+        half = normal.split("/")
+        begin = parse_normal_date(half[0], is_end=False)
+        end = parse_normal_date(half[1] if len(half) > 1 else half[0], is_end=True)
+
+    if date_expr:
+        display_date = date_expr
+    elif begin and end and begin != end:
+        display_date = f"{begin} to {end}"
+    elif begin:
+        display_date = begin
+    else:
+        display_date = "undated"
+
+    return {
+        "title": unittitle,
+        "date_expr": date_expr,
+        "begin": begin,
+        "end": end or begin,
+        "display_date": display_date,
+        "container_instance": container_instance,
+    }
 
 
-def build_records(df):
-    id_column = find_column(df.columns, COLUMN_ALIASES["id"], "ID")
-    date_expression_column = find_column(df.columns, COLUMN_ALIASES["date_expression"], "date expression")
-    date_begin_column = find_column(df.columns, COLUMN_ALIASES["date_begin"], "date begin")
-    date_end_column = find_column(df.columns, COLUMN_ALIASES["date_end"], "date end")
-    title_column = find_column(df.columns, COLUMN_ALIASES["collection_title"], "Collection title", required=False)
-    physical_column = find_column(df.columns, COLUMN_ALIASES["physical_instance"], "physical instance", required=False)
-    scope_column = find_column(df.columns, COLUMN_ALIASES["scope_content"], "scope content", required=False)
-    physical_desc_column = find_column(df.columns, COLUMN_ALIASES["physical_desc"], "physical description", required=False)
+def own_text(node, tag_name):
+    for child in node:
+        if local_tag(child) == tag_name:
+            return " ".join(p.strip() for p in child.itertext()).strip()
+    return ""
 
-    print("Using columns:")
-    print("  ID:", id_column)
-    print("  Date expression:", date_expression_column)
-    print("  Begin:", date_begin_column)
-    print("  End:", date_end_column)
-    print("  Collection title:", title_column if title_column else "(none)")
-    print("  Physical instance:", physical_column if physical_column else "(none)")
-    print("  Scope content:", scope_column if scope_column else "(none)")
-    print("  Physical description:", physical_desc_column if physical_desc_column else "(none)")
 
-    facet_columns = [
-        c
-        for c in df.columns
-        if c not in [
-            id_column,
-            date_expression_column,
-            date_begin_column,
-            date_end_column,
-            title_column,
-            physical_column,
-            scope_column,
-            physical_desc_column,
-        ]
-    ]
-    print("Facet columns:", facet_columns)
+def unitid_facet_id(node, fallback_title):
+    for child in node:
+        if local_tag(child) == "did":
+            for grand in child:
+                if local_tag(grand) == "unitid" and grand.get("type") == "aspace_uri":
+                    match = AO_URI_RE.search(text_of(grand))
+                    if match:
+                        return f"ao_{match.group(1)}"
+    return slugify(fallback_title)
 
-    collection_title = "Facet Spotlight Network"
-    if title_column:
-        title_series = df[title_column].dropna().astype(str).str.strip()
-        title_series = title_series[title_series != ""]
-        if not title_series.empty:
-            collection_title = title_series.iloc[0]
 
-    rows = []
-    facet_counts = {facet: 0 for facet in facet_columns}
+def walk(node, ancestor_facets, inherited_date, rows, facets_by_id, counter):
+    children = [child for child in node if C_LEVEL_RE.match(local_tag(child))]
+    did_fields = extract_did_fields(node)
+    has_title = bool(did_fields["title"])
+    has_own_date = bool(did_fields["date_expr"] or did_fields["begin"])
 
-    for idx, row in df.iterrows():
-        row_id = as_text(row[id_column]) or f"row_{idx + 1}"
-        date_expr = as_text(row[date_expression_column])
-        begin = parse_yearish(row[date_begin_column], is_end=False)
-        end = parse_yearish(row[date_end_column], is_end=True)
-
-        if pd.isna(begin):
-            begin = parse_yearish(row[date_expression_column], is_end=False)
-        if pd.isna(end):
-            end = parse_yearish(row[date_expression_column], is_end=True)
-        if pd.isna(end):
-            end = begin
-
-        if date_expr:
-            display_date = date_expr
-        elif pd.notna(begin) and pd.notna(end) and begin != end:
-            display_date = f"{begin.date().isoformat()} to {end.date().isoformat()}"
-        elif pd.notna(begin):
-            display_date = begin.date().isoformat()
-        else:
-            display_date = "undated"
-
-        container_instance = as_text(row[physical_column]) if physical_column else ""
-        scope_content = as_text(row[scope_column]) if scope_column else ""
-        physical_desc = as_text(row[physical_desc_column]) if physical_desc_column else ""
-        box = format_box(container_instance)
-        facets = [facet for facet in facet_columns if is_active(row[facet])]
-        for facet in facets:
-            facet_counts[facet] += 1
-
+    if not children:
+        counter[0] += 1
+        row_id = unitid_facet_id(node, did_fields["title"] or f"file_{counter[0]}")
+        file_title = did_fields["title"] or (facets_by_id.get(ancestor_facets[-1], "") if ancestor_facets else "")
+        # Fall back to the nearest untitled-but-dated ancestor's date only
+        # when this file has none of its own.
+        date_fields = did_fields if has_own_date else (inherited_date or did_fields)
         rows.append(
             {
                 "id": row_id,
-                "display_date": display_date,
-                "container_instance": container_instance,
-                "scope_content": scope_content,
-                "physical_desc": physical_desc,
-                "box": box,
-                "begin": begin.date().isoformat() if pd.notna(begin) else "",
-                "end": end.date().isoformat() if pd.notna(end) else "",
-                "facets": facets,
-                "title": as_text(row[title_column]) if title_column else "",
-                "date_expr": date_expr,
+                "title": file_title,
+                "display_date": date_fields["display_date"],
+                "date_expr": date_fields["date_expr"],
+                "begin": date_fields["begin"],
+                "end": date_fields["end"],
+                "container_instance": did_fields["container_instance"],
+                "box": f"[{did_fields['container_instance']}]" if did_fields["container_instance"] else "",
+                "scope_content": own_text(node, "scopecontent"),
+                "physical_desc": own_text(node, "physdesc"),
+                "facets": list(ancestor_facets),
             }
         )
+        return
+
+    # An untitled series/subseries that only carries a date isn't a
+    # meaningful facet (nothing to label it with) -- skip faceting it, but
+    # pass its date down so dateless files beneath it still get one.
+    skip_as_facet = has_own_date and not has_title
+    if skip_as_facet:
+        next_ancestor_facets = ancestor_facets
+        next_inherited_date = did_fields
+    else:
+        facet_id = unitid_facet_id(node, did_fields["title"] or f"series_{len(facets_by_id) + 1}")
+        facets_by_id[facet_id] = did_fields["title"] or facet_id
+        next_ancestor_facets = ancestor_facets + [facet_id]
+        next_inherited_date = inherited_date
+
+    for child in children:
+        walk(child, next_ancestor_facets, next_inherited_date, rows, facets_by_id, counter)
+
+
+def normalize_abbreviations(text):
+    return ABBREVIATION_RE.sub(lambda m: m.group(0).replace(".", ""), text)
+
+
+def tokenize_title_segments(title):
+    """Split a title into word-sequences, breaking at punctuation so n-grams
+    never bridge across it (e.g. "Guide, UM" in "...Guide, UM EXPRES 1.0")."""
+    title = normalize_abbreviations(title)
+    segments = []
+    for chunk in SEGMENT_SPLIT_RE.split(title):
+        words = WORD_RE.findall(chunk)
+        if words:
+            segments.append(words)
+    return segments
+
+
+def ngram_facet_id(chunk):
+    parts = [re.sub(r"[^a-z0-9]+", "", w) or "x" for w in chunk]
+    return "kw_" + "_".join(parts)
+
+
+def is_sub_ngram(short_chunk, long_chunk):
+    """True if short_chunk's words appear as a contiguous run inside long_chunk."""
+    short_len, long_len = len(short_chunk), len(long_chunk)
+    if short_len >= long_len:
+        return False
+    return any(long_chunk[i:i + short_len] == short_chunk for i in range(long_len - short_len + 1))
+
+
+def merge_redundant_facets(final_chunks, redundancy_ratio):
+    """Collapse a facet into whichever other facet contains (or is contained
+    by) it -- directly, not transitively -- when it's clearly just a minor
+    variant mention: its file count is under redundancy_ratio of that other
+    facet's count. Its files are folded into the surviving facet rather than
+    dropped, so e.g. "UM EXPRES" and "EXPRES Project" both collapse into the
+    dominant "EXPRES" facet instead of fragmenting it."""
+    counts = {chunk: len(row_ids) for chunk, row_ids in final_chunks.items()}
+    chunks = list(counts)
+
+    drop_target = {}
+    for chunk in chunks:
+        dominant = None
+        for other in chunks:
+            if other == chunk or counts[other] <= counts[chunk]:
+                continue
+            if is_sub_ngram(chunk, other) or is_sub_ngram(other, chunk):
+                if dominant is None or counts[other] > counts[dominant]:
+                    dominant = other
+        if dominant is not None and counts[chunk] < redundancy_ratio * counts[dominant]:
+            drop_target[chunk] = dominant
+
+    def resolve(chunk):
+        seen = set()
+        while chunk in drop_target and chunk not in seen:
+            seen.add(chunk)
+            chunk = drop_target[chunk]
+        return chunk
+
+    merged = defaultdict(set)
+    for chunk, row_ids in final_chunks.items():
+        merged[resolve(chunk)] |= row_ids
+    return dict(merged)
+
+
+def extract_keyword_facets(rows, min_file_count, redundancy_ratio):
+    """Entity + frequency hybrid: find recurring words AND phrases in file
+    titles and turn them into facets.
+
+    - Multi-word phrases (e.g. "Ann Arbor", "User's Reference Guide",
+      "Project Management Committee") are treated as entities outright --
+      a recurring phrase is distinctive no matter how common its
+      individual words are.
+    - Single words are entities too when they look like an acronym
+      (written ALL CAPS somewhere, e.g. NSF, CMU, EXPRES) or aren't
+      generic archival/business vocabulary (GENERIC_WORDS). A generic
+      word like "Meeting" or "Report" only becomes a facet as part of a
+      qualifying phrase, never standing alone.
+    - Among qualifying candidates, the longest phrase at each spot wins,
+      so a word consumed by a longer phrase doesn't also surface as its
+      own facet (see MAX_NGRAM).
+    """
+    candidate_rows = defaultdict(set)
+    candidate_label = {}
+    acronym_seen = set()
+    for row in rows:
+        for words in tokenize_title_segments(row["title"]):
+            lowered = [w.lower() for w in words]
+            n = len(words)
+            for i, word in enumerate(words):
+                if word.isupper() and len(word) >= 2:
+                    acronym_seen.add(lowered[i])
+            for length in range(1, MAX_NGRAM + 1):
+                for i in range(0, n - length + 1):
+                    chunk = tuple(lowered[i:i + length])
+                    if chunk[0] in STOPWORDS or chunk[-1] in STOPWORDS:
+                        continue
+                    if length == 1:
+                        # Short acronyms (US, UM, UK...) are only let through
+                        # at 2 letters when the source actually wrote them in
+                        # caps; otherwise this would admit ordinary 2-letter
+                        # fragments missed by the stopword list.
+                        min_len = 2 if words[i].isupper() else 3
+                        if len(chunk[0]) < min_len:
+                            continue
+                    candidate_rows[chunk].add(row["id"])
+                    candidate_label.setdefault(chunk, " ".join(words[i:i + length]))
+
+    def is_entity(chunk):
+        if len(chunk) > 1:
+            return True
+        word = chunk[0]
+        return word in acronym_seen or word not in GENERIC_WORDS
+
+    qualifying = {
+        chunk
+        for chunk, row_ids in candidate_rows.items()
+        if len(row_ids) >= min_file_count and is_entity(chunk)
+    }
+
+    facet_rows = defaultdict(set)
+    for row in rows:
+        matched_chunks = set()
+        for words in tokenize_title_segments(row["title"]):
+            lowered = [w.lower() for w in words]
+            n = len(words)
+            i = 0
+            while i < n:
+                step = 1
+                for length in range(min(MAX_NGRAM, n - i), 0, -1):
+                    chunk = tuple(lowered[i:i + length])
+                    if chunk in qualifying:
+                        matched_chunks.add(chunk)
+                        step = length
+                        break
+                i += step
+        for chunk in matched_chunks:
+            facet_rows[chunk].add(row["id"])
+
+    final_chunks = {chunk: row_ids for chunk, row_ids in facet_rows.items() if len(row_ids) >= min_file_count}
+    final_chunks = merge_redundant_facets(final_chunks, redundancy_ratio)
+
+    rows_by_id = {row["id"]: row for row in rows}
+    keyword_facets = {}
+    for chunk, row_ids in final_chunks.items():
+        facet_id = ngram_facet_id(chunk)
+        keyword_facets[facet_id] = candidate_label[chunk]
+        for row_id in row_ids:
+            rows_by_id[row_id]["facets"].append(facet_id)
+
+    return keyword_facets
+
+
+def facet_initials(label):
+    """Initials of a label's significant words, e.g. "National Science
+    Foundation" -> "nsf". Stopwords (of, the, for, ...) don't count, so
+    "University of Michigan" -> "um" rather than "uom"."""
+    words = WORD_RE.findall(label)
+    significant = [w for w in words if w.lower() not in STOPWORDS]
+    return "".join(w[0] for w in significant if w).lower()
+
+
+def facet_canonical_key(facet_id, facets_by_id):
+    """Sort key used whenever several facets merge into one: prefer a
+    hierarchy (series) facet over a keyword one, since it's structurally
+    meaningful rather than inferred; among same-type ties, prefer the
+    more descriptive (longer) label; fall back to the id for determinism."""
+    is_keyword = facet_id.startswith("kw_")
+    label = facets_by_id.get(facet_id, facet_id)
+    return (1 if is_keyword else 0, -len(label.split()), facet_id)
+
+
+def apply_facet_remap(rows, facets_by_id, id_remap):
+    """Rewrite every row's facet list to point merged-away ids at their
+    canonical replacement (de-duplicating), then drop the merged ids."""
+    if not id_remap:
+        return
+
+    for row in rows:
+        deduped = []
+        for facet_id in row["facets"]:
+            target = id_remap.get(facet_id, facet_id)
+            if target not in deduped:
+                deduped.append(target)
+        row["facets"] = deduped
+
+    for facet_id in id_remap:
+        facets_by_id.pop(facet_id, None)
+
+
+def normalize_label(label):
+    return re.sub(r"\s+", " ", label.strip().lower())
+
+
+def merge_same_label_facets(rows, facets_by_id):
+    """If two facets carry the exact same label text (ignoring case and
+    stray whitespace), they're the same real-world entity reached through
+    two different nodes -- common in a large collection where, say, two
+    unrelated series both end up titled "Correspondence". Merge them into
+    one facet and union their files."""
+    groups = defaultdict(list)
+    for facet_id, label in facets_by_id.items():
+        groups[normalize_label(label)].append(facet_id)
+
+    id_remap = {}
+    for facet_ids in groups.values():
+        if len(facet_ids) < 2:
+            continue
+        canonical = min(facet_ids, key=lambda fid: facet_canonical_key(fid, facets_by_id))
+        for facet_id in facet_ids:
+            if facet_id != canonical:
+                id_remap[facet_id] = canonical
+
+    apply_facet_remap(rows, facets_by_id, id_remap)
+
+
+def merge_acronym_facets(rows, facets_by_id):
+    """Merge an acronym facet (e.g. "NSF") into the matching full-name
+    phrase facet (e.g. "National Science Foundation") when the acronym's
+    letters equal the initials of that phrase's significant words -- even
+    though the two facets may have been built from entirely different
+    files, since some titles use the initialism and others spell it out.
+    The full name wins as canonical; files from the acronym are folded
+    into it."""
+    acronym_ids = [
+        fid for fid, label in facets_by_id.items()
+        if label.isalpha() and label.isupper() and len(label) >= 2
+    ]
+    phrase_ids = [fid for fid, label in facets_by_id.items() if " " in label]
+
+    id_remap = {}
+    for acronym_id in acronym_ids:
+        acronym = facets_by_id[acronym_id].lower()
+        matches = [pid for pid in phrase_ids if facet_initials(facets_by_id[pid]) == acronym]
+        if not matches:
+            continue
+        canonical = min(matches, key=lambda pid: (-len(facets_by_id[pid].split()), pid))
+        id_remap[acronym_id] = canonical
+
+    apply_facet_remap(rows, facets_by_id, id_remap)
+
+
+def merge_duplicate_facets(rows, facets_by_id):
+    """If two facets (hierarchy or keyword, doesn't matter) end up tagging
+    the exact same set of files, they're redundant -- fold them into one."""
+    row_sets_by_facet = defaultdict(set)
+    for row in rows:
+        for facet_id in row["facets"]:
+            row_sets_by_facet[facet_id].add(row["id"])
+
+    groups = defaultdict(list)
+    for facet_id, row_ids in row_sets_by_facet.items():
+        groups[frozenset(row_ids)].append(facet_id)
+
+    id_remap = {}
+    for facet_ids in groups.values():
+        if len(facet_ids) < 2:
+            continue
+        canonical = min(facet_ids, key=lambda fid: facet_canonical_key(fid, facets_by_id))
+        for facet_id in facet_ids:
+            if facet_id != canonical:
+                id_remap[facet_id] = canonical
+
+    apply_facet_remap(rows, facets_by_id, id_remap)
+
+
+def build_records(root, keyword_min_file_count, facet_redundancy_ratio, keyword_min_file_ratio=DEFAULT_CONFIG["keyword_min_file_ratio"]):
+    archdesc = root.find("archdesc")
+    collection_title = text_of(archdesc.find("did/unittitle")) if archdesc is not None else "Finding Aid Network"
+
+    dsc = archdesc.find("dsc") if archdesc is not None else None
+    rows = []
+    facets_by_id = {}
+    counter = [0]
+    if dsc is not None:
+        for child in dsc:
+            if C_LEVEL_RE.match(local_tag(child)):
+                walk(child, [], None, rows, facets_by_id, counter)
+
+    if keyword_min_file_count is None:
+      keyword_min_file_count = max(1, math.ceil(len(rows) * keyword_min_file_ratio))
+
+    keyword_facets = extract_keyword_facets(rows, keyword_min_file_count, facet_redundancy_ratio)
+    facets_by_id.update(keyword_facets)
+
+    merge_same_label_facets(rows, facets_by_id)
+    merge_acronym_facets(rows, facets_by_id)
+    merge_duplicate_facets(rows, facets_by_id)
+
+    facet_counts = {facet_id: 0 for facet_id in facets_by_id}
+    for row in rows:
+        for facet_id in row["facets"]:
+            facet_counts[facet_id] += 1
 
     facets = [
-        {"id": facet, "label": facet, "count": facet_counts.get(facet, 0)}
-        for facet in facet_columns
+        {"id": facet_id, "label": label, "count": facet_counts.get(facet_id, 0)}
+        for facet_id, label in facets_by_id.items()
     ]
 
     return collection_title, rows, facets
@@ -361,9 +718,24 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     }
     #facetList {
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 8px;
       margin-bottom: 0;
+    }
+    .facet-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+    .facet-children {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+      margin-left: 12px;
+      padding-left: 10px;
+      border-left: 1px solid #d6dbe1;
     }
     #facetSidebar .tool-section + .tool-section {
       margin-top: 2px;
@@ -375,6 +747,13 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       margin-top: 0 !important;
     }
     .facet-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
       border: 1px solid #cfcfcf;
       background: #fff;
       border-radius: 999px;
@@ -383,6 +762,13 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       cursor: pointer;
       transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
       text-align: left;
+    }
+    .facet-label {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .facet-pill.has-subsidiaries .facet-label {
+      font-weight: 700;
     }
     .facet-pill:hover {
       background: #fff8e8;
@@ -394,8 +780,22 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       border-color: #ffb300;
       font-weight: 700;
     }
+    .facet-pill.keyword-facet {
+      background: #dccbef;
+      border-color: #7952a3;
+      color: #30194b;
+    }
+    .facet-pill.keyword-facet:hover {
+      background: #cdb5e6;
+      border-color: #6b3fa0;
+    }
+    .facet-pill.keyword-facet.selected {
+      background: #6b3fa0;
+      border-color: #4b2677;
+      color: #fff;
+    }
     .facet-pill .count {
-      margin-left: 4px;
+      flex: 0 0 auto;
       color: #666;
       font-weight: 600;
     }
@@ -583,8 +983,25 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       border-color: #60a5fa;
       color: #f8fafc;
     }
+    body[data-theme="dark"] .facet-pill.keyword-facet {
+      background: #3b2b50;
+      border-color: #a884d2;
+      color: #f2e8ff;
+    }
+    body[data-theme="dark"] .facet-pill.keyword-facet:hover {
+      background: #4a3563;
+      border-color: #c5a8ec;
+    }
+    body[data-theme="dark"] .facet-pill.keyword-facet.selected {
+      background: #684395;
+      border-color: #d5b8f4;
+      color: #fff;
+    }
     body[data-theme="dark"] .facet-pill .count {
       color: #94a3b8;
+    }
+    body[data-theme="dark"] .facet-children {
+      border-color: #475569;
     }
     body[data-theme="dark"] .detail-panel.empty {
       background: #0f172a;
@@ -717,21 +1134,21 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       edges: {
         smooth: true,
         color: { color: '#999' },
-        length: 180,
+        length: 110,
         width: 1.2
       },
       physics: {
         enabled: true,
         solver: 'forceAtlas2Based',
         forceAtlas2Based: {
-          gravitationalConstant: -80,
-          centralGravity: 0.02,
-          springLength: 130,
-          springConstant: 0.08,
+          gravitationalConstant: -100,
+          centralGravity: 0.05,
+          springLength: 90,
+          springConstant: 0.06,
           damping: 0.65,
-          avoidOverlap: 0.15
+          avoidOverlap: 0.5
         },
-        stabilization: { iterations: 220, fit: true },
+        stabilization: { iterations: 300, fit: true },
         maxVelocity: 12,
         minVelocity: 0.35,
         timestep: 0.35
@@ -777,10 +1194,19 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         facetHoverBackground: '#FF9F1C',
         facetSelectedBackground: '#FFE082',
         facetSelectedBorder: '#FF8C00',
+        keywordFacetBackground: '#D8C4ED',
+        keywordFacetBorder: '#7446A8',
+        keywordFacetHoverBackground: '#C5A9E2',
+        keywordFacetSelectedBackground: '#7446A8',
+        keywordFacetSelectedBorder: '#512F7D',
+        keywordFacetLabel: '#321A4A',
+        keywordFacetSelectedLabel: '#FFFFFF',
+        keywordFacetHighlight: 'rgba(116, 70, 168, 0.42)',
         rowLabel: '#111111',
         facetLabel: '#000000',
         edge: '#999',
         edgeSelected: '#FFB300',
+        containmentEdge: '#52616B',
         detailHighlight: 'rgba(47, 111, 219, 0.28)',
         facetHighlight: 'rgba(255, 140, 0, 0.45)'
       },
@@ -795,10 +1221,19 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         facetHoverBackground: '#FBBF24',
         facetSelectedBackground: '#92400E',
         facetSelectedBorder: '#FCD34D',
+        keywordFacetBackground: '#4A3563',
+        keywordFacetBorder: '#B99ADD',
+        keywordFacetHoverBackground: '#5A4177',
+        keywordFacetSelectedBackground: '#7653A6',
+        keywordFacetSelectedBorder: '#DCC7F2',
+        keywordFacetLabel: '#F4EAFE',
+        keywordFacetSelectedLabel: '#FFFFFF',
+        keywordFacetHighlight: 'rgba(185, 154, 221, 0.45)',
         rowLabel: '#F8FAFC',
         facetLabel: '#F8FAFC',
         edge: '#64748B',
         edgeSelected: '#F59E0B',
+        containmentEdge: '#FACC15',
         detailHighlight: 'rgba(96, 165, 250, 0.32)',
         facetHighlight: 'rgba(251, 191, 36, 0.40)'
       }
@@ -905,22 +1340,98 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     }
 
     function rowLabel(row) {
-      const lines = [row.id];
+      const lines = [row.title || row.id];
       if (row.display_date) lines.push(row.display_date);
-      if (row.box) lines.push(row.box);
       return lines.join('\n');
     }
 
+    // File nodes stay fixed and small; facet nodes have a floor well above
+    // ROW_SIZE_HIGHLIGHTED so a facet is always bigger than any file node,
+    // and grow from there with how many files are tagged to them.
+    const ROW_SIZE = 9;
+    const ROW_SIZE_HIGHLIGHTED = 13;
+    const ROW_FONT_SIZE = 10;
+    const ROW_FONT_SIZE_HIGHLIGHTED = 12;
+
+    // The smallest-count facet always renders at FACET_MIN_SIZE and the
+    // largest-count facet always renders at FACET_MAX_SIZE -- counts in
+    // between are stretched across that full range (eased with
+    // FACET_GROWTH_EXPONENT < 1 so growth is steep early then levels off).
+    // Sizing this way means nothing saturates at the cap early and bumping
+    // FACET_MAX_SIZE always visibly grows the biggest facets.
+    const FACET_MIN_SIZE = 15;
+    const FACET_MAX_SIZE = 150;
+    const FACET_GROWTH_EXPONENT = 0.6;
+    const FACET_SELECTED_BOOST = 14;
+    const FACET_MIN_FONT_SIZE = 13;
+    const FACET_MAX_FONT_SIZE = 40;
+
+    const facetCountRange = FACETS.reduce(
+      (range, f) => ({ min: Math.min(range.min, f.count), max: Math.max(range.max, f.count) }),
+      { min: Infinity, max: -Infinity }
+    );
+    if (!Number.isFinite(facetCountRange.min)) {
+      facetCountRange.min = 0;
+      facetCountRange.max = 1;
+    }
+
     function facetNodeSize(count, selected) {
-      const base = 10 + Math.pow(Math.max(count, 1), 0.75) * 6.5;
-      const boosted = selected ? base + 8 : base;
-      return Math.max(10, Math.min(boosted, 56));
+      const span = facetCountRange.max - facetCountRange.min;
+      const t = span > 0 ? (count - facetCountRange.min) / span : 1;
+      const eased = Math.pow(Math.max(t, 0), FACET_GROWTH_EXPONENT);
+      const base = FACET_MIN_SIZE + eased * (FACET_MAX_SIZE - FACET_MIN_SIZE);
+      const boosted = selected ? base + FACET_SELECTED_BOOST : base;
+      return Math.max(FACET_MIN_SIZE, Math.min(boosted, FACET_MAX_SIZE + FACET_SELECTED_BOOST));
+    }
+
+    function facetFontSize(size) {
+      return Math.round(Math.max(FACET_MIN_FONT_SIZE, Math.min(size * 0.26, FACET_MAX_FONT_SIZE)));
     }
 
     function facetLabel(fid) {
       const facet = FACETS.find(f => f.id === fid);
       return facet ? facet.label : fid;
     }
+
+    function buildFacetContainmentLinks() {
+      const filesByFacet = new Map(FACETS.map(f => [f.id, new Set()]));
+      ROWS.forEach(row => row.facets.forEach(fid => filesByFacet.get(fid)?.add(row.id)));
+      const links = [];
+
+      FACETS.forEach(child => {
+        const childFiles = filesByFacet.get(child.id);
+        if (!childFiles || childFiles.size === 0) return;
+
+        let smallestSupersetSize = Infinity;
+        const parentIds = [];
+        FACETS.forEach(parent => {
+          const parentFiles = filesByFacet.get(parent.id);
+          if (!parentFiles || parentFiles.size <= childFiles.size) return;
+          if (![...childFiles].every(rowId => parentFiles.has(rowId))) return;
+
+          if (parentFiles.size < smallestSupersetSize) {
+            smallestSupersetSize = parentFiles.size;
+            parentIds.length = 0;
+          }
+          if (parentFiles.size === smallestSupersetSize) parentIds.push(parent.id);
+        });
+
+        parentIds.forEach(parentId => links.push({ from: child.id, to: parentId }));
+      });
+
+      return links;
+    }
+
+    const FACET_CONTAINMENT_LINKS = buildFacetContainmentLinks();
+    const FACET_PARENTS_BY_CHILD = new Map(FACETS.map(f => [f.id, []]));
+    const FACET_CHILDREN_BY_PARENT = new Map(FACETS.map(f => [f.id, []]));
+    FACET_CONTAINMENT_LINKS.forEach(link => FACET_PARENTS_BY_CHILD.get(link.from)?.push(link.to));
+    FACET_CONTAINMENT_LINKS.forEach(link => FACET_CHILDREN_BY_PARENT.get(link.to)?.push(link.from));
+    const PRIMARY_FACET_PARENT_BY_ID = new Map();
+    FACET_PARENTS_BY_CHILD.forEach((parentIds, childId) => {
+      const [primaryParentId] = parentIds.sort((a, b) => facetLabel(a).localeCompare(facetLabel(b)) || a.localeCompare(b));
+      if (primaryParentId) PRIMARY_FACET_PARENT_BY_ID.set(childId, primaryParentId);
+    });
 
     function buildNetworkData(rows) {
       const visibleFacetIds = new Set();
@@ -935,10 +1446,10 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
           id: row.id,
           label: rowLabel(row),
           group: 'row',
-          size: highlighted ? 20 : 14,
+          size: highlighted ? ROW_SIZE_HIGHLIGHTED : ROW_SIZE,
           font: {
             color: getTheme().rowLabel,
-            size: highlighted ? 15 : 14,
+            size: highlighted ? ROW_FONT_SIZE_HIGHLIGHTED : ROW_FONT_SIZE,
             bold: highlighted
           },
           borderWidth: highlighted ? 3 : 1.5,
@@ -963,9 +1474,8 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
             y: 0
           } : false,
           title: [
-            `<b>Item name:</b> ${escapeHtml(row.id)}`,
+            `<b>Item name:</b> ${escapeHtml(row.title || row.id)}`,
             row.display_date ? `<b>Dates:</b> ${escapeHtml(row.display_date)}` : '<b>Dates:</b> undated',
-            row.container_instance ? `<b>Container instance:</b> ${escapeHtml(row.container_instance)}` : '',
             row.scope_content ? `<b>Scope content:</b> ${escapeHtml(row.scope_content)}` : '',
             row.physical_desc ? `<b>Physical desc:</b> ${escapeHtml(row.physical_desc)}` : ''
           ].filter(Boolean).join('<br>')
@@ -974,37 +1484,44 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
       FACETS.forEach(f => {
         if (visibleFacetIds.has(f.id) || selectedFacetIds.has(f.id)) {
+          const isKeywordFacet = f.id.startsWith('kw_');
           const selected = selectedFacetIds.has(f.id);
           const size = facetNodeSize(f.count, selected);
+          const background = isKeywordFacet ? getTheme().keywordFacetBackground : getTheme().facetBackground;
+          const border = isKeywordFacet ? getTheme().keywordFacetBorder : getTheme().facetBorder;
+          const hoverBackground = isKeywordFacet ? getTheme().keywordFacetHoverBackground : getTheme().facetHoverBackground;
+          const selectedBackground = isKeywordFacet ? getTheme().keywordFacetSelectedBackground : getTheme().facetSelectedBackground;
+          const selectedBorder = isKeywordFacet ? getTheme().keywordFacetSelectedBorder : getTheme().facetSelectedBorder;
           nodes.push({
             id: f.id,
             label: f.label,
             group: 'facet',
             title: `${escapeHtml(f.label)}<br>${f.count} row${f.count === 1 ? '' : 's'}`,
             size,
-            value: size,
             font: {
-              color: getTheme().facetLabel,
-              size: selected ? 20 : 14,
+              color: isKeywordFacet
+                ? (selected ? getTheme().keywordFacetSelectedLabel : getTheme().keywordFacetLabel)
+                : getTheme().facetLabel,
+              size: facetFontSize(size),
               bold: selected
             },
             color: selected
               ? {
-                  background: getTheme().facetSelectedBackground,
-                  border: getTheme().facetSelectedBorder,
-                  highlight: { background: getTheme().facetSelectedBackground, border: getTheme().facetSelectedBorder },
-                  hover: { background: getTheme().facetSelectedBackground, border: getTheme().facetSelectedBorder }
+                  background: selectedBackground,
+                  border: selectedBorder,
+                  highlight: { background: selectedBackground, border: selectedBorder },
+                  hover: { background: selectedBackground, border: selectedBorder }
                 }
               : {
-                  background: getTheme().facetBackground,
-                  border: getTheme().facetBorder,
-                  highlight: { background: getTheme().facetHoverBackground, border: getTheme().facetBorder },
-                  hover: { background: getTheme().facetHoverBackground, border: getTheme().facetBorder }
+                  background,
+                  border,
+                  highlight: { background: hoverBackground, border },
+                  hover: { background: hoverBackground, border }
                 },
             borderWidth: selected ? 3 : 1.5,
             shadow: selected ? {
               enabled: true,
-              color: getTheme().facetHighlight,
+              color: isKeywordFacet ? getTheme().keywordFacetHighlight : getTheme().facetHighlight,
               size: 12,
               x: 0,
               y: 0
@@ -1015,16 +1532,35 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
       const visibleFacetSet = new Set(nodes.filter(n => n.group === 'facet').map(n => n.id));
       rows.forEach(row => {
+        const rowFacetIds = new Set(row.facets);
         row.facets.forEach(fid => {
-          if (visibleFacetSet.has(fid)) {
-            edges.push({
-              from: row.id,
-              to: fid,
-              width: selectedFacetIds.has(fid) ? 3 : 1.2,
-              color: selectedFacetIds.has(fid) ? { color: getTheme().edgeSelected } : { color: getTheme().edge },
-              title: `Connected facet: ${fid}`
-            });
-          }
+          const hasMoreSpecificRowFacet = (FACET_CHILDREN_BY_PARENT.get(fid) || [])
+            .some(childId => rowFacetIds.has(childId));
+          if (hasMoreSpecificRowFacet || !visibleFacetSet.has(fid)) return;
+          edges.push({
+            from: row.id,
+            to: fid,
+            width: selectedFacetIds.has(fid) ? 3 : 1.2,
+            color: selectedFacetIds.has(fid) ? { color: getTheme().edgeSelected } : { color: getTheme().edge },
+            title: `Connected facet: ${fid}`
+          });
+        });
+      });
+
+      FACET_CONTAINMENT_LINKS.forEach(link => {
+        if (!visibleFacetSet.has(link.from) || !visibleFacetSet.has(link.to)) return;
+        const child = FACETS.find(f => f.id === link.from);
+        const parent = FACETS.find(f => f.id === link.to);
+        if (!child || !parent) return;
+
+        edges.push({
+          from: link.from,
+          to: link.to,
+          arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+          dashes: [8, 5],
+          width: 2.2,
+          color: { color: getTheme().containmentEdge, opacity: 0.8 },
+          title: `<b>Facet subset</b><br>Contained by: ${escapeHtml(parent.label)}<br>${child.count} files`
         });
       });
 
@@ -1047,7 +1583,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
       detailPanel.classList.remove('empty');
       detailPanel.innerHTML = `
-        <div class="detail-row"><span class="detail-label">Item name:</span> <span class="detail-value">${escapeHtml(row.id)}</span></div>
+        <div class="detail-row"><span class="detail-label">Item name:</span> <span class="detail-value">${escapeHtml(row.title || row.id)}</span></div>
         <div class="detail-row"><span class="detail-label">Dates:</span> <span class="detail-value">${escapeHtml(row.display_date || 'undated')}</span></div>
         <div class="detail-row"><span class="detail-label">Container instance:</span> <span class="detail-value">${escapeHtml(row.container_instance || '—')}</span></div>
         <div class="detail-row"><span class="detail-label">Scope content:</span> <span class="detail-value">${escapeHtml(row.scope_content || '—')}</span></div>
@@ -1070,10 +1606,50 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
     function renderFacetList(rows) {
       const counts = buildFacetCounts(rows);
-      facetList.innerHTML = FACETS.map(f => {
-        const selected = selectedFacetIds.has(f.id);
-        return `<button type="button" class="facet-pill ${selected ? 'selected' : ''}" data-facet-id="${f.id}">${escapeHtml(f.label)}<span class="count">${counts.get(f.id) || 0}</span></button>`;
-      }).join('');
+      const sortedFacets = FACETS
+        .filter(f => selectedFacetIds.has(f.id) || (counts.get(f.id) || 0) > 0)
+        .sort((a, b) => (counts.get(b.id) || 0) - (counts.get(a.id) || 0) || a.label.localeCompare(b.label));
+      const visibleFacetIds = new Set(sortedFacets.map(f => f.id));
+      const childrenByParent = new Map();
+      const rootFacets = [];
+
+      sortedFacets.forEach(facet => {
+        const parentId = PRIMARY_FACET_PARENT_BY_ID.get(facet.id);
+        if (parentId && visibleFacetIds.has(parentId)) {
+          if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
+          childrenByParent.get(parentId).push(facet);
+        } else {
+          rootFacets.push(facet);
+        }
+      });
+
+      function renderFacet(facet) {
+        const selected = selectedFacetIds.has(facet.id);
+        const children = childrenByParent.get(facet.id) || [];
+        const alternateParents = (FACET_PARENTS_BY_CHILD.get(facet.id) || [])
+          .filter(parentId => parentId !== PRIMARY_FACET_PARENT_BY_ID.get(facet.id))
+          .map(facetLabel);
+        const primaryParentId = PRIMARY_FACET_PARENT_BY_ID.get(facet.id);
+        const tooltip = primaryParentId
+          ? `Contained by ${facetLabel(primaryParentId)}${alternateParents.length ? `; also contained by ${alternateParents.join(', ')}` : ''}`
+          : '';
+        const classes = ['facet-pill'];
+        if (facet.id.startsWith('kw_')) classes.push('keyword-facet');
+        if (selected) classes.push('selected');
+        if (children.length) classes.push('has-subsidiaries');
+
+        return `
+          <div class="facet-group">
+            <button type="button" class="${classes.join(' ')}" data-facet-id="${facet.id}"${tooltip ? ` title="${escapeHtml(tooltip)}"` : ''}>
+              <span class="facet-label">${escapeHtml(facet.label)}</span>
+              <span class="count">${counts.get(facet.id) || 0}</span>
+            </button>
+            ${children.length ? `<div class="facet-children">${children.map(renderFacet).join('')}</div>` : ''}
+          </div>
+        `;
+      }
+
+      facetList.innerHTML = rootFacets.map(renderFacet).join('');
 
       facetList.querySelectorAll('[data-facet-id]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1098,7 +1674,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         const matched = row.facets.filter(fid => selectedFacetIds.has(fid)).join(', ');
         return `
           <button type="button" class="sidebar-item ${selected ? 'selected' : ''}" data-row-id="${row.id}">
-            <span class="row-id">${escapeHtml(row.id)}</span>
+            <span class="row-id">${escapeHtml(row.title || row.id)}</span>
             <div class="row-date">${escapeHtml(row.display_date || 'undated')}</div>
             ${row.box ? `<div class="row-box">${escapeHtml(row.box)}</div>` : ''}
             ${matched ? `<div class="row-match">Matches: ${escapeHtml(matched)}</div>` : ''}
@@ -1134,7 +1710,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       const timelineRows = getTimelineRows();
       const visibleRows = getVisibleRows();
 
-      renderFacetList(timelineRows);
+      renderFacetList(visibleRows);
       renderRowList(visibleRows);
       renderDetailPanel();
 
@@ -1267,25 +1843,70 @@ def build_html(collection_title, rows, facets):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Generate a multifacet network HTML page from facets.xlsx")
-    parser.add_argument("--open", action="store_true", help="Open the generated HTML in your default browser")
+    parser = argparse.ArgumentParser(description="Generate multifacet network HTML pages from input/*-ead.xml")
+    parser.add_argument("--open", action="store_true", help="Open each generated HTML page in your default browser")
+    parser.add_argument(
+        "--keyword-min-count",
+        type=int,
+        default=None,
+      help="Use a fixed keyword facet minimum instead of the configured file-count ratio.",
+    )
+    parser.add_argument(
+      "--keyword-min-ratio",
+      type=float,
+      default=None,
+      help="Override config.json's keyword_min_file_ratio for this run (0-1).",
+    )
+    parser.add_argument(
+        "--redundancy-ratio",
+        type=float,
+        default=None,
+        help="Override config.json's facet_redundancy_ratio for this run (0-1).",
+    )
     args = parser.parse_args(argv)
 
-    df = read_input()
-    print("Columns:", list(df.columns))
-    print("Rows:", len(df))
+    input_files = sorted(INPUT_DIR.glob("*-ead.xml"))
+    if not input_files:
+        raise FileNotFoundError(f"No input files matching *-ead.xml found in {INPUT_DIR}")
 
-    title, rows, facets = build_records(df)
-    if not rows:
-        raise ValueError("The spreadsheet has no rows to render.")
+    config = load_config()
+    keyword_min_file_count = args.keyword_min_count
+    if keyword_min_file_count is None and args.keyword_min_ratio is None:
+      keyword_min_file_count = config.get("keyword_min_file_count")
+    keyword_min_file_ratio = args.keyword_min_ratio if args.keyword_min_ratio is not None else config["keyword_min_file_ratio"]
+    if not math.isfinite(keyword_min_file_ratio) or not 0 <= keyword_min_file_ratio <= 1:
+      parser.error("keyword_min_file_ratio must be between 0 and 1")
+    facet_redundancy_ratio = args.redundancy_ratio if args.redundancy_ratio is not None else config["facet_redundancy_ratio"]
 
-    html = build_html(title, rows, facets)
-    OUTPUT_FILE.write_text(html, encoding="utf-8")
-    print(f"Generated: {OUTPUT_FILE}")
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    failures = []
+    for input_path in input_files:
+        output_name = f"{input_path.name[:-len('-ead.xml')]}-rhizome.html"
+        output_path = OUTPUT_DIR / output_name
+        try:
+            tree = ET.parse(input_path)
+            root = strip_namespaces(tree.getroot())
+            title, rows, facets = build_records(root, keyword_min_file_count, facet_redundancy_ratio, keyword_min_file_ratio)
+            if not rows:
+                raise ValueError("input produced no file-level rows to render")
 
-    if args.open:
-        webbrowser.open(OUTPUT_FILE.resolve().as_uri())
+            html = build_html(title, rows, facets)
+            output_path.write_text(html, encoding="utf-8")
+        except (ET.ParseError, OSError, ValueError) as exc:
+            failures.append(input_path.name)
+            print(f"Failed: {input_path.name} ({exc})")
+            continue
 
+        print(f"{input_path.name}: {len(rows)} rows, {len(facets)} facets")
+        print(f"Generated: {output_path}")
+        if args.open:
+            webbrowser.open(output_path.resolve().as_uri())
+
+    if failures:
+        print(f"Failed to generate {len(failures)} of {len(input_files)} files.")
+        return 1
+
+    print(f"Generated {len(input_files)} rhizome file(s) in {OUTPUT_DIR}.")
     return 0
 
 

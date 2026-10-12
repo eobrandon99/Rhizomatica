@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Academic Freedom Lecture Fund records</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css">
+  <style>
+    html, body {
+      height: 100%;
+    }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #fff;
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #controls {
+      padding: 10px 14px;
+      border-bottom: 1px solid #ddd;
+      background: #f7f7f7;
+      flex: 0 0 auto;
+    }
+    #title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #222;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      user-select: none;
+      font-size: 13px;
+    }
+    #themeToggleBox {
+      position: fixed;
+      top: 12px;
+      right: 16px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.88);
+      padding: 6px 10px;
+      border-radius: 8px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      font-size: 13px;
+      user-select: none;
+    }
+
+    #themeToggleBox label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    #themeToggleBox input[type="checkbox"] {
+      margin: 0;
+    }
+
+    body[data-theme="dark"] #themeToggleBox {
+      background: rgba(30,30,30,0.88);
+      color: #fff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    }
+    .facet-spotlight {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: #FFF2B3;
+      border: 1px solid #FFB300;
+      font-weight: 700;
+    }
+    #toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 8px 0 6px 0;
+    }
+    .toolbar-btn {
+      border: 1px solid #bbb;
+      background: #fff;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .toolbar-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    #rangeText {
+      margin-top: 6px;
+      font-size: 13px;
+      line-height: 1.35;
+      color: #333;
+    }
+    #page {
+      display: flex;
+      width: 100%;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    #facetSidebar, #rowSidebar {
+      width: 320px;
+      background: #fafafa;
+      padding: 12px;
+      box-sizing: border-box;
+      overflow: auto;
+      min-height: 0;
+      height: 100%;
+    }
+    #facetSidebar {
+      border-right: 1px solid #ddd;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    #facetSidebar > .tool-section {
+      display: block;
+    }
+    #rowSidebar {
+      border-left: 1px solid #ddd;
+    }
+    #container {
+      flex: 1;
+      height: 100%;
+      min-width: 0;
+    }
+    #facetHeader, #rowHeader, #detailHeader, #timelineHeader {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 8px 0;
+      color: #333;
+    }
+    #facetList {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 0;
+    }
+    .facet-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+    .facet-children {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+      margin-left: 12px;
+      padding-left: 10px;
+      border-left: 1px solid #d6dbe1;
+    }
+    #facetSidebar .tool-section + .tool-section {
+      margin-top: 2px;
+    }
+    #facetSidebar .tool-section {
+      margin: 0;
+    }
+    #timelineBlock {
+      margin-top: 0 !important;
+    }
+    .facet-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #cfcfcf;
+      background: #fff;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+      text-align: left;
+    }
+    .facet-label {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .facet-pill.has-subsidiaries .facet-label {
+      font-weight: 700;
+    }
+    .facet-pill:hover {
+      background: #fff8e8;
+      border-color: #ffb300;
+      transform: translateY(-1px);
+    }
+    .facet-pill.selected {
+      background: #fff2b3;
+      border-color: #ffb300;
+      font-weight: 700;
+    }
+    .facet-pill.keyword-facet {
+      background: #dccbef;
+      border-color: #7952a3;
+      color: #30194b;
+    }
+    .facet-pill.keyword-facet:hover {
+      background: #cdb5e6;
+      border-color: #6b3fa0;
+    }
+    .facet-pill.keyword-facet.selected {
+      background: #6b3fa0;
+      border-color: #4b2677;
+      color: #fff;
+    }
+    .facet-pill .count {
+      flex: 0 0 auto;
+      color: #666;
+      font-weight: 600;
+    }
+    .detail-panel {
+      border: 1px solid #e4e4e4;
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #222;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      margin-bottom: 14px;
+      min-height: 108px;
+    }
+    .detail-panel.empty {
+      color: #666;
+      background: #fcfcfc;
+      font-style: italic;
+    }
+    .detail-row {
+      margin-bottom: 6px;
+    }
+    .detail-label {
+      font-weight: 700;
+      color: #333;
+    }
+    .detail-value {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .detail-related {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #e7e7e7;
+    }
+    .detail-related-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #444;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .detail-facet-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .detail-facet-chip {
+      appearance: none;
+      border: 1px solid #d0d7e2;
+      background: #f7f9fc;
+      color: #17324d;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .detail-facet-chip:hover {
+      background: #e9f2ff;
+      border-color: #9dc2ff;
+    }
+    .detail-facet-chip.selected {
+      background: #FFE082;
+      border-color: #FF8C00;
+      color: #7a4a00;
+      font-weight: 700;
+    }
+    .sidebar-item {
+      width: 100%;
+      text-align: left;
+      background: #fff;
+      border: 1px solid #e4e4e4;
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+    }
+    .sidebar-item:hover {
+      background: #fff8e8;
+      border-color: #ffb300;
+      transform: translateX(2px);
+    }
+    .sidebar-item.selected {
+      background: #fff2b3;
+      border-color: #ffb300;
+    }
+    .row-id {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 2px;
+      color: #111;
+    }
+    .row-date {
+      font-size: 12px;
+      color: #333;
+    }
+    .row-box {
+      font-size: 12px;
+      color: #666;
+      margin-top: 2px;
+    }
+    .row-match {
+      font-size: 12px;
+      color: #666;
+      margin-top: 3px;
+    }
+    #emptyState {
+      font-size: 13px;
+      color: #666;
+      padding: 10px 0;
+    }
+    #copyright {
+      position: fixed;
+      bottom: 10px;
+      right: 12px;
+      font-size: 12px;
+      color: #666;
+      background: rgba(255,255,255,0.8);
+      padding: 4px 8px;
+      border-radius: 6px;
+      backdrop-filter: blur(2px);
+      z-index: 9999;
+    }
+    .noUi-target { height: 5px; }
+    .noUi-connect { background: #4C78A8; }
+    .noUi-horizontal .noUi-handle {
+      width: 12px;
+      height: 12px;
+      right: -6px;
+      top: -4px;
+      border-radius: 50%;
+    }
+    .noUi-handle:before,
+    .noUi-handle:after { display: none; }
+    body[data-theme="dark"] {
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    body[data-theme="dark"] #controls {
+      background: #111827;
+      border-bottom-color: #334155;
+    }
+    body[data-theme="dark"] #title,
+    body[data-theme="dark"] #facetHeader,
+    body[data-theme="dark"] #rowHeader,
+    body[data-theme="dark"] #detailHeader,
+    body[data-theme="dark"] #timelineHeader,
+    body[data-theme="dark"] .detail-label,
+    body[data-theme="dark"] .row-id,
+    body[data-theme="dark"] .detail-related-title {
+      color: #f8fafc;
+    }
+    body[data-theme="dark"] #rangeText,
+    body[data-theme="dark"] #rowCount,
+    body[data-theme="dark"] .row-date,
+    body[data-theme="dark"] .row-box,
+    body[data-theme="dark"] .row-match {
+      color: #cbd5e1;
+    }
+    body[data-theme="dark"] #facetSidebar,
+    body[data-theme="dark"] #rowSidebar {
+      background: #0b1220;
+      border-color: #334155;
+    }
+    body[data-theme="dark"] .facet-pill,
+    body[data-theme="dark"] .sidebar-item,
+    body[data-theme="dark"] .detail-panel {
+      background: #111827;
+      border-color: #334155;
+      color: #e5e7eb;
+    }
+    body[data-theme="dark"] .facet-pill:hover,
+    body[data-theme="dark"] .sidebar-item:hover {
+      background: #1e293b;
+      border-color: #64748b;
+    }
+    body[data-theme="dark"] .facet-pill.selected,
+    body[data-theme="dark"] .sidebar-item.selected {
+      background: #334155;
+      border-color: #60a5fa;
+      color: #f8fafc;
+    }
+    body[data-theme="dark"] .facet-pill.keyword-facet {
+      background: #3b2b50;
+      border-color: #a884d2;
+      color: #f2e8ff;
+    }
+    body[data-theme="dark"] .facet-pill.keyword-facet:hover {
+      background: #4a3563;
+      border-color: #c5a8ec;
+    }
+    body[data-theme="dark"] .facet-pill.keyword-facet.selected {
+      background: #684395;
+      border-color: #d5b8f4;
+      color: #fff;
+    }
+    body[data-theme="dark"] .facet-pill .count {
+      color: #94a3b8;
+    }
+    body[data-theme="dark"] .facet-children {
+      border-color: #475569;
+    }
+    body[data-theme="dark"] .detail-panel.empty {
+      background: #0f172a;
+      color: #94a3b8;
+    }
+    body[data-theme="dark"] .detail-facet-chip {
+      background: #1e293b;
+      border-color: #475569;
+      color: #e2e8f0;
+    }
+    body[data-theme="dark"] .detail-facet-chip:hover {
+      background: #334155;
+      border-color: #60a5fa;
+    }
+    body[data-theme="dark"] .detail-facet-chip.selected {
+      background: #92400e;
+      border-color: #f59e0b;
+      color: #fef3c7;
+    }
+    body[data-theme="dark"] .facet-spotlight {
+      background: #92400e;
+      border-color: #f59e0b;
+      color: #fef3c7;
+    }
+    body[data-theme="dark"] .toolbar-btn {
+      background: #111827;
+      border-color: #475569;
+      color: #e5e7eb;
+    }
+    body[data-theme="dark"] .toolbar-btn:disabled {
+      opacity: 0.5;
+    }
+    body[data-theme="dark"] #copyright {
+      background: rgba(15, 23, 42, 0.88);
+      color: #cbd5e1;
+    }
+    body[data-theme="dark"] .noUi-target {
+      background: #334155;
+      border-color: #475569;
+    }
+    body[data-theme="dark"] .noUi-connect {
+      background: #60a5fa;
+    }
+    body[data-theme="dark"] .noUi-horizontal .noUi-handle {
+      background: #e2e8f0;
+      border-color: #cbd5e1;
+      box-shadow: none;
+    }
+    body[data-theme="dark"] .noUi-handle:before,
+    body[data-theme="dark"] .noUi-handle:after {
+      background: #64748b;
+    }
+    body[data-theme="dark"] .detail-label,
+    body[data-theme="dark"] .detail-value {
+      color: #e5e7eb;
+    }
+    body[data-theme="dark"] .detail-value {
+      white-space: pre-wrap;
+    }
+    @media (max-width: 1100px) {
+      #page { flex-direction: column; height: auto; }
+      #facetSidebar, #rowSidebar { width: 100%; border-left: none; border-right: none; border-bottom: 1px solid #ddd; }
+      #container { height: 560px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <div id="title">Academic Freedom Lecture Fund records</div>
+    <div id="themeToggleBox">
+      <label for="themeToggle">
+        <input type="checkbox" id="themeToggle">
+        Dark mode
+      </label>
+    </div>
+    <div id="toolbar">
+    </div>
+  </div>
+
+  <div id="page">
+    <aside id="facetSidebar">
+      <div class="tool-section">
+        <div id="facetHeader">Facet spotlight</div>
+        <div id="facetList"></div>
+        <button id="clearFacets" class="toolbar-btn" disabled style="width: 100%;">Clear facet spotlight</button>
+      </div>
+      <div class="tool-section" id="timelineBlock">
+        <div id="timelineHeader">Date filtering</div>
+        <div class="toggle-row" style="margin-top: 0;">
+          <input type="checkbox" id="timelineToggle">
+          <label for="timelineToggle">Enable timeline filter</label>
+        </div>
+        <div id="sliderWrap"><div id="slider"></div></div>
+        <div id="rangeText">Timeline disabled - showing everything, including records without dates.</div>
+      </div>
+      <div class="tool-section">
+        <div id="detailHeader">File spotlight</div>
+        <div id="detailPanel" class="detail-panel empty">Hover or click a file node or row to preview details.</div>
+      </div>
+    </aside>
+    <div id="container"></div>
+    <aside id="rowSidebar">
+      <div id="rowHeader">Related files</div>
+      <div id="rowCount"></div>
+      <div id="rowList"></div>
+      <div id="emptyState" style="display:none;">No rows match the current selection.</div>
+    </aside>
+  </div>
+
+  <script>
+    const ROWS = [{"id": "ao_1099810", "title": "Organizational history", "display_date": "1966-2020", "date_expr": "1966-2020", "begin": "1966-01-01", "end": "2020-12-31", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099774"]}, {"id": "ao_1099809", "title": "Clement L. Markert", "display_date": "1941-1999", "date_expr": "1941-1999", "begin": "1941-01-01", "end": "1999-12-31", "container_instance": "Box 5", "box": "[Box 5]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099774"]}, {"id": "ao_1099808", "title": "Organizational history", "display_date": "1954-2022", "date_expr": "1954-2022", "begin": "1954-01-01", "end": "2022-12-31", "container_instance": "Box 7", "box": "[Box 7]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099774"]}, {"id": "ao_1099811", "title": "Charles F. Borgsdorf, attorney", "display_date": "2018", "date_expr": "2018", "begin": "2018-01-01", "end": "2018-12-31", "container_instance": "Box 7", "box": "[Box 7]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099774"]}, {"id": "ao_1099800", "title": "Board of Directors meeting materials", "display_date": "1994-2018", "date_expr": "1994-2018", "begin": "1994-01-01", "end": "2018-12-31", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099775"]}, {"id": "ao_1099801", "title": "Board of Directors meeting materials", "display_date": "1990-2019", "date_expr": "1990-2019", "begin": "1990-01-01", "end": "2019-12-31", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099775"]}, {"id": "ao_1099779", "title": "Treasurer's reports and correspondence", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099776"]}, {"id": "ao_1099780", "title": "Fundraising", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 4", "box": "[Box 4]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099776"]}, {"id": "ao_1099777", "title": "Visiting professorship", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 5", "box": "[Box 5]", "scope_content": "This sub-series consists of material related to the Davis, Markert, Nickerson visiting professorship, including project proposals and correspondence related to the project.", "physical_desc": "", "facets": ["ao_1099768"]}, {"id": "ao_1099778", "title": "General correspondence", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 6", "box": "[Box 6]", "scope_content": "This sub-series consists of general administrative correspondence collected throughout the lifespan of the AFLF.", "physical_desc": "", "facets": ["ao_1099768"]}, {"id": "ao_992965", "title": "Keeping in Mind", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "Box 14", "box": "[Box 14]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_3305"]}, {"id": "ao_1099781", "title": "Incue, Inc. \"Keeping in Mind\" - Student film with letterbox mask & fixes", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "Box 14", "box": "[Box 14]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_3305"]}, {"id": "ao_1099782", "title": "Keeping in Mind", "display_date": "1989, 2000", "date_expr": "1989, 2000", "begin": "1989-01-01", "end": "2000-12-31", "container_instance": "Box 14", "box": "[Box 14]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_3305"]}, {"id": "ao_1099783", "title": "Keeping in Mind parts 1 and 2. Univ. of Mich. Bentley Archive Footage. W. Kaplan", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 14", "box": "[Box 14]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_3305"]}, {"id": "ao_1099785", "title": "Walter P. Metzger", "display_date": "1994", "date_expr": "1994", "begin": "1994-01-01", "end": "1994-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843"]}, {"id": "ao_1099789", "title": "Symposium on Academic and Intellectual Freedom. Introduction by B. J. Markert-Schreck", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_symposium_on_academic"]}, {"id": "ao_3308", "title": "Symposium on Academic and Intellectual Freedom. Tape 1", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_symposium_on_academic"]}, {"id": "ao_1099790", "title": "Symposium on Academic and Intellectual Freedom. Tape 2", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_symposium_on_academic"]}, {"id": "ao_3309", "title": "Symposium on Academic and Intellectual Freedom. Panel 2: \"Scientific Evidence: Junk or Cutting Edge Science\"", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_symposium_on_academic"]}, {"id": "ao_3304", "title": "Vartan Gregorian", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843"]}, {"id": "ao_3307", "title": "Catharine A. MacKinnon. \"From Powerlessness to Power: the Uses of Academic Freedom\"", "display_date": "2002", "date_expr": "2002", "begin": "2002-01-01", "end": "2002-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843"]}, {"id": "ao_1099786", "title": "David Cole", "display_date": "2003", "date_expr": "2003", "begin": "2003-01-01", "end": "2003-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_david", "kw_cole"]}, {"id": "ao_1099787", "title": "Noam Chomsky", "display_date": "2004", "date_expr": "2004", "begin": "2004-01-01", "end": "2004-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_noam_chomsky"]}, {"id": "ao_1099788", "title": "Noam Chomsky. Open Captioned", "display_date": "2004", "date_expr": "2004", "begin": "2004-01-01", "end": "2004-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_noam_chomsky"]}, {"id": "ao_1099791", "title": "Floyd Abrams", "display_date": "2005", "date_expr": "2005", "begin": "2005-01-01", "end": "2005-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_floyd_abrams"]}, {"id": "ao_1099792", "title": "Bill Keller. \"Editors in Chains: Secrets, Security, and the Press\"", "display_date": "2006", "date_expr": "2006", "begin": "2006-01-01", "end": "2006-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843"]}, {"id": "ao_1099845", "title": "P.J. Markert introduction", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099855", "title": "Vartan Gregorian", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099846", "title": "Catharine A. MacKinnon", "display_date": "2002", "date_expr": "2002", "begin": "2002-01-01", "end": "2002-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099847", "title": "David D. Cole", "display_date": "2003", "date_expr": "2003", "begin": "2003-01-01", "end": "2003-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844", "kw_david", "kw_cole"]}, {"id": "ao_1099848", "title": "Noam Chomsky", "display_date": "2004", "date_expr": "2004", "begin": "2004-01-01", "end": "2004-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844", "kw_noam_chomsky"]}, {"id": "ao_1099849", "title": "Floyd Abrams", "display_date": "2005", "date_expr": "2005", "begin": "2005-01-01", "end": "2005-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844", "kw_floyd_abrams"]}, {"id": "ao_1099850", "title": "Bill Keller", "display_date": "2006", "date_expr": "2006", "begin": "2006-01-01", "end": "2006-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099851", "title": "Nadine Strossen", "display_date": "2007", "date_expr": "2007", "begin": "2007-01-01", "end": "2007-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099852", "title": "Philip Hamburger", "display_date": "2009", "date_expr": "2009", "begin": "2009-01-01", "end": "2009-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099853", "title": "Michael Olivas", "display_date": "October 10, 2010", "date_expr": "October 10, 2010", "begin": "2010-10-10", "end": "2010-10-10", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099854", "title": "Michael Olivas", "display_date": "October 11, 2010", "date_expr": "October 11, 2010", "begin": "2010-11-10", "end": "2010-11-10", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099856", "title": "Ellen W. Schrecker", "display_date": "2011", "date_expr": "2011", "begin": "2011-01-01", "end": "2011-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099857", "title": "Robert C. Post", "display_date": "2012", "date_expr": "2012", "begin": "2012-01-01", "end": "2012-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099858", "title": "Marjorie Heins", "display_date": "2013", "date_expr": "2013", "begin": "2013-01-01", "end": "2013-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099859", "title": "Douglas Laycock", "display_date": "2014", "date_expr": "2014", "begin": "2014-01-01", "end": "2014-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099860", "title": "Natalie Zemon Davis and Joan Wallach Scott", "display_date": "2015", "date_expr": "2015", "begin": "2015-01-01", "end": "2015-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844", "kw_davis"]}, {"id": "ao_1099861", "title": "Davis and Scott Q&A", "display_date": "2015", "date_expr": "2015", "begin": "2015-01-01", "end": "2015-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844", "kw_davis"]}, {"id": "ao_1099862", "title": "Banquet performance", "display_date": "2015", "date_expr": "2015", "begin": "2015-01-01", "end": "2015-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099863", "title": "Marc Rotenberg", "display_date": "2016", "date_expr": "2016", "begin": "2016-01-01", "end": "2016-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099864", "title": "Michael Mann", "display_date": "2017", "date_expr": "2017", "begin": "2017-01-01", "end": "2017-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099794", "title": "David Cole interview with Charity Nebbe", "display_date": "2003", "date_expr": "2003", "begin": "2003-01-01", "end": "2003-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099843", "kw_david", "kw_cole", "kw_interview"]}, {"id": "ao_1099795", "title": "One 2 One: Noam Chomsky. Michigan Television", "display_date": "2004", "date_expr": "2004", "begin": "2004-01-01", "end": "2004-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099843", "kw_noam_chomsky"]}, {"id": "ao_1099796", "title": "Floyd Abrams interview. WOLV-TV", "display_date": "2005", "date_expr": "2005", "begin": "2005-01-01", "end": "2005-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099843", "kw_floyd_abrams", "kw_interview"]}, {"id": "ao_1099873", "title": "David Cole interview with Charity Nebbe", "display_date": "2003", "date_expr": "2003", "begin": "2003-01-01", "end": "2003-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "kw_david", "kw_cole", "kw_interview"]}, {"id": "ao_1099870", "title": "One 2 One with Noam Chomsky", "display_date": "2004", "date_expr": "2004", "begin": "2004-01-01", "end": "2004-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "kw_noam_chomsky"]}, {"id": "ao_1099875", "title": "Floyd Abrams WJR Radio interview", "display_date": "2005", "date_expr": "2005", "begin": "2005-01-01", "end": "2005-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "kw_floyd_abrams", "kw_interview"]}, {"id": "ao_1099872", "title": "Bill Keller interview with Jessica Callahan", "display_date": "2006", "date_expr": "2006", "begin": "2006-01-01", "end": "2006-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "kw_interview"]}, {"id": "ao_1099908", "title": "Juan Cole", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876", "kw_cole"]}, {"id": "ao_1099909", "title": "Louis D'Alecy", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099906", "title": "Aaron Davis", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876", "kw_davis"]}, {"id": "ao_1099907", "title": "Chandler Davis", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876", "kw_davis"]}, {"id": "ao_1099915", "title": "Natalie Zemon Davis", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876", "kw_davis"]}, {"id": "ao_1099918", "title": "Simone Davis", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876", "kw_davis"]}, {"id": "ao_1099910", "title": "Peggie Hollingsworth", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099911", "title": "Mary Ann Jackson", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099913", "title": "Gary Krenz", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099914", "title": "Adam Kulakow", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099916", "title": "Mike Nickerson", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099912", "title": "Joan Wallach Scott", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099919", "title": "David E. Smith", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876", "kw_david"]}, {"id": "ao_1099920", "title": "Ted St. Antoine", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099921", "title": "Alan Wald", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099917", "title": "Silke-Maria Weineck", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099802", "title": "Transcriptions", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 8", "box": "[Box 8]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770"]}, {"id": "ao_1099803", "title": "Speaker files", "display_date": "1992-2017", "date_expr": "1992-2017", "begin": "1992-01-01", "end": "2017-12-31", "container_instance": "Box 10", "box": "[Box 10]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099771"]}, {"id": "ao_1099804", "title": "Speaker files", "display_date": "2001-2008", "date_expr": "2001-2008", "begin": "2001-01-01", "end": "2008-12-31", "container_instance": "Box 11", "box": "[Box 11]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099771"]}, {"id": "ao_1099805", "title": "Speaker files", "display_date": "2009-2016", "date_expr": "2009-2016", "begin": "2009-01-01", "end": "2016-12-31", "container_instance": "Box 12", "box": "[Box 12]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099771"]}, {"id": "ao_1099772", "title": "Publicity", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 12", "box": "[Box 12]", "scope_content": "This sub-series consists of material related to the production and distribution of promotional materials for the Davis, Markert, Nickerson Lectures.", "physical_desc": "", "facets": ["ao_1099769"]}, {"id": "ao_1099806", "title": "10th anniversary symposium planning", "display_date": "1998-2000", "date_expr": "1998-2000", "begin": "1998-01-01", "end": "2000-12-31", "container_instance": "Box 13", "box": "[Box 13]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099773"]}, {"id": "ao_1099807", "title": "10th anniversary symposium planning", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 14", "box": "[Box 14]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099773"]}];
+    const FACETS = [{"id": "ao_1099768", "label": "Administrative records", "count": 10}, {"id": "ao_1099774", "label": "Organizational history", "count": 4}, {"id": "ao_1099775", "label": "Board of Directors meeting materials", "count": 2}, {"id": "ao_1099776", "label": "Financial records", "count": 2}, {"id": "ao_1099769", "label": "Davis, Markert, Nickerson Lectures on Academic and Intellectual Freedom", "count": 66}, {"id": "ao_1099770", "label": "Lecture and interview transcriptions and recordings", "count": 60}, {"id": "ao_3305", "label": "Kulakow, Adam E. Keeping in Mind: The McCarthy Era at the University of Michigan", "count": 4}, {"id": "ao_1099784", "label": "Lecture recordings", "count": 32}, {"id": "ao_1099843", "label": "VHS tapes", "count": 15}, {"id": "ao_1099844", "label": "Digital recordings", "count": 20}, {"id": "ao_1099793", "label": "Interview recordings", "count": 23}, {"id": "ao_1099866", "label": "Digital files", "count": 20}, {"id": "ao_1099876", "label": "\"Value of Academic & Intellectual Freedom within Academics & Society.\" Oral interviews", "count": 16}, {"id": "ao_1099771", "label": "Speaker files", "count": 3}, {"id": "ao_1099773", "label": "10th anniversary symposium planning", "count": 2}, {"id": "kw_symposium_on_academic", "label": "Symposium on Academic", "count": 4}, {"id": "kw_david", "label": "David", "count": 5}, {"id": "kw_cole", "label": "Cole", "count": 5}, {"id": "kw_noam_chomsky", "label": "Noam Chomsky", "count": 5}, {"id": "kw_floyd_abrams", "label": "Floyd Abrams", "count": 4}, {"id": "kw_davis", "label": "Davis", "count": 6}, {"id": "kw_interview", "label": "interview", "count": 5}];
+    const availableDates = ["1941-01-01", "1954-01-01", "1966-01-01", "1989-01-01", "1990-01-01", "1992-01-01", "1994-01-01", "1994-12-31", "1998-01-01", "1999-12-31", "2000-01-01", "2000-12-31", "2001-01-01", "2001-12-31", "2002-01-01", "2002-12-31", "2003-01-01", "2003-12-31", "2004-01-01", "2004-12-31", "2005-01-01", "2005-12-31", "2006-01-01", "2006-12-31", "2007-01-01", "2007-12-31", "2008-12-31", "2009-01-01", "2009-12-31", "2010-10-10", "2010-11-10", "2011-01-01", "2011-12-31", "2012-01-01", "2012-12-31", "2013-01-01", "2013-12-31", "2014-01-01", "2014-12-31", "2015-01-01", "2015-12-31", "2016-01-01", "2016-12-31", "2017-01-01", "2017-12-31", "2018-01-01", "2018-12-31", "2019-12-31", "2020-12-31", "2022-12-31"];
+
+    const container = document.getElementById('container');
+    const slider = document.getElementById('slider');
+    const rangeText = document.getElementById('rangeText');
+    const timelineToggle = document.getElementById('timelineToggle');
+    const clearFacets = document.getElementById('clearFacets');
+    const themeToggle = document.getElementById('themeToggle');
+    const facetList = document.getElementById('facetList');
+    const rowList = document.getElementById('rowList');
+    const rowCount = document.getElementById('rowCount');
+    const emptyState = document.getElementById('emptyState');
+    const detailPanel = document.getElementById('detailPanel');
+
+    const options = {
+      interaction: { hover: true },
+      nodes: { shape: 'dot', size: 14 },
+      edges: {
+        smooth: true,
+        color: { color: '#999' },
+        length: 110,
+        width: 1.2
+      },
+      physics: {
+        enabled: true,
+        solver: 'forceAtlas2Based',
+        forceAtlas2Based: {
+          gravitationalConstant: -100,
+          centralGravity: 0.05,
+          springLength: 90,
+          springConstant: 0.06,
+          damping: 0.65,
+          avoidOverlap: 0.5
+        },
+        stabilization: { iterations: 300, fit: true },
+        maxVelocity: 12,
+        minVelocity: 0.35,
+        timestep: 0.35
+      },
+      groups: {
+        row: {
+          color: {
+            background: '#4C78A8',
+            border: '#4C78A8',
+            highlight: { background: '#B7D8FF', border: '#2F6FDB' },
+            hover: { background: '#6B95C8', border: '#4C78A8' }
+          },
+          font: { color: '#111111' },
+          size: 18
+        },
+        facet: {
+          color: {
+            background: '#F58518',
+            border: '#C96F10',
+            highlight: '#FF9F1C',
+            hover: '#FF9F1C'
+          },
+          font: { color: '#000000' }
+        }
+      }
+    };
+
+    const network = new vis.Network(container, { nodes: [], edges: [] }, options);
+
+    let selectedFacetIds = new Set();
+    let selectedRowId = null;
+    let hoveredRowId = null;
+    const THEME_KEY = 'rhizomatica-theme';
+    const THEME_PALETTES = {
+      light: {
+        rowBackground: '#4C78A8',
+        rowBorder: '#4C78A8',
+        rowHoverBackground: '#6B95C8',
+        rowSelectedBackground: '#6B95C8',
+        rowSelectedBorder: '#2F6FDB',
+        facetBackground: '#F58518',
+        facetBorder: '#C96F10',
+        facetHoverBackground: '#FF9F1C',
+        facetSelectedBackground: '#FFE082',
+        facetSelectedBorder: '#FF8C00',
+        keywordFacetBackground: '#D8C4ED',
+        keywordFacetBorder: '#7446A8',
+        keywordFacetHoverBackground: '#C5A9E2',
+        keywordFacetSelectedBackground: '#7446A8',
+        keywordFacetSelectedBorder: '#512F7D',
+        keywordFacetLabel: '#321A4A',
+        keywordFacetSelectedLabel: '#FFFFFF',
+        keywordFacetHighlight: 'rgba(116, 70, 168, 0.42)',
+        rowLabel: '#111111',
+        facetLabel: '#000000',
+        edge: '#999',
+        edgeSelected: '#FFB300',
+        containmentEdge: '#52616B',
+        detailHighlight: 'rgba(47, 111, 219, 0.28)',
+        facetHighlight: 'rgba(255, 140, 0, 0.45)'
+      },
+      dark: {
+        rowBackground: '#60A5FA',
+        rowBorder: '#3B82F6',
+        rowHoverBackground: '#93C5FD',
+        rowSelectedBackground: '#2563EB',
+        rowSelectedBorder: '#93C5FD',
+        facetBackground: '#F59E0B',
+        facetBorder: '#D97706',
+        facetHoverBackground: '#FBBF24',
+        facetSelectedBackground: '#92400E',
+        facetSelectedBorder: '#FCD34D',
+        keywordFacetBackground: '#4A3563',
+        keywordFacetBorder: '#B99ADD',
+        keywordFacetHoverBackground: '#5A4177',
+        keywordFacetSelectedBackground: '#7653A6',
+        keywordFacetSelectedBorder: '#DCC7F2',
+        keywordFacetLabel: '#F4EAFE',
+        keywordFacetSelectedLabel: '#FFFFFF',
+        keywordFacetHighlight: 'rgba(185, 154, 221, 0.45)',
+        rowLabel: '#F8FAFC',
+        facetLabel: '#F8FAFC',
+        edge: '#64748B',
+        edgeSelected: '#F59E0B',
+        containmentEdge: '#FACC15',
+        detailHighlight: 'rgba(96, 165, 250, 0.32)',
+        facetHighlight: 'rgba(251, 191, 36, 0.40)'
+      }
+    };
+    let theme = 'light';
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, ch => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      })[ch]);
+    }
+
+    function getTheme() {
+      return THEME_PALETTES[theme] || THEME_PALETTES.light;
+    }
+
+    function applyTheme(nextTheme, persist = true) {
+      theme = nextTheme === 'dark' ? 'dark' : 'light';
+      document.body.dataset.theme = theme;
+      if (themeToggle) themeToggle.checked = theme === 'dark';
+      if (persist) {
+        try {
+          localStorage.setItem(THEME_KEY, theme);
+        } catch (e) {
+          /* ignore */
+        }
+      }
+    }
+
+    try {
+      const savedTheme = localStorage.getItem(THEME_KEY);
+      if (savedTheme) {
+        theme = savedTheme;
+      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        theme = 'dark';
+      }
+    } catch (e) {
+      /* ignore */
+    }
+    applyTheme(theme, false);
+
+    if (availableDates.length >= 2) {
+      noUiSlider.create(slider, {
+        start: [0, availableDates.length - 1],
+        connect: true,
+        step: 1,
+        range: { min: 0, max: availableDates.length - 1 }
+      });
+    } else {
+      slider.style.display = 'none';
+      timelineToggle.checked = false;
+      timelineToggle.disabled = true;
+      rangeText.textContent = 'No usable dates found - timeline filter disabled.';
+    }
+
+    function currentRange() {
+      if (!slider.noUiSlider) return { startDate: null, endDate: null };
+      const values = slider.noUiSlider.get().map(v => parseInt(v, 10));
+      return {
+        startDate: availableDates[values[0]],
+        endDate: availableDates[values[1]]
+      };
+    }
+
+    function rowMatchesTimeline(row, timelineOn, startDate, endDate) {
+      if (!timelineOn) return true;
+      if (!row.begin && !row.end) return false;
+      return row.begin <= endDate && row.end >= startDate;
+    }
+
+    function rowMatchesFacets(row) {
+      if (!selectedFacetIds.size) return true;
+      for (const fid of selectedFacetIds) {
+        if (!row.facets.includes(fid)) return false;
+      }
+      return true;
+    }
+
+    function getVisibleRows() {
+      const timelineOn = timelineToggle.checked && !!slider.noUiSlider;
+      const { startDate, endDate } = currentRange();
+      return ROWS.filter(row => rowMatchesTimeline(row, timelineOn, startDate, endDate) && rowMatchesFacets(row));
+    }
+
+    function getTimelineRows() {
+      const timelineOn = timelineToggle.checked && !!slider.noUiSlider;
+      const { startDate, endDate } = currentRange();
+      return ROWS.filter(row => rowMatchesTimeline(row, timelineOn, startDate, endDate));
+    }
+
+    function buildFacetCounts(rows) {
+      const counts = new Map();
+      FACETS.forEach(f => counts.set(f.id, 0));
+      rows.forEach(row => {
+        row.facets.forEach(fid => {
+          if (counts.has(fid)) counts.set(fid, counts.get(fid) + 1);
+        });
+      });
+      return counts;
+    }
+
+    function rowLabel(row) {
+      const lines = [row.title || row.id];
+      if (row.display_date) lines.push(row.display_date);
+      return lines.join('\n');
+    }
+
+    // File nodes stay fixed and small; facet nodes have a floor well above
+    // ROW_SIZE_HIGHLIGHTED so a facet is always bigger than any file node,
+    // and grow from there with how many files are tagged to them.
+    const ROW_SIZE = 9;
+    const ROW_SIZE_HIGHLIGHTED = 13;
+    const ROW_FONT_SIZE = 10;
+    const ROW_FONT_SIZE_HIGHLIGHTED = 12;
+
+    // The smallest-count facet always renders at FACET_MIN_SIZE and the
+    // largest-count facet always renders at FACET_MAX_SIZE -- counts in
+    // between are stretched across that full range (eased with
+    // FACET_GROWTH_EXPONENT < 1 so growth is steep early then levels off).
+    // Sizing this way means nothing saturates at the cap early and bumping
+    // FACET_MAX_SIZE always visibly grows the biggest facets.
+    const FACET_MIN_SIZE = 15;
+    const FACET_MAX_SIZE = 150;
+    const FACET_GROWTH_EXPONENT = 0.6;
+    const FACET_SELECTED_BOOST = 14;
+    const FACET_MIN_FONT_SIZE = 13;
+    const FACET_MAX_FONT_SIZE = 40;
+
+    const facetCountRange = FACETS.reduce(
+      (range, f) => ({ min: Math.min(range.min, f.count), max: Math.max(range.max, f.count) }),
+      { min: Infinity, max: -Infinity }
+    );
+    if (!Number.isFinite(facetCountRange.min)) {
+      facetCountRange.min = 0;
+      facetCountRange.max = 1;
+    }
+
+    function facetNodeSize(count, selected) {
+      const span = facetCountRange.max - facetCountRange.min;
+      const t = span > 0 ? (count - facetCountRange.min) / span : 1;
+      const eased = Math.pow(Math.max(t, 0), FACET_GROWTH_EXPONENT);
+      const base = FACET_MIN_SIZE + eased * (FACET_MAX_SIZE - FACET_MIN_SIZE);
+      const boosted = selected ? base + FACET_SELECTED_BOOST : base;
+      return Math.max(FACET_MIN_SIZE, Math.min(boosted, FACET_MAX_SIZE + FACET_SELECTED_BOOST));
+    }
+
+    function facetFontSize(size) {
+      return Math.round(Math.max(FACET_MIN_FONT_SIZE, Math.min(size * 0.26, FACET_MAX_FONT_SIZE)));
+    }
+
+    function facetLabel(fid) {
+      const facet = FACETS.find(f => f.id === fid);
+      return facet ? facet.label : fid;
+    }
+
+    function buildFacetContainmentLinks() {
+      const filesByFacet = new Map(FACETS.map(f => [f.id, new Set()]));
+      ROWS.forEach(row => row.facets.forEach(fid => filesByFacet.get(fid)?.add(row.id)));
+      const links = [];
+
+      FACETS.forEach(child => {
+        const childFiles = filesByFacet.get(child.id);
+        if (!childFiles || childFiles.size === 0) return;
+
+        let smallestSupersetSize = Infinity;
+        const parentIds = [];
+        FACETS.forEach(parent => {
+          const parentFiles = filesByFacet.get(parent.id);
+          if (!parentFiles || parentFiles.size <= childFiles.size) return;
+          if (![...childFiles].every(rowId => parentFiles.has(rowId))) return;
+
+          if (parentFiles.size < smallestSupersetSize) {
+            smallestSupersetSize = parentFiles.size;
+            parentIds.length = 0;
+          }
+          if (parentFiles.size === smallestSupersetSize) parentIds.push(parent.id);
+        });
+
+        parentIds.forEach(parentId => links.push({ from: child.id, to: parentId }));
+      });
+
+      return links;
+    }
+
+    const FACET_CONTAINMENT_LINKS = buildFacetContainmentLinks();
+    const FACET_PARENTS_BY_CHILD = new Map(FACETS.map(f => [f.id, []]));
+    const FACET_CHILDREN_BY_PARENT = new Map(FACETS.map(f => [f.id, []]));
+    FACET_CONTAINMENT_LINKS.forEach(link => FACET_PARENTS_BY_CHILD.get(link.from)?.push(link.to));
+    FACET_CONTAINMENT_LINKS.forEach(link => FACET_CHILDREN_BY_PARENT.get(link.to)?.push(link.from));
+    const PRIMARY_FACET_PARENT_BY_ID = new Map();
+    FACET_PARENTS_BY_CHILD.forEach((parentIds, childId) => {
+      const [primaryParentId] = parentIds.sort((a, b) => facetLabel(a).localeCompare(facetLabel(b)) || a.localeCompare(b));
+      if (primaryParentId) PRIMARY_FACET_PARENT_BY_ID.set(childId, primaryParentId);
+    });
+
+    function buildNetworkData(rows) {
+      const visibleFacetIds = new Set();
+      const edges = [];
+      const selectedRow = ROWS.find(r => r.id === selectedRowId) || null;
+      const hoveredRow = ROWS.find(r => r.id === hoveredRowId) || null;
+
+      const nodes = rows.map(row => {
+        row.facets.forEach(fid => visibleFacetIds.add(fid));
+        const highlighted = (selectedRow && selectedRow.id === row.id) || (hoveredRow && hoveredRow.id === row.id);
+        return {
+          id: row.id,
+          label: rowLabel(row),
+          group: 'row',
+          size: highlighted ? ROW_SIZE_HIGHLIGHTED : ROW_SIZE,
+          font: {
+            color: getTheme().rowLabel,
+            size: highlighted ? ROW_FONT_SIZE_HIGHLIGHTED : ROW_FONT_SIZE,
+            bold: highlighted
+          },
+          borderWidth: highlighted ? 3 : 1.5,
+          color: highlighted
+            ? {
+                background: getTheme().rowSelectedBackground,
+                border: getTheme().rowSelectedBorder,
+                highlight: { background: getTheme().rowSelectedBackground, border: getTheme().rowSelectedBorder },
+                hover: { background: getTheme().rowHoverBackground, border: getTheme().rowSelectedBorder }
+              }
+            : {
+                background: getTheme().rowBackground,
+                border: getTheme().rowBorder,
+                highlight: { background: getTheme().rowHoverBackground, border: getTheme().rowSelectedBorder },
+                hover: { background: getTheme().rowHoverBackground, border: getTheme().rowBorder }
+              },
+          shadow: highlighted ? {
+            enabled: true,
+            color: getTheme().detailHighlight,
+            size: 10,
+            x: 0,
+            y: 0
+          } : false,
+          title: [
+            `<b>Item name:</b> ${escapeHtml(row.title || row.id)}`,
+            row.display_date ? `<b>Dates:</b> ${escapeHtml(row.display_date)}` : '<b>Dates:</b> undated',
+            row.scope_content ? `<b>Scope content:</b> ${escapeHtml(row.scope_content)}` : '',
+            row.physical_desc ? `<b>Physical desc:</b> ${escapeHtml(row.physical_desc)}` : ''
+          ].filter(Boolean).join('<br>')
+        };
+      });
+
+      FACETS.forEach(f => {
+        if (visibleFacetIds.has(f.id) || selectedFacetIds.has(f.id)) {
+          const isKeywordFacet = f.id.startsWith('kw_');
+          const selected = selectedFacetIds.has(f.id);
+          const size = facetNodeSize(f.count, selected);
+          const background = isKeywordFacet ? getTheme().keywordFacetBackground : getTheme().facetBackground;
+          const border = isKeywordFacet ? getTheme().keywordFacetBorder : getTheme().facetBorder;
+          const hoverBackground = isKeywordFacet ? getTheme().keywordFacetHoverBackground : getTheme().facetHoverBackground;
+          const selectedBackground = isKeywordFacet ? getTheme().keywordFacetSelectedBackground : getTheme().facetSelectedBackground;
+          const selectedBorder = isKeywordFacet ? getTheme().keywordFacetSelectedBorder : getTheme().facetSelectedBorder;
+          nodes.push({
+            id: f.id,
+            label: f.label,
+            group: 'facet',
+            title: `${escapeHtml(f.label)}<br>${f.count} row${f.count === 1 ? '' : 's'}`,
+            size,
+            font: {
+              color: isKeywordFacet
+                ? (selected ? getTheme().keywordFacetSelectedLabel : getTheme().keywordFacetLabel)
+                : getTheme().facetLabel,
+              size: facetFontSize(size),
+              bold: selected
+            },
+            color: selected
+              ? {
+                  background: selectedBackground,
+                  border: selectedBorder,
+                  highlight: { background: selectedBackground, border: selectedBorder },
+                  hover: { background: selectedBackground, border: selectedBorder }
+                }
+              : {
+                  background,
+                  border,
+                  highlight: { background: hoverBackground, border },
+                  hover: { background: hoverBackground, border }
+                },
+            borderWidth: selected ? 3 : 1.5,
+            shadow: selected ? {
+              enabled: true,
+              color: isKeywordFacet ? getTheme().keywordFacetHighlight : getTheme().facetHighlight,
+              size: 12,
+              x: 0,
+              y: 0
+            } : false
+          });
+        }
+      });
+
+      const visibleFacetSet = new Set(nodes.filter(n => n.group === 'facet').map(n => n.id));
+      rows.forEach(row => {
+        const rowFacetIds = new Set(row.facets);
+        row.facets.forEach(fid => {
+          const hasMoreSpecificRowFacet = (FACET_CHILDREN_BY_PARENT.get(fid) || [])
+            .some(childId => rowFacetIds.has(childId));
+          if (hasMoreSpecificRowFacet || !visibleFacetSet.has(fid)) return;
+          edges.push({
+            from: row.id,
+            to: fid,
+            width: selectedFacetIds.has(fid) ? 3 : 1.2,
+            color: selectedFacetIds.has(fid) ? { color: getTheme().edgeSelected } : { color: getTheme().edge },
+            title: `Connected facet: ${fid}`
+          });
+        });
+      });
+
+      FACET_CONTAINMENT_LINKS.forEach(link => {
+        if (!visibleFacetSet.has(link.from) || !visibleFacetSet.has(link.to)) return;
+        const child = FACETS.find(f => f.id === link.from);
+        const parent = FACETS.find(f => f.id === link.to);
+        if (!child || !parent) return;
+
+        edges.push({
+          from: link.from,
+          to: link.to,
+          arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+          dashes: [8, 5],
+          width: 2.2,
+          color: { color: getTheme().containmentEdge, opacity: 0.8 },
+          title: `<b>Facet subset</b><br>Contained by: ${escapeHtml(parent.label)}<br>${child.count} files`
+        });
+      });
+
+      return { nodes, edges };
+    }
+
+    function getCurrentDetailRow() {
+      return ROWS.find(r => r.id === hoveredRowId) || ROWS.find(r => r.id === selectedRowId) || null;
+    }
+
+    function renderDetailPanel() {
+      const row = getCurrentDetailRow();
+      if (!row) {
+        detailPanel.classList.add('empty');
+        detailPanel.innerHTML = 'Hover or click a file node or row to preview details.';
+        return;
+      }
+
+      const relatedFacets = (row.facets || []).map(fid => ({ id: fid, label: facetLabel(fid) }));
+
+      detailPanel.classList.remove('empty');
+      detailPanel.innerHTML = `
+        <div class="detail-row"><span class="detail-label">Item name:</span> <span class="detail-value">${escapeHtml(row.title || row.id)}</span></div>
+        <div class="detail-row"><span class="detail-label">Dates:</span> <span class="detail-value">${escapeHtml(row.display_date || 'undated')}</span></div>
+        <div class="detail-row"><span class="detail-label">Container instance:</span> <span class="detail-value">${escapeHtml(row.container_instance || '—')}</span></div>
+        <div class="detail-row"><span class="detail-label">Scope content:</span> <span class="detail-value">${escapeHtml(row.scope_content || '—')}</span></div>
+        <div class="detail-row"><span class="detail-label">Physical desc:</span> <span class="detail-value">${escapeHtml(row.physical_desc || '—')}</span></div>
+        <div class="detail-related">
+          <div class="detail-related-title">Immediately related facets</div>
+          ${relatedFacets.length ? `<div class="detail-facet-list">${relatedFacets.map(f => `<button type="button" class="detail-facet-chip ${selectedFacetIds.has(f.id) ? 'selected' : ''}" data-related-facet="${escapeHtml(f.id)}">${escapeHtml(f.label)}</button>`).join('')}</div>` : '<div class="detail-row"><span class="detail-value">No related facets.</span></div>'}
+        </div>
+      `;
+
+      detailPanel.querySelectorAll('[data-related-facet]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const fid = btn.dataset.relatedFacet;
+          if (selectedFacetIds.has(fid)) selectedFacetIds.delete(fid);
+          else selectedFacetIds.add(fid);
+          render();
+        });
+      });
+    }
+
+    function renderFacetList(rows) {
+      const counts = buildFacetCounts(rows);
+      const sortedFacets = FACETS
+        .filter(f => selectedFacetIds.has(f.id) || (counts.get(f.id) || 0) > 0)
+        .sort((a, b) => (counts.get(b.id) || 0) - (counts.get(a.id) || 0) || a.label.localeCompare(b.label));
+      const visibleFacetIds = new Set(sortedFacets.map(f => f.id));
+      const childrenByParent = new Map();
+      const rootFacets = [];
+
+      sortedFacets.forEach(facet => {
+        const parentId = PRIMARY_FACET_PARENT_BY_ID.get(facet.id);
+        if (parentId && visibleFacetIds.has(parentId)) {
+          if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
+          childrenByParent.get(parentId).push(facet);
+        } else {
+          rootFacets.push(facet);
+        }
+      });
+
+      function renderFacet(facet) {
+        const selected = selectedFacetIds.has(facet.id);
+        const children = childrenByParent.get(facet.id) || [];
+        const alternateParents = (FACET_PARENTS_BY_CHILD.get(facet.id) || [])
+          .filter(parentId => parentId !== PRIMARY_FACET_PARENT_BY_ID.get(facet.id))
+          .map(facetLabel);
+        const primaryParentId = PRIMARY_FACET_PARENT_BY_ID.get(facet.id);
+        const tooltip = primaryParentId
+          ? `Contained by ${facetLabel(primaryParentId)}${alternateParents.length ? `; also contained by ${alternateParents.join(', ')}` : ''}`
+          : '';
+        const classes = ['facet-pill'];
+        if (facet.id.startsWith('kw_')) classes.push('keyword-facet');
+        if (selected) classes.push('selected');
+        if (children.length) classes.push('has-subsidiaries');
+
+        return `
+          <div class="facet-group">
+            <button type="button" class="${classes.join(' ')}" data-facet-id="${facet.id}"${tooltip ? ` title="${escapeHtml(tooltip)}"` : ''}>
+              <span class="facet-label">${escapeHtml(facet.label)}</span>
+              <span class="count">${counts.get(facet.id) || 0}</span>
+            </button>
+            ${children.length ? `<div class="facet-children">${children.map(renderFacet).join('')}</div>` : ''}
+          </div>
+        `;
+      }
+
+      facetList.innerHTML = rootFacets.map(renderFacet).join('');
+
+      facetList.querySelectorAll('[data-facet-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const fid = btn.dataset.facetId;
+          if (selectedFacetIds.has(fid)) selectedFacetIds.delete(fid);
+          else selectedFacetIds.add(fid);
+          selectedRowId = null;
+          hoveredRowId = null;
+          render();
+        });
+      });
+
+      clearFacets.disabled = selectedFacetIds.size === 0;
+    }
+
+    function renderRowList(rows) {
+      rowCount.textContent = `${rows.length} matching row${rows.length === 1 ? '' : 's'}`;
+      emptyState.style.display = rows.length ? 'none' : 'block';
+
+      rowList.innerHTML = rows.map(row => {
+        const selected = row.id === selectedRowId;
+        const matched = row.facets.filter(fid => selectedFacetIds.has(fid)).join(', ');
+        return `
+          <button type="button" class="sidebar-item ${selected ? 'selected' : ''}" data-row-id="${row.id}">
+            <span class="row-id">${escapeHtml(row.title || row.id)}</span>
+            <div class="row-date">${escapeHtml(row.display_date || 'undated')}</div>
+            ${row.box ? `<div class="row-box">${escapeHtml(row.box)}</div>` : ''}
+            ${matched ? `<div class="row-match">Matches: ${escapeHtml(matched)}</div>` : ''}
+          </button>
+        `;
+      }).join('');
+
+      rowList.querySelectorAll('[data-row-id]').forEach(btn => {
+        const rowId = btn.dataset.rowId;
+        btn.addEventListener('mouseenter', () => {
+          hoveredRowId = rowId;
+          renderDetailPanel();
+        });
+        btn.addEventListener('mouseleave', () => {
+          if (hoveredRowId === rowId && selectedRowId !== rowId) {
+            hoveredRowId = null;
+            renderDetailPanel();
+          }
+        });
+        btn.addEventListener('click', () => {
+          selectedRowId = rowId;
+          hoveredRowId = rowId;
+          network.focus(selectedRowId, { scale: 1.2, animation: true });
+          render();
+        });
+      });
+    }
+
+    function render() {
+      applyTheme(theme, false);
+      const timelineOn = timelineToggle.checked && !!slider.noUiSlider;
+      const { startDate, endDate } = currentRange();
+      const timelineRows = getTimelineRows();
+      const visibleRows = getVisibleRows();
+
+      renderFacetList(visibleRows);
+      renderRowList(visibleRows);
+      renderDetailPanel();
+
+      const data = buildNetworkData(visibleRows);
+      network.setData({
+        nodes: new vis.DataSet(data.nodes),
+        edges: new vis.DataSet(data.edges)
+      });
+
+      if (selectedRowId && !visibleRows.some(r => r.id === selectedRowId)) {
+        selectedRowId = null;
+      }
+      if (hoveredRowId && !visibleRows.some(r => r.id === hoveredRowId)) {
+        hoveredRowId = null;
+      }
+
+      if (!timelineOn) {
+        rangeText.innerHTML = selectedFacetIds.size
+          ? `Timeline disabled - spotlighting <span class="facet-spotlight">${Array.from(selectedFacetIds).join(', ')}</span>.`
+          : 'Timeline disabled - showing everything, including records without dates.';
+      } else {
+        rangeText.innerHTML = selectedFacetIds.size
+          ? `Timeline enabled - ${startDate} to ${endDate} - spotlighting <span class="facet-spotlight">${Array.from(selectedFacetIds).join(', ')}</span>.`
+          : `Timeline enabled - showing records active from ${startDate} to ${endDate}.`;
+      }
+    }
+
+    network.on('click', function(params) {
+      if (params.nodes.length === 1) {
+        const clickedId = params.nodes[0];
+        const isFacet = FACETS.some(f => f.id === clickedId);
+        if (isFacet) {
+          if (selectedFacetIds.has(clickedId)) selectedFacetIds.delete(clickedId);
+          else selectedFacetIds.add(clickedId);
+          selectedRowId = null;
+          hoveredRowId = null;
+          render();
+          return;
+        }
+
+        selectedRowId = clickedId;
+        hoveredRowId = clickedId;
+        render();
+        return;
+      }
+
+      if (params.nodes.length === 0 && params.edges.length === 0) {
+        selectedFacetIds.clear();
+        selectedRowId = null;
+        hoveredRowId = null;
+        render();
+      }
+    });
+
+    network.on('hoverNode', function(params) {
+      const hoveredId = params.node;
+      const isFacet = FACETS.some(f => f.id === hoveredId);
+      if (!isFacet) {
+        hoveredRowId = hoveredId;
+        renderDetailPanel();
+      }
+    });
+
+    network.on('blurNode', function(params) {
+      const blurredId = params.node;
+      if (hoveredRowId === blurredId && selectedRowId !== blurredId) {
+        hoveredRowId = null;
+        renderDetailPanel();
+      }
+    });
+
+    if (themeToggle) {
+      themeToggle.addEventListener('change', function() {
+        applyTheme(this.checked ? 'dark' : 'light');
+        render();
+      });
+    }
+
+    clearFacets.addEventListener('click', function() {
+      selectedFacetIds.clear();
+      selectedRowId = null;
+      hoveredRowId = null;
+      render();
+    });
+
+    if (slider.noUiSlider) {
+      slider.noUiSlider.on('update', render);
+    }
+
+    timelineToggle.addEventListener('change', function() {
+      slider.style.display = this.checked ? 'block' : 'none';
+      render();
+    });
+
+    timelineToggle.checked = false;
+    slider.style.display = 'none';
+    render();
+
+    let lastModified = null;
+
+    async function checkForUpdate() {
+      try {
+        const response = await fetch(window.location.href, { method: 'HEAD' });
+        const newModified = response.headers.get('Last-Modified');
+        if (lastModified && newModified !== lastModified) {
+          location.reload();
+        }
+        lastModified = newModified;
+      } catch (e) {
+        console.warn('Update check failed', e);
+      }
+    }
+
+    setInterval(checkForUpdate, 2000);
+  </script>
+
+  <div id="copyright">Rhizomatica. Copyright 2026, Evan Brandon.</div>
+</body>
+</html>
