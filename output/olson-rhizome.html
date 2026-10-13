@@ -106,42 +106,87 @@
       color: #333;
     }
     #page {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(210px, 0.78fr) minmax(0, 2.2fr) minmax(260px, 0.95fr);
+      grid-template-rows: minmax(130px, 150px) minmax(0, 1fr);
+      grid-template-areas:
+        "facets dates related"
+        "facets network related";
+      gap: 10px;
       width: 100%;
       flex: 1 1 auto;
       min-height: 0;
+      padding: 10px;
+      box-sizing: border-box;
     }
-    #facetSidebar, #rowSidebar {
-      width: 320px;
+    #facetSidebar, #dateSidebar, #rowSidebar, #detailSidebar {
       background: #fafafa;
       padding: 12px;
       box-sizing: border-box;
       overflow: auto;
+      min-width: 0;
       min-height: 0;
-      height: 100%;
+      border: 1px solid #ddd;
+      border-radius: 6px;
     }
     #facetSidebar {
-      border-right: 1px solid #ddd;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
+      grid-area: facets;
+      height: 100%;
     }
-    #facetSidebar > .tool-section {
-      display: block;
+    #dateSidebar {
+      grid-area: dates;
+      height: 100%;
     }
     #rowSidebar {
-      border-left: 1px solid #ddd;
+      flex: 1 1 0;
+      min-height: 120px;
+    }
+    #rightSidebar {
+      grid-area: related;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    #detailSidebar {
+      display: flex;
+      flex-direction: column;
+      flex: 0 1 auto;
+      gap: 6px;
+      min-height: 150px;
+      max-height: 58%;
+      min-width: 0;
+      overflow: hidden;
     }
     #container {
-      flex: 1;
+      grid-area: network;
+      width: 100%;
       height: 100%;
       min-width: 0;
+      min-height: 0;
     }
     #facetHeader, #rowHeader, #detailHeader, #timelineHeader {
       font-size: 13px;
       font-weight: 700;
       margin: 8px 0;
       color: #333;
+    }
+    .panel-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .panel-heading #facetHeader {
+      margin: 0;
+    }
+    .panel-heading .toolbar-btn {
+      flex: 0 0 auto;
+      width: auto !important;
     }
     #facetList {
       display: flex;
@@ -154,6 +199,42 @@
       flex-direction: column;
       gap: 6px;
       min-width: 0;
+    }
+    .facet-header-row {
+      display: flex;
+      align-items: stretch;
+      gap: 4px;
+      min-width: 0;
+    }
+    .facet-header-row .facet-pill {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .facet-collapse-toggle {
+      display: grid;
+      flex: 0 0 34px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid #cfcfcf;
+      border-radius: 8px;
+      background: #fff;
+      color: #444;
+      cursor: pointer;
+    }
+    .facet-collapse-toggle:hover {
+      background: #f2f4f6;
+      border-color: #8a929b;
+    }
+    .facet-collapse-chevron {
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(-45deg);
+      transition: transform 0.15s ease;
+    }
+    .facet-collapse-toggle[aria-expanded="true"] .facet-collapse-chevron {
+      transform: rotate(45deg);
     }
     .facet-children {
       display: flex;
@@ -227,20 +308,22 @@
       font-weight: 600;
     }
     .detail-panel {
-      border: 1px solid #e4e4e4;
-      background: #fff;
-      border-radius: 12px;
-      padding: 10px 12px;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      border: 0;
+      background: transparent;
+      border-radius: 0;
+      padding: 0;
       font-size: 12px;
       line-height: 1.45;
       color: #222;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-      margin-bottom: 14px;
-      min-height: 108px;
+      box-shadow: none;
+      margin: 0;
     }
     .detail-panel.empty {
       color: #666;
-      background: #fcfcfc;
+      background: transparent;
       font-style: italic;
     }
     .detail-row {
@@ -388,19 +471,22 @@
       color: #cbd5e1;
     }
     body[data-theme="dark"] #facetSidebar,
-    body[data-theme="dark"] #rowSidebar {
+    body[data-theme="dark"] #dateSidebar,
+    body[data-theme="dark"] #rowSidebar,
+    body[data-theme="dark"] #detailSidebar {
       background: #0b1220;
       border-color: #334155;
     }
     body[data-theme="dark"] .facet-pill,
     body[data-theme="dark"] .sidebar-item,
-    body[data-theme="dark"] .detail-panel {
+    body[data-theme="dark"] .facet-collapse-toggle {
       background: #111827;
       border-color: #334155;
       color: #e5e7eb;
     }
     body[data-theme="dark"] .facet-pill:hover,
-    body[data-theme="dark"] .sidebar-item:hover {
+    body[data-theme="dark"] .sidebar-item:hover,
+    body[data-theme="dark"] .facet-collapse-toggle:hover {
       background: #1e293b;
       border-color: #64748b;
     }
@@ -431,7 +517,7 @@
       border-color: #475569;
     }
     body[data-theme="dark"] .detail-panel.empty {
-      background: #0f172a;
+      background: transparent;
       color: #94a3b8;
     }
     body[data-theme="dark"] .detail-facet-chip {
@@ -488,10 +574,52 @@
     body[data-theme="dark"] .detail-value {
       white-space: pre-wrap;
     }
-    @media (max-width: 1100px) {
-      #page { flex-direction: column; height: auto; }
-      #facetSidebar, #rowSidebar { width: 100%; border-left: none; border-right: none; border-bottom: 1px solid #ddd; }
-      #container { height: 560px; }
+    @media (max-width: 950px) {
+      #page {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: minmax(130px, 150px) minmax(0, 1fr) minmax(240px, 34vh);
+        grid-template-areas:
+          "facets dates"
+          "facets network"
+          "related related";
+        overflow: auto;
+      }
+      #rightSidebar {
+        flex-direction: row;
+      }
+      #rowSidebar {
+        min-height: 0;
+      }
+      #detailSidebar {
+        flex: 0 0 38%;
+        max-height: none;
+        min-height: 0;
+      }
+    }
+    @media (max-width: 700px) {
+      #page {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(190px, 38vh) minmax(145px, auto) minmax(380px, 60vh) minmax(430px, 65vh);
+        grid-template-areas:
+          "facets"
+          "dates"
+          "network"
+          "related";
+      }
+      #facetSidebar {
+        max-height: 38vh;
+      }
+      #rightSidebar {
+        flex-direction: column;
+      }
+      #rowSidebar {
+        min-height: 180px;
+      }
+      #detailSidebar {
+        flex: 0 1 auto;
+        min-height: 160px;
+        max-height: 48%;
+      }
     }
   </style>
 </head>
@@ -510,37 +638,43 @@
 
   <div id="page">
     <aside id="facetSidebar">
-      <div class="tool-section">
+      <div class="panel-heading">
         <div id="facetHeader">Facet spotlight</div>
-        <div id="facetList"></div>
-        <button id="clearFacets" class="toolbar-btn" disabled style="width: 100%;">Clear facet spotlight</button>
+        <button id="clearFacets" class="toolbar-btn" disabled>Clear selection</button>
       </div>
-      <div class="tool-section" id="timelineBlock">
-        <div id="timelineHeader">Date filtering</div>
-        <div class="toggle-row" style="margin-top: 0;">
-          <input type="checkbox" id="timelineToggle">
-          <label for="timelineToggle">Enable timeline filter</label>
-        </div>
-        <div id="sliderWrap"><div id="slider"></div></div>
-        <div id="rangeText">Timeline disabled - showing everything, including records without dates.</div>
+      <div id="facetList"></div>
+    </aside>
+
+    <section id="dateSidebar" aria-labelledby="timelineHeader">
+      <div id="timelineHeader">Date filtering</div>
+      <div class="toggle-row" style="margin-top: 0;">
+        <input type="checkbox" id="timelineToggle">
+        <label for="timelineToggle">Enable timeline filter</label>
       </div>
-      <div class="tool-section">
+      <div id="sliderWrap"><div id="slider"></div></div>
+      <div id="rangeText">Timeline disabled - showing everything, including records without dates.</div>
+    </section>
+
+    <div id="container"></div>
+
+    <aside id="rightSidebar">
+      <section id="rowSidebar">
+        <div id="rowHeader">Related files</div>
+        <div id="rowCount"></div>
+        <div id="rowList"></div>
+        <div id="emptyState" style="display:none;">No rows match the current selection.</div>
+      </section>
+
+      <section id="detailSidebar">
         <div id="detailHeader">File spotlight</div>
         <div id="detailPanel" class="detail-panel empty">Hover or click a file node or row to preview details.</div>
-      </div>
-    </aside>
-    <div id="container"></div>
-    <aside id="rowSidebar">
-      <div id="rowHeader">Related files</div>
-      <div id="rowCount"></div>
-      <div id="rowList"></div>
-      <div id="emptyState" style="display:none;">No rows match the current selection.</div>
+      </section>
     </aside>
   </div>
 
   <script>
-    const ROWS = [{"id": "ao_525595", "title": "Technical Review of the Effort to Port Diamond and Cronus to the HP9020A Workstation: Final Report", "display_date": "December 1986", "date_expr": "December 1986", "begin": "1986-12-01", "end": "1986-12-31", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591", "kw_diamond"]}, {"id": "ao_525596", "title": "Proposal to the National Science Foundation for a Cooperative Agreement for Experimental Research in Electronic Submission (EXPRES) of Multimedia Proposals and Documents", "display_date": "August 1986", "date_expr": "August 1986", "begin": "1986-08-01", "end": "1986-08-31", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591", "kw_national", "kw_expres"]}, {"id": "ao_525597", "title": "NSF EXPRES Site Visit", "display_date": "September 10, 1986", "date_expr": "September 10, 1986", "begin": "1986-09-10", "end": "1986-09-10", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591", "kw_expres", "kw_nsf"]}, {"id": "ao_525598", "title": "Cambridge Visit", "display_date": "December 11-12, 1986", "date_expr": "December 11-12, 1986", "begin": "1986-12-11", "end": "1986-12-12", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591"]}, {"id": "ao_525599", "title": "EXPRES Meeting, BBN Laboratories", "display_date": "December 12, 1986", "date_expr": "December 12, 1986", "begin": "1986-12-12", "end": "1986-12-12", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591", "kw_expres"]}, {"id": "ao_525600", "title": "NSF Trip", "display_date": "January 7-8, 1987", "date_expr": "January 7-8, 1987", "begin": "1987-01-07", "end": "1987-01-08", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591", "kw_nsf"]}, {"id": "ao_525601", "title": "NSF, Carnegie Mellon University (CMU) Trip", "display_date": "January 27-28, 1987", "date_expr": "January 27-28, 1987", "begin": "1987-01-27", "end": "1987-01-28", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591", "kw_nsf"]}, {"id": "ao_525602", "title": "Meeting at NSF", "display_date": "February 12, 1987", "date_expr": "February 12, 1987", "begin": "1987-02-12", "end": "1987-02-12", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591", "kw_nsf"]}, {"id": "ao_525603", "title": "BBN Visit to UM", "display_date": "March 4-6, 1987", "date_expr": "March 4-6, 1987", "begin": "1987-03-04", "end": "1987-03-06", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591"]}, {"id": "ao_525604", "title": "National Center for Atmospheric Research (NCAR) Visit", "display_date": "March 27, 1987", "date_expr": "March 27, 1987", "begin": "1987-03-27", "end": "1987-03-27", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591", "kw_national"]}, {"id": "ao_525605", "title": "Project Management Committee (PMC) Meeting", "display_date": "July 22, 1987", "date_expr": "July 22, 1987", "begin": "1987-07-22", "end": "1987-07-22", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591"]}, {"id": "ao_525606", "title": "Needs, Requirements, and Evaluation Group (NRE) Report", "display_date": "August 7, 1987", "date_expr": "August 7, 1987", "begin": "1987-08-07", "end": "1987-08-07", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591"]}, {"id": "ao_525607", "title": "Technical Review", "display_date": "September 10-11, 1987", "date_expr": "September 10-11, 1987", "begin": "1987-09-10", "end": "1987-09-11", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591"]}, {"id": "ao_525608", "title": "Engineering National Advisory Committee (NAC)", "display_date": "October 1987", "date_expr": "October 1987", "begin": "1987-10-01", "end": "1987-10-31", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591", "kw_national"]}, {"id": "ao_525609", "title": "Areas of work for UM EXPRES Development Team", "display_date": "October 1987", "date_expr": "October 1987", "begin": "1987-10-01", "end": "1987-10-31", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591", "kw_expres"]}, {"id": "ao_525610", "title": "UM EXPRES Development Team Progress Report", "display_date": "November 4, 1987", "date_expr": "November 4, 1987", "begin": "1987-11-04", "end": "1987-11-04", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591", "kw_expres"]}, {"id": "ao_525611", "title": "UM EXPRES Project Review and Plans for Year 2", "display_date": "December 13, 1987", "date_expr": "December 13, 1987", "begin": "1987-12-13", "end": "1987-12-13", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591", "kw_expres"]}, {"id": "ao_525612", "title": "Project Management Committee (PMC) Meeting", "display_date": "December 16, 1987", "date_expr": "December 16, 1987", "begin": "1987-12-16", "end": "1987-12-16", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591"]}, {"id": "ao_525613", "title": "Postscript Experiment, Interim Report", "display_date": "April 4, 1988", "date_expr": "April 4, 1988", "begin": "1988-04-04", "end": "1988-04-04", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591"]}, {"id": "ao_525614", "title": "Interoperability Meeting", "display_date": "April 7, 1988", "date_expr": "April 7, 1988", "begin": "1988-04-07", "end": "1988-04-07", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591"]}, {"id": "ao_525615", "title": "Advisory Committee", "display_date": "April 7-8, 1988", "date_expr": "April 7-8, 1988", "begin": "1988-04-07", "end": "1988-04-08", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591"]}, {"id": "ao_525616", "title": "UM EXPRES Goals and Mid-Course Plan", "display_date": "June 22, 1988", "date_expr": "June 22, 1988", "begin": "1988-06-22", "end": "1988-06-22", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591", "kw_expres"]}, {"id": "ao_525617", "title": "Project Management Committee (PMC) Meeting", "display_date": "September 2, 1988", "date_expr": "September 2, 1988", "begin": "1988-09-02", "end": "1988-09-02", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591"]}, {"id": "ao_525618", "title": "CMU-EXPRES Progress Report", "display_date": "October 1987-September 1988", "date_expr": "October 1987-September 1988", "begin": "1987-10-01", "end": "1988-09-30", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591", "kw_expres"]}, {"id": "ao_525619", "title": "Net Express Meeting at Ann Arbor", "display_date": "November 14-15, 1988", "date_expr": "November 14-15, 1988", "begin": "1988-11-14", "end": "1988-11-15", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591"]}, {"id": "ao_525620", "title": "Technical Advisory Committee Meeting", "display_date": "November 14-15, 1988", "date_expr": "November 14-15, 1988", "begin": "1988-11-14", "end": "1988-11-15", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591"]}, {"id": "ao_525621", "title": "Technical Advisory Panel", "display_date": "November 1988", "date_expr": "November 1988", "begin": "1988-11-01", "end": "1988-11-30", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591"]}, {"id": "ao_525622", "title": "UM EXPRES Project Review and Plans for Year 3", "display_date": "November 30, 1988", "date_expr": "November 30, 1988", "begin": "1988-11-30", "end": "1988-11-30", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_525591", "kw_expres"]}, {"id": "ao_525623", "title": "Presentation Materials", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592"]}, {"id": "ao_525624", "title": "Demos at Conferences, Hanover Fair", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592"]}, {"id": "ao_525625", "title": "EXPRES Highlighted at Ann Arbor Meeting", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525626", "title": "EXPRES -- Seminar Series", "display_date": "November 1986-January 1987", "date_expr": "November 1986-January 1987", "begin": "1986-11-01", "end": "1987-01-31", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525627", "title": "Langenberg Panel (Information Technologies and the Conduct of Research)", "display_date": "January 8, 1987", "date_expr": "January 8, 1987", "begin": "1987-01-08", "end": "1987-01-08", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592"]}, {"id": "ao_525628", "title": "Cognitive Science and Machine Intelligence Laboratory (CSMIL) Bulletin, Issue 19 \"EXPRES Project,\"", "display_date": "January 12, 1987", "date_expr": "January 12, 1987", "begin": "1987-01-12", "end": "1987-01-12", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592"]}, {"id": "ao_525629", "title": "Andrew Demo", "display_date": "April 14, 1987", "date_expr": "April 14, 1987", "begin": "1987-04-14", "end": "1987-04-14", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592"]}, {"id": "ao_525630", "title": "EXPRES Newsletter, Vol. 1, no. 1", "display_date": "June 1987", "date_expr": "June 1987", "begin": "1987-06-01", "end": "1987-06-30", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525631", "title": "National Science Foundation (NSF) Event", "display_date": "June 8, 1987", "date_expr": "June 8, 1987", "begin": "1987-06-08", "end": "1987-06-08", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592", "kw_national", "kw_nsf"]}, {"id": "ao_525632", "title": "Trip Report: Technical Support for Work Group Collaboration (NYU Symposium)", "display_date": "June 28, 1987", "date_expr": "June 28, 1987", "begin": "1987-06-28", "end": "1987-06-28", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592"]}, {"id": "ao_525633", "title": "EDUCOM (Los Angeles)", "display_date": "1987", "date_expr": "1987", "begin": "1987-01-01", "end": "1987-12-31", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592"]}, {"id": "ao_525634", "title": "EXPRES Initiative Unix in the Office, Vol. 10, no. 11", "display_date": "November 1987", "date_expr": "November 1987", "begin": "1987-11-01", "end": "1987-11-30", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525635", "title": "Combined Trip Report: ANSI X3V1 Meeting, NBS OSI Implementers Workshop", "display_date": "November 2, 1987", "date_expr": "November 2, 1987", "begin": "1987-11-02", "end": "1987-11-02", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592"]}, {"id": "ao_525636", "title": "EXPRES Videotape Notes and Correspondence", "display_date": "November-December 1987", "date_expr": "November-December 1987", "begin": "1987-11-01", "end": "1987-12-31", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525637", "title": "Chapter on EXPRES, Kraut et al Book", "display_date": "1988", "date_expr": "1988", "begin": "1988-01-01", "end": "1988-12-31", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525638", "title": "EXPRES Newsletter, Vol. 2, no. 1", "display_date": "January 1988", "date_expr": "January 1988", "begin": "1988-01-01", "end": "1988-01-31", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525639", "title": "CSNET News: \"EXPRES Project Completes First Year\" No. 16", "display_date": "1988", "date_expr": "1988", "begin": "1988-01-01", "end": "1988-12-31", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592"]}, {"id": "ao_525640", "title": "EXPRES Event", "display_date": "March 4-5, 1988", "date_expr": "March 4-5, 1988", "begin": "1988-03-04", "end": "1988-03-05", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525641", "title": "Baseline Studies of Current Practice: Methods and Some Significant Results (Transparencies)", "display_date": "March 1988", "date_expr": "March 1988", "begin": "1988-03-01", "end": "1988-03-31", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592"]}, {"id": "ao_525642", "title": "Article: \"Computer Giants Back UM EXPRES\" University Record, Special Report \"Getting the Job Done,\"", "display_date": "April 18, 1988", "date_expr": "April 18, 1988", "begin": "1988-04-18", "end": "1988-04-18", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525643", "title": "The Carnegie-Mellon University (CMU) Open Document Architecture Consortium", "display_date": "February 28, 1989", "date_expr": "February 28, 1989", "begin": "1989-02-28", "end": "1989-02-28", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525592"]}, {"id": "ao_525644", "title": "Installing and Using MMDeliver on the Sun 3, Sun 4, and Sun 386i", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525593"]}, {"id": "ao_525645", "title": "Sending Mail with Diamond Release 4.1 on the Sun 3, Sun 4, and Sun 386i", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525593", "kw_diamond"]}, {"id": "ao_525646", "title": "UM EXPRES Tutorial", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525593", "kw_expres"]}, {"id": "ao_525647", "title": "Diamond Multimedia Document System: Tutorial, Release 3", "display_date": "February 1987", "date_expr": "February 1987", "begin": "1987-02-01", "end": "1987-02-28", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525593", "kw_diamond"]}, {"id": "ao_525648", "title": "Diamond User's Reference Guide, Release 3.1", "display_date": "November 1987", "date_expr": "November 1987", "begin": "1987-11-01", "end": "1987-11-30", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525593", "kw_diamond"]}, {"id": "ao_525649", "title": "EXPRES User's Reference Guide, UM EXPRES 1.0", "display_date": "January 1988", "date_expr": "January 1988", "begin": "1988-01-01", "end": "1988-01-31", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525593", "kw_expres"]}, {"id": "ao_525650", "title": "Diamond Multimedia Document System, User's Reference Guide, Release 3.2", "display_date": "June 1988", "date_expr": "June 1988", "begin": "1988-06-01", "end": "1988-06-30", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525593", "kw_diamond"]}, {"id": "ao_525651", "title": "EXPRES User's Reference Guide, UM EXPRES 2.0", "display_date": "July 1988", "date_expr": "July 1988", "begin": "1988-07-01", "end": "1988-07-31", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525593", "kw_expres"]}, {"id": "ao_525652", "title": "UM EXPRES 2.0 Release", "display_date": "August 31, 1988", "date_expr": "August 31, 1988", "begin": "1988-08-31", "end": "1988-08-31", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_525593", "kw_expres"]}, {"id": "ao_525653", "title": "Carnegie Mellon University (CMU)", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}, {"id": "ao_525654", "title": "Correspondence, Misc.", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}, {"id": "ao_525655", "title": "Deployment", "display_date": "1987", "date_expr": "1987", "begin": "1987-01-01", "end": "1987-12-31", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}, {"id": "ao_525656", "title": "Deployment: Beta Test Agreements", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}, {"id": "ao_525657", "title": "Deployment: Data Capture", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}, {"id": "ao_525658", "title": "Deployment: Sites", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}, {"id": "ao_525659", "title": "Diamond", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594", "kw_diamond"]}, {"id": "ao_525660", "title": "Diamond 3.1", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594", "kw_diamond"]}, {"id": "ao_525661", "title": "Diamond Dialogue Boxes", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594", "kw_diamond"]}, {"id": "ao_525662", "title": "EXPRES", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594", "kw_expres"]}, {"id": "ao_525663", "title": "EXPRES -- Current", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594", "kw_expres"]}, {"id": "ao_525664", "title": "EXPRES Directory Listing", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594", "kw_expres"]}, {"id": "ao_525665", "title": "EXPRES -- Now", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594", "kw_expres"]}, {"id": "ao_525666", "title": "EXPRES -- Project", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}, {"id": "ao_525667", "title": "Legal Materials", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}, {"id": "ao_525668", "title": "National Science Foundation (NSF)", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594", "kw_national", "kw_nsf"]}, {"id": "ao_525669", "title": "NSF -- Astronomy", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594", "kw_nsf"]}, {"id": "ao_525670", "title": "NSF -- Atmospheric Sciences", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594", "kw_nsf"]}, {"id": "ao_525671", "title": "NSF -- CISE", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594", "kw_nsf"]}, {"id": "ao_525672", "title": "Other Universities", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}, {"id": "ao_525673", "title": "Other Universities", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}, {"id": "ao_525674", "title": "Project Management Notes", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}, {"id": "ao_525675", "title": "Research Plans", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}, {"id": "ao_525676", "title": "Site Selection", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}, {"id": "ao_525677", "title": "University of Michigan", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}, {"id": "ao_525678", "title": "University of Michigan Atmospheric Sciences", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}, {"id": "ao_525679", "title": "User Trials Task Force", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_525594"]}];
-    const FACETS = [{"id": "ao_525591", "label": "Meetings and Reports", "count": 28}, {"id": "ao_525592", "label": "Publicity and Presentations", "count": 21}, {"id": "ao_525593", "label": "Publications", "count": 9}, {"id": "ao_525594", "label": "Subject Files", "count": 27}, {"id": "kw_diamond", "label": "Diamond", "count": 8}, {"id": "kw_national", "label": "National", "count": 5}, {"id": "kw_expres", "label": "EXPRES", "count": 26}, {"id": "kw_nsf", "label": "NSF", "count": 9}];
+    const ROWS = [{"id": "ao_525595", "title": "Technical Review of the Effort to Port Diamond and Cronus to the HP9020A Workstation: Final Report", "display_date": "December 1986", "date_expr": "December 1986", "begin": "1986-12-01", "end": "1986-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591", "kw_diamond"]}, {"id": "ao_525596", "title": "Proposal to the National Science Foundation for a Cooperative Agreement for Experimental Research in Electronic Submission (EXPRES) of Multimedia Proposals and Documents", "display_date": "August 1986", "date_expr": "August 1986", "begin": "1986-08-01", "end": "1986-08-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591", "kw_expres"]}, {"id": "ao_525597", "title": "NSF EXPRES Site Visit", "display_date": "September 10, 1986", "date_expr": "September 10, 1986", "begin": "1986-09-10", "end": "1986-09-10", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591", "kw_expres", "kw_nsf"]}, {"id": "ao_525598", "title": "Cambridge Visit", "display_date": "December 11-12, 1986", "date_expr": "December 11-12, 1986", "begin": "1986-12-11", "end": "1986-12-12", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591"]}, {"id": "ao_525599", "title": "EXPRES Meeting, BBN Laboratories", "display_date": "December 12, 1986", "date_expr": "December 12, 1986", "begin": "1986-12-12", "end": "1986-12-12", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591", "kw_expres"]}, {"id": "ao_525600", "title": "NSF Trip", "display_date": "January 7-8, 1987", "date_expr": "January 7-8, 1987", "begin": "1987-01-07", "end": "1987-01-08", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591", "kw_nsf"]}, {"id": "ao_525601", "title": "NSF, Carnegie Mellon University (CMU) Trip", "display_date": "January 27-28, 1987", "date_expr": "January 27-28, 1987", "begin": "1987-01-27", "end": "1987-01-28", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591", "kw_nsf"]}, {"id": "ao_525602", "title": "Meeting at NSF", "display_date": "February 12, 1987", "date_expr": "February 12, 1987", "begin": "1987-02-12", "end": "1987-02-12", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591", "kw_nsf"]}, {"id": "ao_525603", "title": "BBN Visit to UM", "display_date": "March 4-6, 1987", "date_expr": "March 4-6, 1987", "begin": "1987-03-04", "end": "1987-03-06", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591"]}, {"id": "ao_525604", "title": "National Center for Atmospheric Research (NCAR) Visit", "display_date": "March 27, 1987", "date_expr": "March 27, 1987", "begin": "1987-03-27", "end": "1987-03-27", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591"]}, {"id": "ao_525605", "title": "Project Management Committee (PMC) Meeting", "display_date": "July 22, 1987", "date_expr": "July 22, 1987", "begin": "1987-07-22", "end": "1987-07-22", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591"]}, {"id": "ao_525606", "title": "Needs, Requirements, and Evaluation Group (NRE) Report", "display_date": "August 7, 1987", "date_expr": "August 7, 1987", "begin": "1987-08-07", "end": "1987-08-07", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591"]}, {"id": "ao_525607", "title": "Technical Review", "display_date": "September 10-11, 1987", "date_expr": "September 10-11, 1987", "begin": "1987-09-10", "end": "1987-09-11", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591"]}, {"id": "ao_525608", "title": "Engineering National Advisory Committee (NAC)", "display_date": "October 1987", "date_expr": "October 1987", "begin": "1987-10-01", "end": "1987-10-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591"]}, {"id": "ao_525609", "title": "Areas of work for UM EXPRES Development Team", "display_date": "October 1987", "date_expr": "October 1987", "begin": "1987-10-01", "end": "1987-10-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591", "kw_expres"]}, {"id": "ao_525610", "title": "UM EXPRES Development Team Progress Report", "display_date": "November 4, 1987", "date_expr": "November 4, 1987", "begin": "1987-11-04", "end": "1987-11-04", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591", "kw_expres"]}, {"id": "ao_525611", "title": "UM EXPRES Project Review and Plans for Year 2", "display_date": "December 13, 1987", "date_expr": "December 13, 1987", "begin": "1987-12-13", "end": "1987-12-13", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591", "kw_expres"]}, {"id": "ao_525612", "title": "Project Management Committee (PMC) Meeting", "display_date": "December 16, 1987", "date_expr": "December 16, 1987", "begin": "1987-12-16", "end": "1987-12-16", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591"]}, {"id": "ao_525613", "title": "Postscript Experiment, Interim Report", "display_date": "April 4, 1988", "date_expr": "April 4, 1988", "begin": "1988-04-04", "end": "1988-04-04", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591"]}, {"id": "ao_525614", "title": "Interoperability Meeting", "display_date": "April 7, 1988", "date_expr": "April 7, 1988", "begin": "1988-04-07", "end": "1988-04-07", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591"]}, {"id": "ao_525615", "title": "Advisory Committee", "display_date": "April 7-8, 1988", "date_expr": "April 7-8, 1988", "begin": "1988-04-07", "end": "1988-04-08", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591"]}, {"id": "ao_525616", "title": "UM EXPRES Goals and Mid-Course Plan", "display_date": "June 22, 1988", "date_expr": "June 22, 1988", "begin": "1988-06-22", "end": "1988-06-22", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591", "kw_expres"]}, {"id": "ao_525617", "title": "Project Management Committee (PMC) Meeting", "display_date": "September 2, 1988", "date_expr": "September 2, 1988", "begin": "1988-09-02", "end": "1988-09-02", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591"]}, {"id": "ao_525618", "title": "CMU-EXPRES Progress Report", "display_date": "October 1987-September 1988", "date_expr": "October 1987-September 1988", "begin": "1987-10-01", "end": "1988-09-30", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591", "kw_expres"]}, {"id": "ao_525619", "title": "Net Express Meeting at Ann Arbor", "display_date": "November 14-15, 1988", "date_expr": "November 14-15, 1988", "begin": "1988-11-14", "end": "1988-11-15", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591"]}, {"id": "ao_525620", "title": "Technical Advisory Committee Meeting", "display_date": "November 14-15, 1988", "date_expr": "November 14-15, 1988", "begin": "1988-11-14", "end": "1988-11-15", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591"]}, {"id": "ao_525621", "title": "Technical Advisory Panel", "display_date": "November 1988", "date_expr": "November 1988", "begin": "1988-11-01", "end": "1988-11-30", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591"]}, {"id": "ao_525622", "title": "UM EXPRES Project Review and Plans for Year 3", "display_date": "November 30, 1988", "date_expr": "November 30, 1988", "begin": "1988-11-30", "end": "1988-11-30", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525591", "kw_expres"]}, {"id": "ao_525623", "title": "Presentation Materials", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592"]}, {"id": "ao_525624", "title": "Demos at Conferences, Hanover Fair", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592"]}, {"id": "ao_525625", "title": "EXPRES Highlighted at Ann Arbor Meeting", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525626", "title": "EXPRES -- Seminar Series", "display_date": "November 1986-January 1987", "date_expr": "November 1986-January 1987", "begin": "1986-11-01", "end": "1987-01-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525627", "title": "Langenberg Panel (Information Technologies and the Conduct of Research)", "display_date": "January 8, 1987", "date_expr": "January 8, 1987", "begin": "1987-01-08", "end": "1987-01-08", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592"]}, {"id": "ao_525628", "title": "Cognitive Science and Machine Intelligence Laboratory (CSMIL) Bulletin, Issue 19 \"EXPRES Project,\"", "display_date": "January 12, 1987", "date_expr": "January 12, 1987", "begin": "1987-01-12", "end": "1987-01-12", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592"]}, {"id": "ao_525629", "title": "Andrew Demo", "display_date": "April 14, 1987", "date_expr": "April 14, 1987", "begin": "1987-04-14", "end": "1987-04-14", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592"]}, {"id": "ao_525630", "title": "EXPRES Newsletter, Vol. 1, no. 1", "display_date": "June 1987", "date_expr": "June 1987", "begin": "1987-06-01", "end": "1987-06-30", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525631", "title": "National Science Foundation (NSF) Event", "display_date": "June 8, 1987", "date_expr": "June 8, 1987", "begin": "1987-06-08", "end": "1987-06-08", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592", "kw_nsf"]}, {"id": "ao_525632", "title": "Trip Report: Technical Support for Work Group Collaboration (NYU Symposium)", "display_date": "June 28, 1987", "date_expr": "June 28, 1987", "begin": "1987-06-28", "end": "1987-06-28", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592"]}, {"id": "ao_525633", "title": "EDUCOM (Los Angeles)", "display_date": "1987", "date_expr": "1987", "begin": "1987-01-01", "end": "1987-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592"]}, {"id": "ao_525634", "title": "EXPRES Initiative Unix in the Office, Vol. 10, no. 11", "display_date": "November 1987", "date_expr": "November 1987", "begin": "1987-11-01", "end": "1987-11-30", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525635", "title": "Combined Trip Report: ANSI X3V1 Meeting, NBS OSI Implementers Workshop", "display_date": "November 2, 1987", "date_expr": "November 2, 1987", "begin": "1987-11-02", "end": "1987-11-02", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592"]}, {"id": "ao_525636", "title": "EXPRES Videotape Notes and Correspondence", "display_date": "November-December 1987", "date_expr": "November-December 1987", "begin": "1987-11-01", "end": "1987-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525637", "title": "Chapter on EXPRES, Kraut et al Book", "display_date": "1988", "date_expr": "1988", "begin": "1988-01-01", "end": "1988-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525638", "title": "EXPRES Newsletter, Vol. 2, no. 1", "display_date": "January 1988", "date_expr": "January 1988", "begin": "1988-01-01", "end": "1988-01-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525639", "title": "CSNET News: \"EXPRES Project Completes First Year\" No. 16", "display_date": "1988", "date_expr": "1988", "begin": "1988-01-01", "end": "1988-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592"]}, {"id": "ao_525640", "title": "EXPRES Event", "display_date": "March 4-5, 1988", "date_expr": "March 4-5, 1988", "begin": "1988-03-04", "end": "1988-03-05", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525641", "title": "Baseline Studies of Current Practice: Methods and Some Significant Results (Transparencies)", "display_date": "March 1988", "date_expr": "March 1988", "begin": "1988-03-01", "end": "1988-03-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592"]}, {"id": "ao_525642", "title": "Article: \"Computer Giants Back UM EXPRES\" University Record, Special Report \"Getting the Job Done,\"", "display_date": "April 18, 1988", "date_expr": "April 18, 1988", "begin": "1988-04-18", "end": "1988-04-18", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592", "kw_expres"]}, {"id": "ao_525643", "title": "The Carnegie-Mellon University (CMU) Open Document Architecture Consortium", "display_date": "February 28, 1989", "date_expr": "February 28, 1989", "begin": "1989-02-28", "end": "1989-02-28", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525592"]}, {"id": "ao_525644", "title": "Installing and Using MMDeliver on the Sun 3, Sun 4, and Sun 386i", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525593"]}, {"id": "ao_525645", "title": "Sending Mail with Diamond Release 4.1 on the Sun 3, Sun 4, and Sun 386i", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525593", "kw_diamond"]}, {"id": "ao_525646", "title": "UM EXPRES Tutorial", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525593", "kw_expres"]}, {"id": "ao_525647", "title": "Diamond Multimedia Document System: Tutorial, Release 3", "display_date": "February 1987", "date_expr": "February 1987", "begin": "1987-02-01", "end": "1987-02-28", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525593", "kw_diamond"]}, {"id": "ao_525648", "title": "Diamond User's Reference Guide, Release 3.1", "display_date": "November 1987", "date_expr": "November 1987", "begin": "1987-11-01", "end": "1987-11-30", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525593", "kw_diamond"]}, {"id": "ao_525649", "title": "EXPRES User's Reference Guide, UM EXPRES 1.0", "display_date": "January 1988", "date_expr": "January 1988", "begin": "1988-01-01", "end": "1988-01-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525593", "kw_expres"]}, {"id": "ao_525650", "title": "Diamond Multimedia Document System, User's Reference Guide, Release 3.2", "display_date": "June 1988", "date_expr": "June 1988", "begin": "1988-06-01", "end": "1988-06-30", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525593", "kw_diamond"]}, {"id": "ao_525651", "title": "EXPRES User's Reference Guide, UM EXPRES 2.0", "display_date": "July 1988", "date_expr": "July 1988", "begin": "1988-07-01", "end": "1988-07-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525593", "kw_expres"]}, {"id": "ao_525652", "title": "UM EXPRES 2.0 Release", "display_date": "August 31, 1988", "date_expr": "August 31, 1988", "begin": "1988-08-31", "end": "1988-08-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525593", "kw_expres"]}, {"id": "ao_525653", "title": "Carnegie Mellon University (CMU)", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}, {"id": "ao_525654", "title": "Correspondence, Misc.", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}, {"id": "ao_525655", "title": "Deployment", "display_date": "1987", "date_expr": "1987", "begin": "1987-01-01", "end": "1987-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}, {"id": "ao_525656", "title": "Deployment: Beta Test Agreements", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}, {"id": "ao_525657", "title": "Deployment: Data Capture", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}, {"id": "ao_525658", "title": "Deployment: Sites", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}, {"id": "ao_525659", "title": "Diamond", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594", "kw_diamond"]}, {"id": "ao_525660", "title": "Diamond 3.1", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594", "kw_diamond"]}, {"id": "ao_525661", "title": "Diamond Dialogue Boxes", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594", "kw_diamond"]}, {"id": "ao_525662", "title": "EXPRES", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594", "kw_expres"]}, {"id": "ao_525663", "title": "EXPRES -- Current", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594", "kw_expres"]}, {"id": "ao_525664", "title": "EXPRES Directory Listing", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594", "kw_expres"]}, {"id": "ao_525665", "title": "EXPRES -- Now", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594", "kw_expres"]}, {"id": "ao_525666", "title": "EXPRES -- Project", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}, {"id": "ao_525667", "title": "Legal Materials", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}, {"id": "ao_525668", "title": "National Science Foundation (NSF)", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594", "kw_nsf"]}, {"id": "ao_525669", "title": "NSF -- Astronomy", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594", "kw_nsf"]}, {"id": "ao_525670", "title": "NSF -- Atmospheric Sciences", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594", "kw_nsf"]}, {"id": "ao_525671", "title": "NSF -- CISE", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594", "kw_nsf"]}, {"id": "ao_525672", "title": "Other Universities", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}, {"id": "ao_525673", "title": "Other Universities", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}, {"id": "ao_525674", "title": "Project Management Notes", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}, {"id": "ao_525675", "title": "Research Plans", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}, {"id": "ao_525676", "title": "Site Selection", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}, {"id": "ao_525677", "title": "University of Michigan", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}, {"id": "ao_525678", "title": "University of Michigan Atmospheric Sciences", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}, {"id": "ao_525679", "title": "User Trials Task Force", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_525594"]}];
+    const FACETS = [{"id": "ao_525591", "label": "Meetings and Reports", "count": 28}, {"id": "ao_525592", "label": "Publicity and Presentations", "count": 21}, {"id": "ao_525593", "label": "Publications", "count": 9}, {"id": "ao_525594", "label": "Subject Files", "count": 27}, {"id": "kw_diamond", "label": "Diamond", "count": 8}, {"id": "kw_expres", "label": "EXPRES", "count": 26}, {"id": "kw_nsf", "label": "NSF", "count": 9}];
     const availableDates = ["1986-08-01", "1986-08-31", "1986-09-10", "1986-11-01", "1986-12-01", "1986-12-11", "1986-12-12", "1986-12-31", "1987-01-01", "1987-01-07", "1987-01-08", "1987-01-12", "1987-01-27", "1987-01-28", "1987-01-31", "1987-02-01", "1987-02-12", "1987-02-28", "1987-03-04", "1987-03-06", "1987-03-27", "1987-04-14", "1987-06-01", "1987-06-08", "1987-06-28", "1987-06-30", "1987-07-22", "1987-08-07", "1987-09-10", "1987-09-11", "1987-10-01", "1987-10-31", "1987-11-01", "1987-11-02", "1987-11-04", "1987-11-30", "1987-12-13", "1987-12-16", "1987-12-31", "1988-01-01", "1988-01-31", "1988-03-01", "1988-03-04", "1988-03-05", "1988-03-31", "1988-04-04", "1988-04-07", "1988-04-08", "1988-04-18", "1988-06-01", "1988-06-22", "1988-06-30", "1988-07-01", "1988-07-31", "1988-08-31", "1988-09-02", "1988-09-30", "1988-11-01", "1988-11-14", "1988-11-15", "1988-11-30", "1988-12-31", "1989-02-28"];
 
     const container = document.getElementById('container');
@@ -569,11 +703,11 @@
         solver: 'forceAtlas2Based',
         forceAtlas2Based: {
           gravitationalConstant: -100,
-          centralGravity: 0.05,
-          springLength: 90,
+          centralGravity: 0.01,
+          springLength: 80,
           springConstant: 0.06,
-          damping: 0.65,
-          avoidOverlap: 0.5
+          damping: 0.85,
+          avoidOverlap: 1
         },
         stabilization: { iterations: 300, fit: true },
         maxVelocity: 12,
@@ -777,8 +911,17 @@
     // and grow from there with how many files are tagged to them.
     const ROW_SIZE = 9;
     const ROW_SIZE_HIGHLIGHTED = 13;
+    const ROW_EXTENT_MAX_BOOST = 2;
     const ROW_FONT_SIZE = 10;
     const ROW_FONT_SIZE_HIGHLIGHTED = 12;
+    const maxExtentValue = ROWS.reduce((maximum, row) => Math.max(maximum, row.extent_value || 0), 0);
+
+    function rowNodeSize(row, highlighted) {
+      const base = highlighted ? ROW_SIZE_HIGHLIGHTED : ROW_SIZE;
+      if (!row.extent_value || maxExtentValue <= 0) return base;
+      const extentGrowth = ROW_EXTENT_MAX_BOOST * Math.log1p(row.extent_value) / Math.log1p(maxExtentValue);
+      return base + extentGrowth;
+    }
 
     // The smallest-count facet always renders at FACET_MIN_SIZE and the
     // largest-count facet always renders at FACET_MAX_SIZE -- counts in
@@ -859,21 +1002,97 @@
       const [primaryParentId] = parentIds.sort((a, b) => facetLabel(a).localeCompare(facetLabel(b)) || a.localeCompare(b));
       if (primaryParentId) PRIMARY_FACET_PARENT_BY_ID.set(childId, primaryParentId);
     });
+    function getTopLevelFacetId(facetId) {
+      let topLevelId = facetId;
+      const visited = new Set();
+      while (PRIMARY_FACET_PARENT_BY_ID.has(topLevelId) && !visited.has(topLevelId)) {
+        visited.add(topLevelId);
+        topLevelId = PRIMARY_FACET_PARENT_BY_ID.get(topLevelId);
+      }
+      return topLevelId;
+    }
 
-    function buildNetworkData(rows) {
+    const TOP_LEVEL_FACET_ID_BY_ID = new Map(FACETS.map(f => [f.id, getTopLevelFacetId(f.id)]));
+    const COLLAPSIBLE_ROOT_FACET_IDS = new Set(
+      FACETS
+        .filter(f => TOP_LEVEL_FACET_ID_BY_ID.get(f.id) === f.id && (FACET_CHILDREN_BY_PARENT.get(f.id) || []).length > 0)
+        .map(f => f.id)
+    );
+    const expandedTopLevelFacetIds = new Set();
+
+    function isFacetBranchExpanded(facetId) {
+      const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+      return !COLLAPSIBLE_ROOT_FACET_IDS.has(rootId) || expandedTopLevelFacetIds.has(rootId);
+    }
+
+    function isFacetNodeVisible(facetId) {
+      return TOP_LEVEL_FACET_ID_BY_ID.get(facetId) === facetId || isFacetBranchExpanded(facetId);
+    }
+
+    function getRowsInExpandedBranches(rows) {
+      return rows.filter(row => {
+        if (!row.facets.length) return true;
+        return row.facets.some(facetId => {
+          const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+          return !COLLAPSIBLE_ROOT_FACET_IDS.has(rootId) || expandedTopLevelFacetIds.has(rootId);
+        });
+      });
+    }
+
+    function setFacetBranchExpanded(rootId, expanded) {
+      if (!COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) return;
+
+      if (expanded) {
+        expandedTopLevelFacetIds.add(rootId);
+        selectedFacetIds.add(rootId);
+        return;
+      }
+
+      expandedTopLevelFacetIds.delete(rootId);
+      for (const facetId of selectedFacetIds) {
+        if (TOP_LEVEL_FACET_ID_BY_ID.get(facetId) === rootId) selectedFacetIds.delete(facetId);
+      }
+    }
+
+    function toggleFacetSelection(facetId) {
+      const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+      if (selectedFacetIds.has(facetId)) {
+        if (facetId === rootId && COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) {
+          setFacetBranchExpanded(rootId, false);
+        } else {
+          selectedFacetIds.delete(facetId);
+          if (!Array.from(selectedFacetIds).some(id => TOP_LEVEL_FACET_ID_BY_ID.get(id) === rootId)) {
+            expandedTopLevelFacetIds.delete(rootId);
+          }
+        }
+        return;
+      }
+
+      selectedFacetIds.add(facetId);
+      if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) expandedTopLevelFacetIds.add(rootId);
+    }
+
+    function buildNetworkData(rows, matchingRows) {
       const visibleFacetIds = new Set();
       const edges = [];
       const selectedRow = ROWS.find(r => r.id === selectedRowId) || null;
       const hoveredRow = ROWS.find(r => r.id === hoveredRowId) || null;
 
+      matchingRows.forEach(row => row.facets.forEach(facetId => {
+        const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+        if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) visibleFacetIds.add(rootId);
+      }));
+
       const nodes = rows.map(row => {
-        row.facets.forEach(fid => visibleFacetIds.add(fid));
+        row.facets.forEach(fid => {
+          if (isFacetBranchExpanded(fid)) visibleFacetIds.add(fid);
+        });
         const highlighted = (selectedRow && selectedRow.id === row.id) || (hoveredRow && hoveredRow.id === row.id);
         return {
           id: row.id,
           label: rowLabel(row),
           group: 'row',
-          size: highlighted ? ROW_SIZE_HIGHLIGHTED : ROW_SIZE,
+          size: rowNodeSize(row, highlighted),
           font: {
             color: getTheme().rowLabel,
             size: highlighted ? ROW_FONT_SIZE_HIGHLIGHTED : ROW_FONT_SIZE,
@@ -910,7 +1129,7 @@
       });
 
       FACETS.forEach(f => {
-        if (visibleFacetIds.has(f.id) || selectedFacetIds.has(f.id)) {
+        if (isFacetNodeVisible(f.id) && (visibleFacetIds.has(f.id) || selectedFacetIds.has(f.id))) {
           const isKeywordFacet = f.id.startsWith('kw_');
           const selected = selectedFacetIds.has(f.id);
           const size = facetNodeSize(f.count, selected);
@@ -961,9 +1180,10 @@
       rows.forEach(row => {
         const rowFacetIds = new Set(row.facets);
         row.facets.forEach(fid => {
-          const hasMoreSpecificRowFacet = (FACET_CHILDREN_BY_PARENT.get(fid) || [])
-            .some(childId => rowFacetIds.has(childId));
-          if (hasMoreSpecificRowFacet || !visibleFacetSet.has(fid)) return;
+          if (!isFacetNodeVisible(fid) || !visibleFacetSet.has(fid)) return;
+          const hasVisibleMoreSpecificRowFacet = (FACET_CHILDREN_BY_PARENT.get(fid) || [])
+            .some(childId => rowFacetIds.has(childId) && isFacetNodeVisible(childId));
+          if (hasVisibleMoreSpecificRowFacet) return;
           edges.push({
             from: row.id,
             to: fid,
@@ -1013,8 +1233,9 @@
         <div class="detail-row"><span class="detail-label">Item name:</span> <span class="detail-value">${escapeHtml(row.title || row.id)}</span></div>
         <div class="detail-row"><span class="detail-label">Dates:</span> <span class="detail-value">${escapeHtml(row.display_date || 'undated')}</span></div>
         <div class="detail-row"><span class="detail-label">Container instance:</span> <span class="detail-value">${escapeHtml(row.container_instance || '—')}</span></div>
-        <div class="detail-row"><span class="detail-label">Scope content:</span> <span class="detail-value">${escapeHtml(row.scope_content || '—')}</span></div>
-        <div class="detail-row"><span class="detail-label">Physical desc:</span> <span class="detail-value">${escapeHtml(row.physical_desc || '—')}</span></div>
+        ${(row.extents || []).length ? `<div class="detail-row"><span class="detail-label">Extents:</span> <span class="detail-value">${escapeHtml(row.extents.join('; '))}</span></div>` : ''}
+        ${row.general_note ? `<div class="detail-row"><span class="detail-label">General note:</span> <span class="detail-value">${escapeHtml(row.general_note)}</span></div>` : ''}
+        ${row.scope_content ? `<div class="detail-row"><span class="detail-label">Scope and content:</span> <span class="detail-value">${escapeHtml(row.scope_content)}</span></div>` : ''}
         <div class="detail-related">
           <div class="detail-related-title">Immediately related facets</div>
           ${relatedFacets.length ? `<div class="detail-facet-list">${relatedFacets.map(f => `<button type="button" class="detail-facet-chip ${selectedFacetIds.has(f.id) ? 'selected' : ''}" data-related-facet="${escapeHtml(f.id)}">${escapeHtml(f.label)}</button>`).join('')}</div>` : '<div class="detail-row"><span class="detail-value">No related facets.</span></div>'}
@@ -1024,8 +1245,7 @@
       detailPanel.querySelectorAll('[data-related-facet]').forEach(btn => {
         btn.addEventListener('click', () => {
           const fid = btn.dataset.relatedFacet;
-          if (selectedFacetIds.has(fid)) selectedFacetIds.delete(fid);
-          else selectedFacetIds.add(fid);
+          toggleFacetSelection(fid);
           render();
         });
       });
@@ -1050,9 +1270,13 @@
         }
       });
 
-      function renderFacet(facet) {
+      function renderFacet(facet, topLevelRootId = null) {
         const selected = selectedFacetIds.has(facet.id);
         const children = childrenByParent.get(facet.id) || [];
+        const isTopLevel = topLevelRootId === null;
+        const rootId = isTopLevel ? facet.id : topLevelRootId;
+        const canCollapse = isTopLevel && COLLAPSIBLE_ROOT_FACET_IDS.has(rootId);
+        const isExpanded = expandedTopLevelFacetIds.has(rootId);
         const alternateParents = (FACET_PARENTS_BY_CHILD.get(facet.id) || [])
           .filter(parentId => parentId !== PRIMARY_FACET_PARENT_BY_ID.get(facet.id))
           .map(facetLabel);
@@ -1067,24 +1291,34 @@
 
         return `
           <div class="facet-group">
-            <button type="button" class="${classes.join(' ')}" data-facet-id="${facet.id}"${tooltip ? ` title="${escapeHtml(tooltip)}"` : ''}>
-              <span class="facet-label">${escapeHtml(facet.label)}</span>
-              <span class="count">${counts.get(facet.id) || 0}</span>
-            </button>
-            ${children.length ? `<div class="facet-children">${children.map(renderFacet).join('')}</div>` : ''}
+            <div class="facet-header-row">
+              <button type="button" class="${classes.join(' ')}" data-facet-id="${facet.id}"${tooltip ? ` title="${escapeHtml(tooltip)}"` : ''}>
+                <span class="facet-label">${escapeHtml(facet.label)}</span>
+                <span class="count">${counts.get(facet.id) || 0}</span>
+              </button>
+              ${canCollapse ? `<button type="button" class="facet-collapse-toggle" data-collapse-root="${rootId}" aria-label="${isExpanded ? 'Collapse' : 'Expand'} ${escapeHtml(facet.label)}" aria-expanded="${isExpanded}" title="${isExpanded ? 'Collapse' : 'Expand'} subsidiary facets and files"><span class="facet-collapse-chevron" aria-hidden="true"></span></button>` : ''}
+            </div>
+            ${children.length && (!canCollapse || isExpanded) ? `<div class="facet-children">${children.map(child => renderFacet(child, rootId)).join('')}</div>` : ''}
           </div>
         `;
       }
 
-      facetList.innerHTML = rootFacets.map(renderFacet).join('');
+      facetList.innerHTML = rootFacets.map(facet => renderFacet(facet)).join('');
 
       facetList.querySelectorAll('[data-facet-id]').forEach(btn => {
         btn.addEventListener('click', () => {
           const fid = btn.dataset.facetId;
-          if (selectedFacetIds.has(fid)) selectedFacetIds.delete(fid);
-          else selectedFacetIds.add(fid);
+          toggleFacetSelection(fid);
           selectedRowId = null;
           hoveredRowId = null;
+          render();
+        });
+      });
+
+      facetList.querySelectorAll('[data-collapse-root]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const rootId = btn.dataset.collapseRoot;
+          setFacetBranchExpanded(rootId, !expandedTopLevelFacetIds.has(rootId));
           render();
         });
       });
@@ -1092,9 +1326,15 @@
       clearFacets.disabled = selectedFacetIds.size === 0;
     }
 
-    function renderRowList(rows) {
-      rowCount.textContent = `${rows.length} matching row${rows.length === 1 ? '' : 's'}`;
+    function renderRowList(rows, matchingRowCount = rows.length) {
+      const hiddenRowCount = matchingRowCount - rows.length;
+      rowCount.textContent = hiddenRowCount > 0
+        ? `${rows.length} shown, ${hiddenRowCount} hidden in collapsed facets`
+        : `${rows.length} matching row${rows.length === 1 ? '' : 's'}`;
       emptyState.style.display = rows.length ? 'none' : 'block';
+      emptyState.textContent = matchingRowCount
+        ? 'Matching files are hidden under collapsed facets.'
+        : 'No rows match the current selection.';
 
       rowList.innerHTML = rows.map(row => {
         const selected = row.id === selectedRowId;
@@ -1135,24 +1375,21 @@
       const timelineOn = timelineToggle.checked && !!slider.noUiSlider;
       const { startDate, endDate } = currentRange();
       const timelineRows = getTimelineRows();
-      const visibleRows = getVisibleRows();
+      const matchingRows = getVisibleRows();
+      const visibleRows = getRowsInExpandedBranches(matchingRows);
 
-      renderFacetList(visibleRows);
-      renderRowList(visibleRows);
+      if (selectedRowId && !visibleRows.some(r => r.id === selectedRowId)) selectedRowId = null;
+      if (hoveredRowId && !visibleRows.some(r => r.id === hoveredRowId)) hoveredRowId = null;
+
+      renderFacetList(matchingRows);
+      renderRowList(visibleRows, matchingRows.length);
       renderDetailPanel();
 
-      const data = buildNetworkData(visibleRows);
+      const data = buildNetworkData(visibleRows, matchingRows);
       network.setData({
         nodes: new vis.DataSet(data.nodes),
         edges: new vis.DataSet(data.edges)
       });
-
-      if (selectedRowId && !visibleRows.some(r => r.id === selectedRowId)) {
-        selectedRowId = null;
-      }
-      if (hoveredRowId && !visibleRows.some(r => r.id === hoveredRowId)) {
-        hoveredRowId = null;
-      }
 
       if (!timelineOn) {
         rangeText.innerHTML = selectedFacetIds.size
@@ -1170,8 +1407,7 @@
         const clickedId = params.nodes[0];
         const isFacet = FACETS.some(f => f.id === clickedId);
         if (isFacet) {
-          if (selectedFacetIds.has(clickedId)) selectedFacetIds.delete(clickedId);
-          else selectedFacetIds.add(clickedId);
+          toggleFacetSelection(clickedId);
           selectedRowId = null;
           hoveredRowId = null;
           render();
@@ -1186,6 +1422,7 @@
 
       if (params.nodes.length === 0 && params.edges.length === 0) {
         selectedFacetIds.clear();
+        expandedTopLevelFacetIds.clear();
         selectedRowId = null;
         hoveredRowId = null;
         render();
@@ -1218,6 +1455,7 @@
 
     clearFacets.addEventListener('click', function() {
       selectedFacetIds.clear();
+      expandedTopLevelFacetIds.clear();
       selectedRowId = null;
       hoveredRowId = null;
       render();

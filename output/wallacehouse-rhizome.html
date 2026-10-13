@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Academic Freedom Lecture Fund records</title>
+  <title>Wallace House Center for Journalists (University of Michigan) records</title>
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css">
@@ -106,42 +106,87 @@
       color: #333;
     }
     #page {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(210px, 0.78fr) minmax(0, 2.2fr) minmax(260px, 0.95fr);
+      grid-template-rows: minmax(130px, 150px) minmax(0, 1fr);
+      grid-template-areas:
+        "facets dates related"
+        "facets network related";
+      gap: 10px;
       width: 100%;
       flex: 1 1 auto;
       min-height: 0;
+      padding: 10px;
+      box-sizing: border-box;
     }
-    #facetSidebar, #rowSidebar {
-      width: 320px;
+    #facetSidebar, #dateSidebar, #rowSidebar, #detailSidebar {
       background: #fafafa;
       padding: 12px;
       box-sizing: border-box;
       overflow: auto;
+      min-width: 0;
       min-height: 0;
-      height: 100%;
+      border: 1px solid #ddd;
+      border-radius: 6px;
     }
     #facetSidebar {
-      border-right: 1px solid #ddd;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
+      grid-area: facets;
+      height: 100%;
     }
-    #facetSidebar > .tool-section {
-      display: block;
+    #dateSidebar {
+      grid-area: dates;
+      height: 100%;
     }
     #rowSidebar {
-      border-left: 1px solid #ddd;
+      flex: 1 1 0;
+      min-height: 120px;
+    }
+    #rightSidebar {
+      grid-area: related;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    #detailSidebar {
+      display: flex;
+      flex-direction: column;
+      flex: 0 1 auto;
+      gap: 6px;
+      min-height: 150px;
+      max-height: 58%;
+      min-width: 0;
+      overflow: hidden;
     }
     #container {
-      flex: 1;
+      grid-area: network;
+      width: 100%;
       height: 100%;
       min-width: 0;
+      min-height: 0;
     }
     #facetHeader, #rowHeader, #detailHeader, #timelineHeader {
       font-size: 13px;
       font-weight: 700;
       margin: 8px 0;
       color: #333;
+    }
+    .panel-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .panel-heading #facetHeader {
+      margin: 0;
+    }
+    .panel-heading .toolbar-btn {
+      flex: 0 0 auto;
+      width: auto !important;
     }
     #facetList {
       display: flex;
@@ -154,6 +199,42 @@
       flex-direction: column;
       gap: 6px;
       min-width: 0;
+    }
+    .facet-header-row {
+      display: flex;
+      align-items: stretch;
+      gap: 4px;
+      min-width: 0;
+    }
+    .facet-header-row .facet-pill {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .facet-collapse-toggle {
+      display: grid;
+      flex: 0 0 34px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid #cfcfcf;
+      border-radius: 8px;
+      background: #fff;
+      color: #444;
+      cursor: pointer;
+    }
+    .facet-collapse-toggle:hover {
+      background: #f2f4f6;
+      border-color: #8a929b;
+    }
+    .facet-collapse-chevron {
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(-45deg);
+      transition: transform 0.15s ease;
+    }
+    .facet-collapse-toggle[aria-expanded="true"] .facet-collapse-chevron {
+      transform: rotate(45deg);
     }
     .facet-children {
       display: flex;
@@ -207,26 +288,42 @@
       border-color: #ffb300;
       font-weight: 700;
     }
+    .facet-pill.keyword-facet {
+      background: #dccbef;
+      border-color: #7952a3;
+      color: #30194b;
+    }
+    .facet-pill.keyword-facet:hover {
+      background: #cdb5e6;
+      border-color: #6b3fa0;
+    }
+    .facet-pill.keyword-facet.selected {
+      background: #6b3fa0;
+      border-color: #4b2677;
+      color: #fff;
+    }
     .facet-pill .count {
       flex: 0 0 auto;
       color: #666;
       font-weight: 600;
     }
     .detail-panel {
-      border: 1px solid #e4e4e4;
-      background: #fff;
-      border-radius: 12px;
-      padding: 10px 12px;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      border: 0;
+      background: transparent;
+      border-radius: 0;
+      padding: 0;
       font-size: 12px;
       line-height: 1.45;
       color: #222;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-      margin-bottom: 14px;
-      min-height: 108px;
+      box-shadow: none;
+      margin: 0;
     }
     .detail-panel.empty {
       color: #666;
-      background: #fcfcfc;
+      background: transparent;
       font-style: italic;
     }
     .detail-row {
@@ -374,19 +471,22 @@
       color: #cbd5e1;
     }
     body[data-theme="dark"] #facetSidebar,
-    body[data-theme="dark"] #rowSidebar {
+    body[data-theme="dark"] #dateSidebar,
+    body[data-theme="dark"] #rowSidebar,
+    body[data-theme="dark"] #detailSidebar {
       background: #0b1220;
       border-color: #334155;
     }
     body[data-theme="dark"] .facet-pill,
     body[data-theme="dark"] .sidebar-item,
-    body[data-theme="dark"] .detail-panel {
+    body[data-theme="dark"] .facet-collapse-toggle {
       background: #111827;
       border-color: #334155;
       color: #e5e7eb;
     }
     body[data-theme="dark"] .facet-pill:hover,
-    body[data-theme="dark"] .sidebar-item:hover {
+    body[data-theme="dark"] .sidebar-item:hover,
+    body[data-theme="dark"] .facet-collapse-toggle:hover {
       background: #1e293b;
       border-color: #64748b;
     }
@@ -396,6 +496,20 @@
       border-color: #60a5fa;
       color: #f8fafc;
     }
+    body[data-theme="dark"] .facet-pill.keyword-facet {
+      background: #3b2b50;
+      border-color: #a884d2;
+      color: #f2e8ff;
+    }
+    body[data-theme="dark"] .facet-pill.keyword-facet:hover {
+      background: #4a3563;
+      border-color: #c5a8ec;
+    }
+    body[data-theme="dark"] .facet-pill.keyword-facet.selected {
+      background: #684395;
+      border-color: #d5b8f4;
+      color: #fff;
+    }
     body[data-theme="dark"] .facet-pill .count {
       color: #94a3b8;
     }
@@ -403,7 +517,7 @@
       border-color: #475569;
     }
     body[data-theme="dark"] .detail-panel.empty {
-      background: #0f172a;
+      background: transparent;
       color: #94a3b8;
     }
     body[data-theme="dark"] .detail-facet-chip {
@@ -460,16 +574,58 @@
     body[data-theme="dark"] .detail-value {
       white-space: pre-wrap;
     }
-    @media (max-width: 1100px) {
-      #page { flex-direction: column; height: auto; }
-      #facetSidebar, #rowSidebar { width: 100%; border-left: none; border-right: none; border-bottom: 1px solid #ddd; }
-      #container { height: 560px; }
+    @media (max-width: 950px) {
+      #page {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: minmax(130px, 150px) minmax(0, 1fr) minmax(240px, 34vh);
+        grid-template-areas:
+          "facets dates"
+          "facets network"
+          "related related";
+        overflow: auto;
+      }
+      #rightSidebar {
+        flex-direction: row;
+      }
+      #rowSidebar {
+        min-height: 0;
+      }
+      #detailSidebar {
+        flex: 0 0 38%;
+        max-height: none;
+        min-height: 0;
+      }
+    }
+    @media (max-width: 700px) {
+      #page {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(190px, 38vh) minmax(145px, auto) minmax(380px, 60vh) minmax(430px, 65vh);
+        grid-template-areas:
+          "facets"
+          "dates"
+          "network"
+          "related";
+      }
+      #facetSidebar {
+        max-height: 38vh;
+      }
+      #rightSidebar {
+        flex-direction: column;
+      }
+      #rowSidebar {
+        min-height: 180px;
+      }
+      #detailSidebar {
+        flex: 0 1 auto;
+        min-height: 160px;
+        max-height: 48%;
+      }
     }
   </style>
 </head>
 <body>
   <div id="controls">
-    <div id="title">Academic Freedom Lecture Fund records</div>
+    <div id="title">Wallace House Center for Journalists (University of Michigan) records</div>
     <div id="themeToggleBox">
       <label for="themeToggle">
         <input type="checkbox" id="themeToggle">
@@ -482,38 +638,44 @@
 
   <div id="page">
     <aside id="facetSidebar">
-      <div class="tool-section">
+      <div class="panel-heading">
         <div id="facetHeader">Facet spotlight</div>
-        <div id="facetList"></div>
-        <button id="clearFacets" class="toolbar-btn" disabled style="width: 100%;">Clear facet spotlight</button>
+        <button id="clearFacets" class="toolbar-btn" disabled>Clear selection</button>
       </div>
-      <div class="tool-section" id="timelineBlock">
-        <div id="timelineHeader">Date filtering</div>
-        <div class="toggle-row" style="margin-top: 0;">
-          <input type="checkbox" id="timelineToggle">
-          <label for="timelineToggle">Enable timeline filter</label>
-        </div>
-        <div id="sliderWrap"><div id="slider"></div></div>
-        <div id="rangeText">Timeline disabled - showing everything, including records without dates.</div>
+      <div id="facetList"></div>
+    </aside>
+
+    <section id="dateSidebar" aria-labelledby="timelineHeader">
+      <div id="timelineHeader">Date filtering</div>
+      <div class="toggle-row" style="margin-top: 0;">
+        <input type="checkbox" id="timelineToggle">
+        <label for="timelineToggle">Enable timeline filter</label>
       </div>
-      <div class="tool-section">
+      <div id="sliderWrap"><div id="slider"></div></div>
+      <div id="rangeText">Timeline disabled - showing everything, including records without dates.</div>
+    </section>
+
+    <div id="container"></div>
+
+    <aside id="rightSidebar">
+      <section id="rowSidebar">
+        <div id="rowHeader">Related files</div>
+        <div id="rowCount"></div>
+        <div id="rowList"></div>
+        <div id="emptyState" style="display:none;">No rows match the current selection.</div>
+      </section>
+
+      <section id="detailSidebar">
         <div id="detailHeader">File spotlight</div>
         <div id="detailPanel" class="detail-panel empty">Hover or click a file node or row to preview details.</div>
-      </div>
-    </aside>
-    <div id="container"></div>
-    <aside id="rowSidebar">
-      <div id="rowHeader">Related files</div>
-      <div id="rowCount"></div>
-      <div id="rowList"></div>
-      <div id="emptyState" style="display:none;">No rows match the current selection.</div>
+      </section>
     </aside>
   </div>
 
   <script>
-    const ROWS = [{"id": "ao_1099810", "title": "Organizational history", "display_date": "1966-2020", "date_expr": "1966-2020", "begin": "1966-01-01", "end": "2020-12-31", "container_instance": "Box 1", "box": "[Box 1]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099774"]}, {"id": "ao_1099809", "title": "Clement L. Markert", "display_date": "1941-1999", "date_expr": "1941-1999", "begin": "1941-01-01", "end": "1999-12-31", "container_instance": "Box 5", "box": "[Box 5]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099774", "kw_markert"]}, {"id": "ao_1099808", "title": "Organizational history", "display_date": "1954-2022", "date_expr": "1954-2022", "begin": "1954-01-01", "end": "2022-12-31", "container_instance": "Box 7", "box": "[Box 7]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099774"]}, {"id": "ao_1099811", "title": "Charles F. Borgsdorf, attorney", "display_date": "2018", "date_expr": "2018", "begin": "2018-01-01", "end": "2018-12-31", "container_instance": "Box 7", "box": "[Box 7]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099774"]}, {"id": "ao_1099800", "title": "Board of Directors meeting materials", "display_date": "1994-2018", "date_expr": "1994-2018", "begin": "1994-01-01", "end": "2018-12-31", "container_instance": "Box 2", "box": "[Box 2]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099775"]}, {"id": "ao_1099801", "title": "Board of Directors meeting materials", "display_date": "1990-2019", "date_expr": "1990-2019", "begin": "1990-01-01", "end": "2019-12-31", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099775"]}, {"id": "ao_1099779", "title": "Treasurer's reports and correspondence", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099776"]}, {"id": "ao_1099780", "title": "Fundraising", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 4", "box": "[Box 4]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099768", "ao_1099776"]}, {"id": "ao_1099777", "title": "Visiting professorship", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 5", "box": "[Box 5]", "scope_content": "This sub-series consists of material related to the Davis, Markert, Nickerson visiting professorship, including project proposals and correspondence related to the project.", "physical_desc": "", "facets": ["ao_1099768"]}, {"id": "ao_1099778", "title": "General correspondence", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 6", "box": "[Box 6]", "scope_content": "This sub-series consists of general administrative correspondence collected throughout the lifespan of the AFLF.", "physical_desc": "", "facets": ["ao_1099768"]}, {"id": "ao_992965", "title": "Keeping in Mind", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "Box 14", "box": "[Box 14]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_3305"]}, {"id": "ao_1099781", "title": "Incue, Inc. \"Keeping in Mind\" - Student film with letterbox mask & fixes", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "Box 14", "box": "[Box 14]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_3305"]}, {"id": "ao_1099782", "title": "Keeping in Mind", "display_date": "1989, 2000", "date_expr": "1989, 2000", "begin": "1989-01-01", "end": "2000-12-31", "container_instance": "Box 14", "box": "[Box 14]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_3305"]}, {"id": "ao_1099783", "title": "Keeping in Mind parts 1 and 2. Univ. of Mich. Bentley Archive Footage. W. Kaplan", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 14", "box": "[Box 14]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_3305"]}, {"id": "ao_1099785", "title": "Walter P. Metzger", "display_date": "1994", "date_expr": "1994", "begin": "1994-01-01", "end": "1994-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843"]}, {"id": "ao_1099789", "title": "Symposium on Academic and Intellectual Freedom. Introduction by B. J. Markert-Schreck", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_markert", "kw_symposium_on_academic"]}, {"id": "ao_3308", "title": "Symposium on Academic and Intellectual Freedom. Tape 1", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_symposium_on_academic"]}, {"id": "ao_1099790", "title": "Symposium on Academic and Intellectual Freedom. Tape 2", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_symposium_on_academic"]}, {"id": "ao_3309", "title": "Symposium on Academic and Intellectual Freedom. Panel 2: \"Scientific Evidence: Junk or Cutting Edge Science\"", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_symposium_on_academic"]}, {"id": "ao_3304", "title": "Vartan Gregorian", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843"]}, {"id": "ao_3307", "title": "Catharine A. MacKinnon. \"From Powerlessness to Power: the Uses of Academic Freedom\"", "display_date": "2002", "date_expr": "2002", "begin": "2002-01-01", "end": "2002-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843"]}, {"id": "ao_1099786", "title": "David Cole", "display_date": "2003", "date_expr": "2003", "begin": "2003-01-01", "end": "2003-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_david_cole"]}, {"id": "ao_1099787", "title": "Noam Chomsky", "display_date": "2004", "date_expr": "2004", "begin": "2004-01-01", "end": "2004-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_noam_chomsky"]}, {"id": "ao_1099788", "title": "Noam Chomsky. Open Captioned", "display_date": "2004", "date_expr": "2004", "begin": "2004-01-01", "end": "2004-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_noam_chomsky"]}, {"id": "ao_1099791", "title": "Floyd Abrams", "display_date": "2005", "date_expr": "2005", "begin": "2005-01-01", "end": "2005-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_floyd_abrams"]}, {"id": "ao_1099792", "title": "Bill Keller. \"Editors in Chains: Secrets, Security, and the Press\"", "display_date": "2006", "date_expr": "2006", "begin": "2006-01-01", "end": "2006-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099843", "kw_bill_keller"]}, {"id": "ao_1099845", "title": "P.J. Markert introduction", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844", "kw_markert"]}, {"id": "ao_1099855", "title": "Vartan Gregorian", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099846", "title": "Catharine A. MacKinnon", "display_date": "2002", "date_expr": "2002", "begin": "2002-01-01", "end": "2002-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099847", "title": "David D. Cole", "display_date": "2003", "date_expr": "2003", "begin": "2003-01-01", "end": "2003-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099848", "title": "Noam Chomsky", "display_date": "2004", "date_expr": "2004", "begin": "2004-01-01", "end": "2004-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844", "kw_noam_chomsky"]}, {"id": "ao_1099849", "title": "Floyd Abrams", "display_date": "2005", "date_expr": "2005", "begin": "2005-01-01", "end": "2005-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844", "kw_floyd_abrams"]}, {"id": "ao_1099850", "title": "Bill Keller", "display_date": "2006", "date_expr": "2006", "begin": "2006-01-01", "end": "2006-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844", "kw_bill_keller"]}, {"id": "ao_1099851", "title": "Nadine Strossen", "display_date": "2007", "date_expr": "2007", "begin": "2007-01-01", "end": "2007-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099852", "title": "Philip Hamburger", "display_date": "2009", "date_expr": "2009", "begin": "2009-01-01", "end": "2009-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099853", "title": "Michael Olivas", "display_date": "October 10, 2010", "date_expr": "October 10, 2010", "begin": "2010-10-10", "end": "2010-10-10", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844", "kw_michael"]}, {"id": "ao_1099854", "title": "Michael Olivas", "display_date": "October 11, 2010", "date_expr": "October 11, 2010", "begin": "2010-11-10", "end": "2010-11-10", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844", "kw_michael"]}, {"id": "ao_1099856", "title": "Ellen W. Schrecker", "display_date": "2011", "date_expr": "2011", "begin": "2011-01-01", "end": "2011-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099857", "title": "Robert C. Post", "display_date": "2012", "date_expr": "2012", "begin": "2012-01-01", "end": "2012-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099858", "title": "Marjorie Heins", "display_date": "2013", "date_expr": "2013", "begin": "2013-01-01", "end": "2013-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099859", "title": "Douglas Laycock", "display_date": "2014", "date_expr": "2014", "begin": "2014-01-01", "end": "2014-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099860", "title": "Natalie Zemon Davis and Joan Wallach Scott", "display_date": "2015", "date_expr": "2015", "begin": "2015-01-01", "end": "2015-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844", "kw_scott", "kw_davis"]}, {"id": "ao_1099861", "title": "Davis and Scott Q&A", "display_date": "2015", "date_expr": "2015", "begin": "2015-01-01", "end": "2015-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844", "kw_scott", "kw_davis"]}, {"id": "ao_1099862", "title": "Banquet performance", "display_date": "2015", "date_expr": "2015", "begin": "2015-01-01", "end": "2015-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099863", "title": "Marc Rotenberg", "display_date": "2016", "date_expr": "2016", "begin": "2016-01-01", "end": "2016-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844"]}, {"id": "ao_1099864", "title": "Michael Mann", "display_date": "2017", "date_expr": "2017", "begin": "2017-01-01", "end": "2017-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099784", "ao_1099844", "kw_michael"]}, {"id": "ao_1099794", "title": "David Cole interview with Charity Nebbe", "display_date": "2003", "date_expr": "2003", "begin": "2003-01-01", "end": "2003-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099843", "kw_david_cole", "kw_interview"]}, {"id": "ao_1099795", "title": "One 2 One: Noam Chomsky. Michigan Television", "display_date": "2004", "date_expr": "2004", "begin": "2004-01-01", "end": "2004-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099843", "kw_noam_chomsky"]}, {"id": "ao_1099796", "title": "Floyd Abrams interview. WOLV-TV", "display_date": "2005", "date_expr": "2005", "begin": "2005-01-01", "end": "2005-12-31", "container_instance": "Box 9", "box": "[Box 9]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099843", "kw_floyd_abrams", "kw_interview"]}, {"id": "ao_1099873", "title": "David Cole interview with Charity Nebbe", "display_date": "2003", "date_expr": "2003", "begin": "2003-01-01", "end": "2003-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "kw_david_cole", "kw_interview"]}, {"id": "ao_1099870", "title": "One 2 One with Noam Chomsky", "display_date": "2004", "date_expr": "2004", "begin": "2004-01-01", "end": "2004-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "kw_noam_chomsky"]}, {"id": "ao_1099875", "title": "Floyd Abrams WJR Radio interview", "display_date": "2005", "date_expr": "2005", "begin": "2005-01-01", "end": "2005-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "kw_floyd_abrams", "kw_interview"]}, {"id": "ao_1099872", "title": "Bill Keller interview with Jessica Callahan", "display_date": "2006", "date_expr": "2006", "begin": "2006-01-01", "end": "2006-12-31", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "kw_bill_keller", "kw_interview"]}, {"id": "ao_1099908", "title": "Juan Cole", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099909", "title": "Louis D'Alecy", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099906", "title": "Aaron Davis", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876", "kw_davis"]}, {"id": "ao_1099907", "title": "Chandler Davis", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876", "kw_davis"]}, {"id": "ao_1099915", "title": "Natalie Zemon Davis", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876", "kw_davis"]}, {"id": "ao_1099918", "title": "Simone Davis", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876", "kw_davis"]}, {"id": "ao_1099910", "title": "Peggie Hollingsworth", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099911", "title": "Mary Ann Jackson", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099913", "title": "Gary Krenz", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099914", "title": "Adam Kulakow", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099916", "title": "Mike Nickerson", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099912", "title": "Joan Wallach Scott", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876", "kw_scott"]}, {"id": "ao_1099919", "title": "David E. Smith", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099920", "title": "Ted St. Antoine", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099921", "title": "Alan Wald", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099917", "title": "Silke-Maria Weineck", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "", "box": "", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770", "ao_1099793", "ao_1099866", "ao_1099876"]}, {"id": "ao_1099802", "title": "Transcriptions", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 8", "box": "[Box 8]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099770"]}, {"id": "ao_1099803", "title": "Speaker files", "display_date": "1992-2017", "date_expr": "1992-2017", "begin": "1992-01-01", "end": "2017-12-31", "container_instance": "Box 10", "box": "[Box 10]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099771"]}, {"id": "ao_1099804", "title": "Speaker files", "display_date": "2001-2008", "date_expr": "2001-2008", "begin": "2001-01-01", "end": "2008-12-31", "container_instance": "Box 11", "box": "[Box 11]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099771"]}, {"id": "ao_1099805", "title": "Speaker files", "display_date": "2009-2016", "date_expr": "2009-2016", "begin": "2009-01-01", "end": "2016-12-31", "container_instance": "Box 12", "box": "[Box 12]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099771"]}, {"id": "ao_1099772", "title": "Publicity", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 12", "box": "[Box 12]", "scope_content": "This sub-series consists of material related to the production and distribution of promotional materials for the Davis, Markert, Nickerson Lectures.", "physical_desc": "", "facets": ["ao_1099769"]}, {"id": "ao_1099806", "title": "10th anniversary symposium planning", "display_date": "1998-2000", "date_expr": "1998-2000", "begin": "1998-01-01", "end": "2000-12-31", "container_instance": "Box 13", "box": "[Box 13]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099773"]}, {"id": "ao_1099807", "title": "10th anniversary symposium planning", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 14", "box": "[Box 14]", "scope_content": "", "physical_desc": "", "facets": ["ao_1099769", "ao_1099773"]}];
-    const FACETS = [{"id": "ao_1099768", "label": "Administrative records", "count": 10}, {"id": "ao_1099774", "label": "Organizational history", "count": 4}, {"id": "ao_1099775", "label": "Board of Directors meeting materials", "count": 2}, {"id": "ao_1099776", "label": "Financial records", "count": 2}, {"id": "ao_1099769", "label": "Davis, Markert, Nickerson Lectures on Academic and Intellectual Freedom", "count": 66}, {"id": "ao_1099770", "label": "Lecture and interview transcriptions and recordings", "count": 60}, {"id": "ao_3305", "label": "Kulakow, Adam E. Keeping in Mind: The McCarthy Era at the University of Michigan", "count": 4}, {"id": "ao_1099784", "label": "Lecture recordings", "count": 32}, {"id": "ao_1099843", "label": "VHS tapes", "count": 15}, {"id": "ao_1099844", "label": "Digital recordings", "count": 20}, {"id": "ao_1099793", "label": "Interview recordings", "count": 23}, {"id": "ao_1099866", "label": "Digital files", "count": 20}, {"id": "ao_1099876", "label": "\"Value of Academic & Intellectual Freedom within Academics & Society.\" Oral interviews", "count": 16}, {"id": "ao_1099771", "label": "Speaker files", "count": 3}, {"id": "ao_1099773", "label": "10th anniversary symposium planning", "count": 2}, {"id": "kw_markert", "label": "Markert", "count": 3}, {"id": "kw_symposium_on_academic", "label": "Symposium on Academic", "count": 4}, {"id": "kw_david_cole", "label": "David Cole", "count": 3}, {"id": "kw_noam_chomsky", "label": "Noam Chomsky", "count": 5}, {"id": "kw_floyd_abrams", "label": "Floyd Abrams", "count": 4}, {"id": "kw_bill_keller", "label": "Bill Keller", "count": 3}, {"id": "kw_michael", "label": "Michael", "count": 3}, {"id": "kw_scott", "label": "Scott", "count": 3}, {"id": "kw_davis", "label": "Davis", "count": 6}, {"id": "kw_interview", "label": "interview", "count": 5}];
-    const availableDates = ["1941-01-01", "1954-01-01", "1966-01-01", "1989-01-01", "1990-01-01", "1992-01-01", "1994-01-01", "1994-12-31", "1998-01-01", "1999-12-31", "2000-01-01", "2000-12-31", "2001-01-01", "2001-12-31", "2002-01-01", "2002-12-31", "2003-01-01", "2003-12-31", "2004-01-01", "2004-12-31", "2005-01-01", "2005-12-31", "2006-01-01", "2006-12-31", "2007-01-01", "2007-12-31", "2008-12-31", "2009-01-01", "2009-12-31", "2010-10-10", "2010-11-10", "2011-01-01", "2011-12-31", "2012-01-01", "2012-12-31", "2013-01-01", "2013-12-31", "2014-01-01", "2014-12-31", "2015-01-01", "2015-12-31", "2016-01-01", "2016-12-31", "2017-01-01", "2017-12-31", "2018-01-01", "2018-12-31", "2019-12-31", "2020-12-31", "2022-12-31"];
+    const ROWS = [{"id": "ao_1101965", "title": "Physical materials", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 6.0, "extents": ["6 folders"], "facets": ["ao_1101885", "kw_physical_materials"]}, {"id": "ao_1101956", "title": "Wallace House dedication recording", "display_date": "April 14, 1993", "date_expr": "April 14, 1993", "begin": "1993-04-14", "end": "1993-04-14", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1101885", "kw_wallace_house"]}, {"id": "ao_1101852", "title": "Correspondence", "display_date": "1972-1976", "date_expr": "1972-1976", "begin": "1972-01-01", "end": "1976-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1099817"]}, {"id": "ao_1101853", "title": "Correspondence", "display_date": "1976-1980", "date_expr": "1976-1980", "begin": "1976-01-01", "end": "1980-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1099817"]}, {"id": "ao_1101854", "title": "Correspondence", "display_date": "1981-1989", "date_expr": "1981-1989", "begin": "1981-01-01", "end": "1989-12-31", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1099817"]}, {"id": "ao_1101855", "title": "Correspondence", "display_date": "1989-1993", "date_expr": "1989-1993", "begin": "1989-01-01", "end": "1993-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1099817"]}, {"id": "ao_1101856", "title": "Correspondence", "display_date": "1999-2014", "date_expr": "1999-2014", "begin": "1999-01-01", "end": "2014-12-31", "container_instance": "Box 6", "box": "[Box 6]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1099817"]}, {"id": "ao_1101955", "title": "Digital correspondence and emails", "display_date": "1988-1993", "date_expr": "1988-1993", "begin": "1988-01-01", "end": "1993-12-31", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1099817"]}, {"id": "ao_1101857", "title": "Foundation files, NEH reports, budgets", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 7", "box": "[Box 7]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1101843"]}, {"id": "ao_1101858", "title": "Kellogg Foundation records, Wallace House property files", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 8", "box": "[Box 8]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 17.0, "extents": ["17 folders"], "facets": ["ao_1101843", "kw_wallace_house"]}, {"id": "ao_1101850", "title": "Newsletter and the Journal of Michigan Fellows", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 8", "box": "[Box 8]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 10.0, "extents": ["10 folders"], "facets": ["ao_1101844"]}, {"id": "ao_1101851", "title": "The Journal of Michigan Fellows and the Michigan Journalist", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 9", "box": "[Box 9]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1101844"]}, {"id": "ao_1101859", "title": "Conferences", "display_date": "1997-1999", "date_expr": "1997-1999", "begin": "1997-01-01", "end": "1999-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1101845"]}, {"id": "ao_1101968", "title": "Physical materials", "display_date": "2000-2007", "date_expr": "2000-2007", "begin": "2000-01-01", "end": "2007-12-31", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 9.0, "extents": ["9 folders"], "facets": ["ao_1101845", "kw_physical_materials"]}, {"id": "ao_1101957", "title": "Digital conference documents", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1101845", "kw_digital_conference"]}, {"id": "ao_1101864", "title": "Covering Assisted Death: The Press, the Law and Public Policy. Part 1", "display_date": "1999", "date_expr": "1999", "begin": "1999-01-01", "end": "1999-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["ao_1101845", "ao_1101970", "kw_law_and_public_policy", "kw_press_and_public_policy"]}, {"id": "ao_1101865", "title": "Covering Assisted Death: The Press, the Law and Public Policy. Part 2", "display_date": "1999", "date_expr": "1999", "begin": "1999-01-01", "end": "1999-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["ao_1101845", "ao_1101970", "kw_law_and_public_policy", "kw_press_and_public_policy"]}, {"id": "ao_1101866", "title": "Covering Managed Care: The Press and Public Policy. Tape 1", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["ao_1101845", "ao_1101970", "kw_press_and_public_policy", "kw_covering_managed_care"]}, {"id": "ao_1101867", "title": "Covering Managed Care: The Press and Public Policy. Tape 2", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["ao_1101845", "ao_1101970", "kw_press_and_public_policy", "kw_covering_managed_care"]}, {"id": "ao_1101868", "title": "Covering Managed Care: The Press and Public Policy. Tape 3", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["ao_1101845", "ao_1101970", "kw_press_and_public_policy", "kw_covering_managed_care"]}, {"id": "ao_1101862", "title": "Quality Pays: The Press and Public Policy. Part 1", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["ao_1101845", "ao_1101970", "kw_press_and_public_policy", "kw_quality_pays"]}, {"id": "ao_1101863", "title": "Quality Pays: The Press and Public Policy. Part 2", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["ao_1101845", "ao_1101970", "kw_press_and_public_policy", "kw_quality_pays"]}, {"id": "ao_1101861", "title": "Covering Race Then and Now: The Press and Public Policy", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["ao_1101845", "ao_1101970", "kw_press_and_public_policy"]}, {"id": "ao_1101894", "title": "\"The Food Page: The Press and Public Policy.\" Part one", "display_date": "September 15, 2003", "date_expr": "September 15, 2003", "begin": "2003-09-15", "end": "2003-09-15", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1101845", "ao_1101970", "kw_press_and_public_policy", "kw_food_page"]}, {"id": "ao_1101895", "title": "\"The Food Page: The Press and Public Policy.\" Part two", "display_date": "September 15, 2003", "date_expr": "September 15, 2003", "begin": "2003-09-15", "end": "2003-09-15", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1101845", "ao_1101970", "kw_press_and_public_policy", "kw_food_page"]}, {"id": "ao_1101892", "title": "\"Women's Health: The Press and Public Policy.\" Session one", "display_date": "November 7, 2005", "date_expr": "November 7, 2005", "begin": "2005-11-07", "end": "2005-11-07", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1101845", "ao_1101970", "kw_press_and_public_policy", "kw_session_one", "kw_womens_health"]}, {"id": "ao_1101893", "title": "\"Women's Health: The Press and Public Policy.\" Session two", "display_date": "November 7, 2005", "date_expr": "November 7, 2005", "begin": "2005-11-07", "end": "2005-11-07", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1101845", "ao_1101970", "kw_press_and_public_policy", "kw_womens_health", "kw_session_two"]}, {"id": "ao_1101896", "title": "\"Covering New Secrecy.\" Session one", "display_date": "January 8, 2007", "date_expr": "January 8, 2007", "begin": "2007-01-08", "end": "2007-01-08", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1101845", "ao_1101970", "kw_session_one", "kw_covering_new_secrecy"]}, {"id": "ao_1101897", "title": "\"Covering New Secrecy.\" Session two", "display_date": "January 8, 2007", "date_expr": "January 8, 2007", "begin": "2008-01-08", "end": "2008-01-08", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1101845", "ao_1101970", "kw_session_two", "kw_covering_new_secrecy"]}, {"id": "ao_1101969", "title": "Physical materials", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 5.0, "extents": ["5 folders"], "facets": ["ao_1101846", "kw_physical_materials"]}, {"id": "ao_1101898", "title": "Professor Eisendrath. Wallace House. Audiocassette", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 audiocassettes"], "facets": ["ao_1101846", "kw_wallace_house"]}, {"id": "ao_1101889", "title": "Digital conference materials", "display_date": "2008", "date_expr": "2008", "begin": "2008-01-01", "end": "2008-12-31", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1101846", "kw_digital_conference"]}, {"id": "ao_1101886", "title": "\"Serious Stuff About Humor: What is it? Why is it?\" Session one", "display_date": "March 10, 2008", "date_expr": "March 10, 2008", "begin": "2008-03-10", "end": "2008-03-10", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1101846", "kw_session_one", "kw_serious_stuff_about_humor"]}, {"id": "ao_1101887", "title": "\"Serious Stuff About Humor: What is it? Why is it?\" Session two", "display_date": "March 10, 2008", "date_expr": "March 10, 2008", "begin": "2008-03-01", "end": "2008-03-01", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1101846", "kw_session_two", "kw_serious_stuff_about_humor"]}, {"id": "ao_1101888", "title": "\"Sculpture Event Loop\"", "display_date": "March 4, 2008", "date_expr": "March 4, 2008", "begin": "2008-03-04", "end": "2008-03-04", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["ao_1101846"]}, {"id": "ao_1101848", "title": "Interviews", "display_date": "1994-2000", "date_expr": "1994-2000", "begin": "1994-01-01", "end": "2000-12-31", "container_instance": "Box 12", "box": "[Box 12]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 9.0, "extents": ["9 folders"], "facets": ["ao_1101847"]}, {"id": "ao_1101849", "title": "Attaboy files", "display_date": "1990-2013", "date_expr": "1990-2013", "begin": "1990-01-01", "end": "2013-12-31", "container_instance": "Box 12", "box": "[Box 12]", "general_note": "(Consists of fellowship alumni accomplishments, publications, and correspondence.)", "scope_content": "", "physical_desc": "", "extent_value": 23.0, "extents": ["23 folders"], "facets": ["ao_1101847"]}];
+    const FACETS = [{"id": "ao_1101885", "label": "Organizational history", "count": 2}, {"id": "ao_1099817", "label": "Correspondence", "count": 6}, {"id": "ao_1101843", "label": "Financial and development records", "count": 2}, {"id": "ao_1101844", "label": "Publications", "count": 2}, {"id": "ao_1101845", "label": "Conferences", "count": 17}, {"id": "ao_1101970", "label": "Conference recordings", "count": 14}, {"id": "ao_1101846", "label": "Humor at Michigan program", "count": 6}, {"id": "ao_1101847", "label": "Fellows records", "count": 2}, {"id": "kw_physical_materials", "label": "Physical materials", "count": 3}, {"id": "kw_wallace_house", "label": "Wallace House", "count": 3}, {"id": "kw_digital_conference", "label": "Digital conference", "count": 2}, {"id": "kw_law_and_public_policy", "label": "Law and Public Policy", "count": 2}, {"id": "kw_press_and_public_policy", "label": "Press and Public Policy", "count": 12}, {"id": "kw_covering_managed_care", "label": "Covering Managed Care", "count": 3}, {"id": "kw_quality_pays", "label": "Quality Pays", "count": 2}, {"id": "kw_food_page", "label": "Food Page", "count": 2}, {"id": "kw_session_one", "label": "Session one", "count": 3}, {"id": "kw_womens_health", "label": "Women's Health", "count": 2}, {"id": "kw_session_two", "label": "Session two", "count": 3}, {"id": "kw_covering_new_secrecy", "label": "Covering New Secrecy", "count": 2}, {"id": "kw_serious_stuff_about_humor", "label": "Serious Stuff About Humor", "count": 2}];
+    const availableDates = ["1972-01-01", "1976-01-01", "1976-12-31", "1980-12-31", "1981-01-01", "1988-01-01", "1989-01-01", "1989-12-31", "1990-01-01", "1993-04-14", "1993-12-31", "1994-01-01", "1997-01-01", "1999-01-01", "1999-12-31", "2000-01-01", "2000-12-31", "2001-01-01", "2001-12-31", "2003-09-15", "2005-11-07", "2007-01-08", "2007-12-31", "2008-01-01", "2008-01-08", "2008-03-01", "2008-03-04", "2008-03-10", "2008-12-31", "2013-12-31", "2014-12-31"];
 
     const container = document.getElementById('container');
     const slider = document.getElementById('slider');
@@ -541,11 +703,11 @@
         solver: 'forceAtlas2Based',
         forceAtlas2Based: {
           gravitationalConstant: -100,
-          centralGravity: 0.05,
-          springLength: 90,
+          centralGravity: 0.01,
+          springLength: 80,
           springConstant: 0.06,
-          damping: 0.65,
-          avoidOverlap: 0.5
+          damping: 0.85,
+          avoidOverlap: 1
         },
         stabilization: { iterations: 300, fit: true },
         maxVelocity: 12,
@@ -593,6 +755,14 @@
         facetHoverBackground: '#FF9F1C',
         facetSelectedBackground: '#FFE082',
         facetSelectedBorder: '#FF8C00',
+        keywordFacetBackground: '#D8C4ED',
+        keywordFacetBorder: '#7446A8',
+        keywordFacetHoverBackground: '#C5A9E2',
+        keywordFacetSelectedBackground: '#7446A8',
+        keywordFacetSelectedBorder: '#512F7D',
+        keywordFacetLabel: '#321A4A',
+        keywordFacetSelectedLabel: '#FFFFFF',
+        keywordFacetHighlight: 'rgba(116, 70, 168, 0.42)',
         rowLabel: '#111111',
         facetLabel: '#000000',
         edge: '#999',
@@ -612,6 +782,14 @@
         facetHoverBackground: '#FBBF24',
         facetSelectedBackground: '#92400E',
         facetSelectedBorder: '#FCD34D',
+        keywordFacetBackground: '#4A3563',
+        keywordFacetBorder: '#B99ADD',
+        keywordFacetHoverBackground: '#5A4177',
+        keywordFacetSelectedBackground: '#7653A6',
+        keywordFacetSelectedBorder: '#DCC7F2',
+        keywordFacetLabel: '#F4EAFE',
+        keywordFacetSelectedLabel: '#FFFFFF',
+        keywordFacetHighlight: 'rgba(185, 154, 221, 0.45)',
         rowLabel: '#F8FAFC',
         facetLabel: '#F8FAFC',
         edge: '#64748B',
@@ -733,8 +911,17 @@
     // and grow from there with how many files are tagged to them.
     const ROW_SIZE = 9;
     const ROW_SIZE_HIGHLIGHTED = 13;
+    const ROW_EXTENT_MAX_BOOST = 2;
     const ROW_FONT_SIZE = 10;
     const ROW_FONT_SIZE_HIGHLIGHTED = 12;
+    const maxExtentValue = ROWS.reduce((maximum, row) => Math.max(maximum, row.extent_value || 0), 0);
+
+    function rowNodeSize(row, highlighted) {
+      const base = highlighted ? ROW_SIZE_HIGHLIGHTED : ROW_SIZE;
+      if (!row.extent_value || maxExtentValue <= 0) return base;
+      const extentGrowth = ROW_EXTENT_MAX_BOOST * Math.log1p(row.extent_value) / Math.log1p(maxExtentValue);
+      return base + extentGrowth;
+    }
 
     // The smallest-count facet always renders at FACET_MIN_SIZE and the
     // largest-count facet always renders at FACET_MAX_SIZE -- counts in
@@ -807,27 +994,105 @@
 
     const FACET_CONTAINMENT_LINKS = buildFacetContainmentLinks();
     const FACET_PARENTS_BY_CHILD = new Map(FACETS.map(f => [f.id, []]));
+    const FACET_CHILDREN_BY_PARENT = new Map(FACETS.map(f => [f.id, []]));
     FACET_CONTAINMENT_LINKS.forEach(link => FACET_PARENTS_BY_CHILD.get(link.from)?.push(link.to));
+    FACET_CONTAINMENT_LINKS.forEach(link => FACET_CHILDREN_BY_PARENT.get(link.to)?.push(link.from));
     const PRIMARY_FACET_PARENT_BY_ID = new Map();
     FACET_PARENTS_BY_CHILD.forEach((parentIds, childId) => {
       const [primaryParentId] = parentIds.sort((a, b) => facetLabel(a).localeCompare(facetLabel(b)) || a.localeCompare(b));
       if (primaryParentId) PRIMARY_FACET_PARENT_BY_ID.set(childId, primaryParentId);
     });
+    function getTopLevelFacetId(facetId) {
+      let topLevelId = facetId;
+      const visited = new Set();
+      while (PRIMARY_FACET_PARENT_BY_ID.has(topLevelId) && !visited.has(topLevelId)) {
+        visited.add(topLevelId);
+        topLevelId = PRIMARY_FACET_PARENT_BY_ID.get(topLevelId);
+      }
+      return topLevelId;
+    }
 
-    function buildNetworkData(rows) {
+    const TOP_LEVEL_FACET_ID_BY_ID = new Map(FACETS.map(f => [f.id, getTopLevelFacetId(f.id)]));
+    const COLLAPSIBLE_ROOT_FACET_IDS = new Set(
+      FACETS
+        .filter(f => TOP_LEVEL_FACET_ID_BY_ID.get(f.id) === f.id && (FACET_CHILDREN_BY_PARENT.get(f.id) || []).length > 0)
+        .map(f => f.id)
+    );
+    const expandedTopLevelFacetIds = new Set();
+
+    function isFacetBranchExpanded(facetId) {
+      const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+      return !COLLAPSIBLE_ROOT_FACET_IDS.has(rootId) || expandedTopLevelFacetIds.has(rootId);
+    }
+
+    function isFacetNodeVisible(facetId) {
+      return TOP_LEVEL_FACET_ID_BY_ID.get(facetId) === facetId || isFacetBranchExpanded(facetId);
+    }
+
+    function getRowsInExpandedBranches(rows) {
+      return rows.filter(row => {
+        if (!row.facets.length) return true;
+        return row.facets.some(facetId => {
+          const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+          return !COLLAPSIBLE_ROOT_FACET_IDS.has(rootId) || expandedTopLevelFacetIds.has(rootId);
+        });
+      });
+    }
+
+    function setFacetBranchExpanded(rootId, expanded) {
+      if (!COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) return;
+
+      if (expanded) {
+        expandedTopLevelFacetIds.add(rootId);
+        selectedFacetIds.add(rootId);
+        return;
+      }
+
+      expandedTopLevelFacetIds.delete(rootId);
+      for (const facetId of selectedFacetIds) {
+        if (TOP_LEVEL_FACET_ID_BY_ID.get(facetId) === rootId) selectedFacetIds.delete(facetId);
+      }
+    }
+
+    function toggleFacetSelection(facetId) {
+      const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+      if (selectedFacetIds.has(facetId)) {
+        if (facetId === rootId && COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) {
+          setFacetBranchExpanded(rootId, false);
+        } else {
+          selectedFacetIds.delete(facetId);
+          if (!Array.from(selectedFacetIds).some(id => TOP_LEVEL_FACET_ID_BY_ID.get(id) === rootId)) {
+            expandedTopLevelFacetIds.delete(rootId);
+          }
+        }
+        return;
+      }
+
+      selectedFacetIds.add(facetId);
+      if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) expandedTopLevelFacetIds.add(rootId);
+    }
+
+    function buildNetworkData(rows, matchingRows) {
       const visibleFacetIds = new Set();
       const edges = [];
       const selectedRow = ROWS.find(r => r.id === selectedRowId) || null;
       const hoveredRow = ROWS.find(r => r.id === hoveredRowId) || null;
 
+      matchingRows.forEach(row => row.facets.forEach(facetId => {
+        const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+        if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) visibleFacetIds.add(rootId);
+      }));
+
       const nodes = rows.map(row => {
-        row.facets.forEach(fid => visibleFacetIds.add(fid));
+        row.facets.forEach(fid => {
+          if (isFacetBranchExpanded(fid)) visibleFacetIds.add(fid);
+        });
         const highlighted = (selectedRow && selectedRow.id === row.id) || (hoveredRow && hoveredRow.id === row.id);
         return {
           id: row.id,
           label: rowLabel(row),
           group: 'row',
-          size: highlighted ? ROW_SIZE_HIGHLIGHTED : ROW_SIZE,
+          size: rowNodeSize(row, highlighted),
           font: {
             color: getTheme().rowLabel,
             size: highlighted ? ROW_FONT_SIZE_HIGHLIGHTED : ROW_FONT_SIZE,
@@ -864,9 +1129,15 @@
       });
 
       FACETS.forEach(f => {
-        if (visibleFacetIds.has(f.id) || selectedFacetIds.has(f.id)) {
+        if (isFacetNodeVisible(f.id) && (visibleFacetIds.has(f.id) || selectedFacetIds.has(f.id))) {
+          const isKeywordFacet = f.id.startsWith('kw_');
           const selected = selectedFacetIds.has(f.id);
           const size = facetNodeSize(f.count, selected);
+          const background = isKeywordFacet ? getTheme().keywordFacetBackground : getTheme().facetBackground;
+          const border = isKeywordFacet ? getTheme().keywordFacetBorder : getTheme().facetBorder;
+          const hoverBackground = isKeywordFacet ? getTheme().keywordFacetHoverBackground : getTheme().facetHoverBackground;
+          const selectedBackground = isKeywordFacet ? getTheme().keywordFacetSelectedBackground : getTheme().facetSelectedBackground;
+          const selectedBorder = isKeywordFacet ? getTheme().keywordFacetSelectedBorder : getTheme().facetSelectedBorder;
           nodes.push({
             id: f.id,
             label: f.label,
@@ -874,27 +1145,29 @@
             title: `${escapeHtml(f.label)}<br>${f.count} row${f.count === 1 ? '' : 's'}`,
             size,
             font: {
-              color: getTheme().facetLabel,
+              color: isKeywordFacet
+                ? (selected ? getTheme().keywordFacetSelectedLabel : getTheme().keywordFacetLabel)
+                : getTheme().facetLabel,
               size: facetFontSize(size),
               bold: selected
             },
             color: selected
               ? {
-                  background: getTheme().facetSelectedBackground,
-                  border: getTheme().facetSelectedBorder,
-                  highlight: { background: getTheme().facetSelectedBackground, border: getTheme().facetSelectedBorder },
-                  hover: { background: getTheme().facetSelectedBackground, border: getTheme().facetSelectedBorder }
+                  background: selectedBackground,
+                  border: selectedBorder,
+                  highlight: { background: selectedBackground, border: selectedBorder },
+                  hover: { background: selectedBackground, border: selectedBorder }
                 }
               : {
-                  background: getTheme().facetBackground,
-                  border: getTheme().facetBorder,
-                  highlight: { background: getTheme().facetHoverBackground, border: getTheme().facetBorder },
-                  hover: { background: getTheme().facetHoverBackground, border: getTheme().facetBorder }
+                  background,
+                  border,
+                  highlight: { background: hoverBackground, border },
+                  hover: { background: hoverBackground, border }
                 },
             borderWidth: selected ? 3 : 1.5,
             shadow: selected ? {
               enabled: true,
-              color: getTheme().facetHighlight,
+              color: isKeywordFacet ? getTheme().keywordFacetHighlight : getTheme().facetHighlight,
               size: 12,
               x: 0,
               y: 0
@@ -905,16 +1178,19 @@
 
       const visibleFacetSet = new Set(nodes.filter(n => n.group === 'facet').map(n => n.id));
       rows.forEach(row => {
+        const rowFacetIds = new Set(row.facets);
         row.facets.forEach(fid => {
-          if (visibleFacetSet.has(fid)) {
-            edges.push({
-              from: row.id,
-              to: fid,
-              width: selectedFacetIds.has(fid) ? 3 : 1.2,
-              color: selectedFacetIds.has(fid) ? { color: getTheme().edgeSelected } : { color: getTheme().edge },
-              title: `Connected facet: ${fid}`
-            });
-          }
+          if (!isFacetNodeVisible(fid) || !visibleFacetSet.has(fid)) return;
+          const hasVisibleMoreSpecificRowFacet = (FACET_CHILDREN_BY_PARENT.get(fid) || [])
+            .some(childId => rowFacetIds.has(childId) && isFacetNodeVisible(childId));
+          if (hasVisibleMoreSpecificRowFacet) return;
+          edges.push({
+            from: row.id,
+            to: fid,
+            width: selectedFacetIds.has(fid) ? 3 : 1.2,
+            color: selectedFacetIds.has(fid) ? { color: getTheme().edgeSelected } : { color: getTheme().edge },
+            title: `Connected facet: ${fid}`
+          });
         });
       });
 
@@ -957,8 +1233,9 @@
         <div class="detail-row"><span class="detail-label">Item name:</span> <span class="detail-value">${escapeHtml(row.title || row.id)}</span></div>
         <div class="detail-row"><span class="detail-label">Dates:</span> <span class="detail-value">${escapeHtml(row.display_date || 'undated')}</span></div>
         <div class="detail-row"><span class="detail-label">Container instance:</span> <span class="detail-value">${escapeHtml(row.container_instance || '—')}</span></div>
-        <div class="detail-row"><span class="detail-label">Scope content:</span> <span class="detail-value">${escapeHtml(row.scope_content || '—')}</span></div>
-        <div class="detail-row"><span class="detail-label">Physical desc:</span> <span class="detail-value">${escapeHtml(row.physical_desc || '—')}</span></div>
+        ${(row.extents || []).length ? `<div class="detail-row"><span class="detail-label">Extents:</span> <span class="detail-value">${escapeHtml(row.extents.join('; '))}</span></div>` : ''}
+        ${row.general_note ? `<div class="detail-row"><span class="detail-label">General note:</span> <span class="detail-value">${escapeHtml(row.general_note)}</span></div>` : ''}
+        ${row.scope_content ? `<div class="detail-row"><span class="detail-label">Scope and content:</span> <span class="detail-value">${escapeHtml(row.scope_content)}</span></div>` : ''}
         <div class="detail-related">
           <div class="detail-related-title">Immediately related facets</div>
           ${relatedFacets.length ? `<div class="detail-facet-list">${relatedFacets.map(f => `<button type="button" class="detail-facet-chip ${selectedFacetIds.has(f.id) ? 'selected' : ''}" data-related-facet="${escapeHtml(f.id)}">${escapeHtml(f.label)}</button>`).join('')}</div>` : '<div class="detail-row"><span class="detail-value">No related facets.</span></div>'}
@@ -968,8 +1245,7 @@
       detailPanel.querySelectorAll('[data-related-facet]').forEach(btn => {
         btn.addEventListener('click', () => {
           const fid = btn.dataset.relatedFacet;
-          if (selectedFacetIds.has(fid)) selectedFacetIds.delete(fid);
-          else selectedFacetIds.add(fid);
+          toggleFacetSelection(fid);
           render();
         });
       });
@@ -994,9 +1270,13 @@
         }
       });
 
-      function renderFacet(facet) {
+      function renderFacet(facet, topLevelRootId = null) {
         const selected = selectedFacetIds.has(facet.id);
         const children = childrenByParent.get(facet.id) || [];
+        const isTopLevel = topLevelRootId === null;
+        const rootId = isTopLevel ? facet.id : topLevelRootId;
+        const canCollapse = isTopLevel && COLLAPSIBLE_ROOT_FACET_IDS.has(rootId);
+        const isExpanded = expandedTopLevelFacetIds.has(rootId);
         const alternateParents = (FACET_PARENTS_BY_CHILD.get(facet.id) || [])
           .filter(parentId => parentId !== PRIMARY_FACET_PARENT_BY_ID.get(facet.id))
           .map(facetLabel);
@@ -1005,29 +1285,40 @@
           ? `Contained by ${facetLabel(primaryParentId)}${alternateParents.length ? `; also contained by ${alternateParents.join(', ')}` : ''}`
           : '';
         const classes = ['facet-pill'];
+        if (facet.id.startsWith('kw_')) classes.push('keyword-facet');
         if (selected) classes.push('selected');
         if (children.length) classes.push('has-subsidiaries');
 
         return `
           <div class="facet-group">
-            <button type="button" class="${classes.join(' ')}" data-facet-id="${facet.id}"${tooltip ? ` title="${escapeHtml(tooltip)}"` : ''}>
-              <span class="facet-label">${escapeHtml(facet.label)}</span>
-              <span class="count">${counts.get(facet.id) || 0}</span>
-            </button>
-            ${children.length ? `<div class="facet-children">${children.map(renderFacet).join('')}</div>` : ''}
+            <div class="facet-header-row">
+              <button type="button" class="${classes.join(' ')}" data-facet-id="${facet.id}"${tooltip ? ` title="${escapeHtml(tooltip)}"` : ''}>
+                <span class="facet-label">${escapeHtml(facet.label)}</span>
+                <span class="count">${counts.get(facet.id) || 0}</span>
+              </button>
+              ${canCollapse ? `<button type="button" class="facet-collapse-toggle" data-collapse-root="${rootId}" aria-label="${isExpanded ? 'Collapse' : 'Expand'} ${escapeHtml(facet.label)}" aria-expanded="${isExpanded}" title="${isExpanded ? 'Collapse' : 'Expand'} subsidiary facets and files"><span class="facet-collapse-chevron" aria-hidden="true"></span></button>` : ''}
+            </div>
+            ${children.length && (!canCollapse || isExpanded) ? `<div class="facet-children">${children.map(child => renderFacet(child, rootId)).join('')}</div>` : ''}
           </div>
         `;
       }
 
-      facetList.innerHTML = rootFacets.map(renderFacet).join('');
+      facetList.innerHTML = rootFacets.map(facet => renderFacet(facet)).join('');
 
       facetList.querySelectorAll('[data-facet-id]').forEach(btn => {
         btn.addEventListener('click', () => {
           const fid = btn.dataset.facetId;
-          if (selectedFacetIds.has(fid)) selectedFacetIds.delete(fid);
-          else selectedFacetIds.add(fid);
+          toggleFacetSelection(fid);
           selectedRowId = null;
           hoveredRowId = null;
+          render();
+        });
+      });
+
+      facetList.querySelectorAll('[data-collapse-root]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const rootId = btn.dataset.collapseRoot;
+          setFacetBranchExpanded(rootId, !expandedTopLevelFacetIds.has(rootId));
           render();
         });
       });
@@ -1035,9 +1326,15 @@
       clearFacets.disabled = selectedFacetIds.size === 0;
     }
 
-    function renderRowList(rows) {
-      rowCount.textContent = `${rows.length} matching row${rows.length === 1 ? '' : 's'}`;
+    function renderRowList(rows, matchingRowCount = rows.length) {
+      const hiddenRowCount = matchingRowCount - rows.length;
+      rowCount.textContent = hiddenRowCount > 0
+        ? `${rows.length} shown, ${hiddenRowCount} hidden in collapsed facets`
+        : `${rows.length} matching row${rows.length === 1 ? '' : 's'}`;
       emptyState.style.display = rows.length ? 'none' : 'block';
+      emptyState.textContent = matchingRowCount
+        ? 'Matching files are hidden under collapsed facets.'
+        : 'No rows match the current selection.';
 
       rowList.innerHTML = rows.map(row => {
         const selected = row.id === selectedRowId;
@@ -1078,24 +1375,21 @@
       const timelineOn = timelineToggle.checked && !!slider.noUiSlider;
       const { startDate, endDate } = currentRange();
       const timelineRows = getTimelineRows();
-      const visibleRows = getVisibleRows();
+      const matchingRows = getVisibleRows();
+      const visibleRows = getRowsInExpandedBranches(matchingRows);
 
-      renderFacetList(visibleRows);
-      renderRowList(visibleRows);
+      if (selectedRowId && !visibleRows.some(r => r.id === selectedRowId)) selectedRowId = null;
+      if (hoveredRowId && !visibleRows.some(r => r.id === hoveredRowId)) hoveredRowId = null;
+
+      renderFacetList(matchingRows);
+      renderRowList(visibleRows, matchingRows.length);
       renderDetailPanel();
 
-      const data = buildNetworkData(visibleRows);
+      const data = buildNetworkData(visibleRows, matchingRows);
       network.setData({
         nodes: new vis.DataSet(data.nodes),
         edges: new vis.DataSet(data.edges)
       });
-
-      if (selectedRowId && !visibleRows.some(r => r.id === selectedRowId)) {
-        selectedRowId = null;
-      }
-      if (hoveredRowId && !visibleRows.some(r => r.id === hoveredRowId)) {
-        hoveredRowId = null;
-      }
 
       if (!timelineOn) {
         rangeText.innerHTML = selectedFacetIds.size
@@ -1113,8 +1407,7 @@
         const clickedId = params.nodes[0];
         const isFacet = FACETS.some(f => f.id === clickedId);
         if (isFacet) {
-          if (selectedFacetIds.has(clickedId)) selectedFacetIds.delete(clickedId);
-          else selectedFacetIds.add(clickedId);
+          toggleFacetSelection(clickedId);
           selectedRowId = null;
           hoveredRowId = null;
           render();
@@ -1129,6 +1422,7 @@
 
       if (params.nodes.length === 0 && params.edges.length === 0) {
         selectedFacetIds.clear();
+        expandedTopLevelFacetIds.clear();
         selectedRowId = null;
         hoveredRowId = null;
         render();
@@ -1161,6 +1455,7 @@
 
     clearFacets.addEventListener('click', function() {
       selectedFacetIds.clear();
+      expandedTopLevelFacetIds.clear();
       selectedRowId = null;
       hoveredRowId = null;
       render();

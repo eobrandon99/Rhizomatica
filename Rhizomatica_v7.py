@@ -13,8 +13,9 @@ Data model:
   a row (a file).
 - Every node that DOES have children becomes a facet, and all of its
   descendant files are tagged with it (and every facet above it).
-- Words that recur across multiple files' titles become keyword facets too
-  (see keyword_min_file_ratio in config.json).
+- Words that recur across multiple files' titles, general notes, or
+  scope-and-content text become keyword facets too (see keyword_min_file_ratio
+  in config.json).
 
 Input:
 - Files named <prefix>-ead.xml in the input/ folder.
@@ -82,7 +83,8 @@ GENERIC_WORDS = frozenset(
     interim final progress management advisory technical activities
     activity information guide guides reference references manual
     manuals installing installation using sending support project
-    projects
+    projects part session one two three four five six seven eight nine ten eleven twelve thirteen 
+    box digital physical materials
     """.split()
 )
 
@@ -96,6 +98,7 @@ SEGMENT_SPLIT_RE = re.compile(r"[,:;()\[\]\"/]+|\.\s+")
 # and so they match up with "US"/"United States" elsewhere in the title.
 ABBREVIATION_RE = re.compile(r"\b(?:[A-Za-z]\.){2,}(?![A-Za-z])")
 AO_URI_RE = re.compile(r"/archival_objects/(\d+)")
+EXTENT_NUMBER_RE = re.compile(r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?")
 MAX_NGRAM = 4
 
 
@@ -167,6 +170,8 @@ def extract_did_fields(node):
     date_expr = ""
     normal = ""
     container_instance = ""
+    extent_value = None
+    extent_texts = []
     if did is not None:
         for child in did:
             tag = local_tag(child)
@@ -179,6 +184,17 @@ def extract_did_fields(node):
                 label = child.get("label", "").strip()
                 number = text_of(child)
                 container_instance = f"{label} {number}".strip()
+            elif tag in {"extent", "physdesc"}:
+                extent_elements = (child,) if tag == "extent" else child.iter()
+                for extent in extent_elements:
+                  if local_tag(extent) != "extent":
+                    continue
+                  extent_text = text_of(extent)
+                  if extent_text:
+                    extent_texts.append(extent_text)
+                  match = EXTENT_NUMBER_RE.search(extent_text)
+                  if match and extent_value is None:
+                    extent_value = float(match.group().replace(",", ""))
 
     begin, end = "", ""
     if normal:
@@ -202,6 +218,8 @@ def extract_did_fields(node):
         "end": end or begin,
         "display_date": display_date,
         "container_instance": container_instance,
+        "extent_value": extent_value,
+        "extents": extent_texts,
     }
 
 
@@ -246,8 +264,11 @@ def walk(node, ancestor_facets, inherited_date, rows, facets_by_id, counter):
                 "end": date_fields["end"],
                 "container_instance": did_fields["container_instance"],
                 "box": f"[{did_fields['container_instance']}]" if did_fields["container_instance"] else "",
+                "general_note": own_text(node, "odd"),
                 "scope_content": own_text(node, "scopecontent"),
                 "physical_desc": own_text(node, "physdesc"),
+                "extent_value": did_fields["extent_value"],
+                "extents": did_fields["extents"],
                 "facets": list(ancestor_facets),
             }
         )
@@ -284,6 +305,11 @@ def tokenize_title_segments(title):
         if words:
             segments.append(words)
     return segments
+
+
+def tokenize_row_segments(row):
+    for field in ("title", "general_note", "scope_content"):
+        yield from tokenize_title_segments(row.get(field) or "")
 
 
 def ngram_facet_id(chunk):
@@ -336,7 +362,7 @@ def merge_redundant_facets(final_chunks, redundancy_ratio):
 
 def extract_keyword_facets(rows, min_file_count, redundancy_ratio):
     """Entity + frequency hybrid: find recurring words AND phrases in file
-    titles and turn them into facets.
+  titles, general notes, and scope-and-content text and turn them into facets.
 
     - Multi-word phrases (e.g. "Ann Arbor", "User's Reference Guide",
       "Project Management Committee") are treated as entities outright --
@@ -355,7 +381,7 @@ def extract_keyword_facets(rows, min_file_count, redundancy_ratio):
     candidate_label = {}
     acronym_seen = set()
     for row in rows:
-        for words in tokenize_title_segments(row["title"]):
+        for words in tokenize_row_segments(row):
             lowered = [w.lower() for w in words]
             n = len(words)
             for i, word in enumerate(words):
@@ -392,7 +418,7 @@ def extract_keyword_facets(rows, min_file_count, redundancy_ratio):
     facet_rows = defaultdict(set)
     for row in rows:
         matched_chunks = set()
-        for words in tokenize_title_segments(row["title"]):
+        for words in tokenize_row_segments(row):
             lowered = [w.lower() for w in words]
             n = len(words)
             i = 0
@@ -407,6 +433,32 @@ def extract_keyword_facets(rows, min_file_count, redundancy_ratio):
                 i += step
         for chunk in matched_chunks:
             facet_rows[chunk].add(row["id"])
+
+    acronym_rows = {
+        chunk: row_ids
+        for chunk, row_ids in facet_rows.items()
+        if len(chunk) == 1 and chunk[0] in acronym_seen
+    }
+    excluded_component_rows = defaultdict(set)
+    for expansion_chunk, expansion_row_ids in candidate_rows.items():
+        if len(expansion_chunk) < 2:
+            continue
+        acronym = facet_initials(candidate_label[expansion_chunk])
+        acronym_chunk = (acronym,)
+        if acronym_chunk not in acronym_rows:
+            continue
+
+        matching_rows = acronym_rows[acronym_chunk] & expansion_row_ids
+        if not matching_rows:
+            continue
+        for start in range(len(expansion_chunk)):
+            for end in range(start + 1, len(expansion_chunk) + 1):
+                component = expansion_chunk[start:end]
+                if component != expansion_chunk:
+                    excluded_component_rows[component].update(matching_rows)
+
+    for chunk, row_ids in facet_rows.items():
+        row_ids.difference_update(excluded_component_rows.get(chunk, set()))
 
     final_chunks = {chunk: row_ids for chunk, row_ids in facet_rows.items() if len(row_ids) >= min_file_count}
     final_chunks = merge_redundant_facets(final_chunks, redundancy_ratio)
@@ -679,42 +731,87 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       color: #333;
     }
     #page {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(210px, 0.78fr) minmax(0, 2.2fr) minmax(260px, 0.95fr);
+      grid-template-rows: minmax(130px, 150px) minmax(0, 1fr);
+      grid-template-areas:
+        "facets dates related"
+        "facets network related";
+      gap: 10px;
       width: 100%;
       flex: 1 1 auto;
       min-height: 0;
+      padding: 10px;
+      box-sizing: border-box;
     }
-    #facetSidebar, #rowSidebar {
-      width: 320px;
+    #facetSidebar, #dateSidebar, #rowSidebar, #detailSidebar {
       background: #fafafa;
       padding: 12px;
       box-sizing: border-box;
       overflow: auto;
+      min-width: 0;
       min-height: 0;
-      height: 100%;
+      border: 1px solid #ddd;
+      border-radius: 6px;
     }
     #facetSidebar {
-      border-right: 1px solid #ddd;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
+      grid-area: facets;
+      height: 100%;
     }
-    #facetSidebar > .tool-section {
-      display: block;
+    #dateSidebar {
+      grid-area: dates;
+      height: 100%;
     }
     #rowSidebar {
-      border-left: 1px solid #ddd;
+      flex: 1 1 0;
+      min-height: 120px;
+    }
+    #rightSidebar {
+      grid-area: related;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    #detailSidebar {
+      display: flex;
+      flex-direction: column;
+      flex: 0 1 auto;
+      gap: 6px;
+      min-height: 150px;
+      max-height: 58%;
+      min-width: 0;
+      overflow: hidden;
     }
     #container {
-      flex: 1;
+      grid-area: network;
+      width: 100%;
       height: 100%;
       min-width: 0;
+      min-height: 0;
     }
     #facetHeader, #rowHeader, #detailHeader, #timelineHeader {
       font-size: 13px;
       font-weight: 700;
       margin: 8px 0;
       color: #333;
+    }
+    .panel-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .panel-heading #facetHeader {
+      margin: 0;
+    }
+    .panel-heading .toolbar-btn {
+      flex: 0 0 auto;
+      width: auto !important;
     }
     #facetList {
       display: flex;
@@ -727,6 +824,42 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       flex-direction: column;
       gap: 6px;
       min-width: 0;
+    }
+    .facet-header-row {
+      display: flex;
+      align-items: stretch;
+      gap: 4px;
+      min-width: 0;
+    }
+    .facet-header-row .facet-pill {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .facet-collapse-toggle {
+      display: grid;
+      flex: 0 0 34px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid #cfcfcf;
+      border-radius: 8px;
+      background: #fff;
+      color: #444;
+      cursor: pointer;
+    }
+    .facet-collapse-toggle:hover {
+      background: #f2f4f6;
+      border-color: #8a929b;
+    }
+    .facet-collapse-chevron {
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(-45deg);
+      transition: transform 0.15s ease;
+    }
+    .facet-collapse-toggle[aria-expanded="true"] .facet-collapse-chevron {
+      transform: rotate(45deg);
     }
     .facet-children {
       display: flex;
@@ -800,20 +933,22 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       font-weight: 600;
     }
     .detail-panel {
-      border: 1px solid #e4e4e4;
-      background: #fff;
-      border-radius: 12px;
-      padding: 10px 12px;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      border: 0;
+      background: transparent;
+      border-radius: 0;
+      padding: 0;
       font-size: 12px;
       line-height: 1.45;
       color: #222;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-      margin-bottom: 14px;
-      min-height: 108px;
+      box-shadow: none;
+      margin: 0;
     }
     .detail-panel.empty {
       color: #666;
-      background: #fcfcfc;
+      background: transparent;
       font-style: italic;
     }
     .detail-row {
@@ -961,19 +1096,22 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       color: #cbd5e1;
     }
     body[data-theme="dark"] #facetSidebar,
-    body[data-theme="dark"] #rowSidebar {
+    body[data-theme="dark"] #dateSidebar,
+    body[data-theme="dark"] #rowSidebar,
+    body[data-theme="dark"] #detailSidebar {
       background: #0b1220;
       border-color: #334155;
     }
     body[data-theme="dark"] .facet-pill,
     body[data-theme="dark"] .sidebar-item,
-    body[data-theme="dark"] .detail-panel {
+    body[data-theme="dark"] .facet-collapse-toggle {
       background: #111827;
       border-color: #334155;
       color: #e5e7eb;
     }
     body[data-theme="dark"] .facet-pill:hover,
-    body[data-theme="dark"] .sidebar-item:hover {
+    body[data-theme="dark"] .sidebar-item:hover,
+    body[data-theme="dark"] .facet-collapse-toggle:hover {
       background: #1e293b;
       border-color: #64748b;
     }
@@ -1004,7 +1142,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       border-color: #475569;
     }
     body[data-theme="dark"] .detail-panel.empty {
-      background: #0f172a;
+      background: transparent;
       color: #94a3b8;
     }
     body[data-theme="dark"] .detail-facet-chip {
@@ -1061,10 +1199,52 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     body[data-theme="dark"] .detail-value {
       white-space: pre-wrap;
     }
-    @media (max-width: 1100px) {
-      #page { flex-direction: column; height: auto; }
-      #facetSidebar, #rowSidebar { width: 100%; border-left: none; border-right: none; border-bottom: 1px solid #ddd; }
-      #container { height: 560px; }
+    @media (max-width: 950px) {
+      #page {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: minmax(130px, 150px) minmax(0, 1fr) minmax(240px, 34vh);
+        grid-template-areas:
+          "facets dates"
+          "facets network"
+          "related related";
+        overflow: auto;
+      }
+      #rightSidebar {
+        flex-direction: row;
+      }
+      #rowSidebar {
+        min-height: 0;
+      }
+      #detailSidebar {
+        flex: 0 0 38%;
+        max-height: none;
+        min-height: 0;
+      }
+    }
+    @media (max-width: 700px) {
+      #page {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(190px, 38vh) minmax(145px, auto) minmax(380px, 60vh) minmax(430px, 65vh);
+        grid-template-areas:
+          "facets"
+          "dates"
+          "network"
+          "related";
+      }
+      #facetSidebar {
+        max-height: 38vh;
+      }
+      #rightSidebar {
+        flex-direction: column;
+      }
+      #rowSidebar {
+        min-height: 180px;
+      }
+      #detailSidebar {
+        flex: 0 1 auto;
+        min-height: 160px;
+        max-height: 48%;
+      }
     }
   </style>
 </head>
@@ -1083,31 +1263,37 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
   <div id="page">
     <aside id="facetSidebar">
-      <div class="tool-section">
+      <div class="panel-heading">
         <div id="facetHeader">Facet spotlight</div>
-        <div id="facetList"></div>
-        <button id="clearFacets" class="toolbar-btn" disabled style="width: 100%;">Clear facet spotlight</button>
+        <button id="clearFacets" class="toolbar-btn" disabled>Clear selection</button>
       </div>
-      <div class="tool-section" id="timelineBlock">
-        <div id="timelineHeader">Date filtering</div>
-        <div class="toggle-row" style="margin-top: 0;">
-          <input type="checkbox" id="timelineToggle">
-          <label for="timelineToggle">Enable timeline filter</label>
-        </div>
-        <div id="sliderWrap"><div id="slider"></div></div>
-        <div id="rangeText">Timeline disabled - showing everything, including records without dates.</div>
+      <div id="facetList"></div>
+    </aside>
+
+    <section id="dateSidebar" aria-labelledby="timelineHeader">
+      <div id="timelineHeader">Date filtering</div>
+      <div class="toggle-row" style="margin-top: 0;">
+        <input type="checkbox" id="timelineToggle">
+        <label for="timelineToggle">Enable timeline filter</label>
       </div>
-      <div class="tool-section">
+      <div id="sliderWrap"><div id="slider"></div></div>
+      <div id="rangeText">Timeline disabled - showing everything, including records without dates.</div>
+    </section>
+
+    <div id="container"></div>
+
+    <aside id="rightSidebar">
+      <section id="rowSidebar">
+        <div id="rowHeader">Related files</div>
+        <div id="rowCount"></div>
+        <div id="rowList"></div>
+        <div id="emptyState" style="display:none;">No rows match the current selection.</div>
+      </section>
+
+      <section id="detailSidebar">
         <div id="detailHeader">File spotlight</div>
         <div id="detailPanel" class="detail-panel empty">Hover or click a file node or row to preview details.</div>
-      </div>
-    </aside>
-    <div id="container"></div>
-    <aside id="rowSidebar">
-      <div id="rowHeader">Related files</div>
-      <div id="rowCount"></div>
-      <div id="rowList"></div>
-      <div id="emptyState" style="display:none;">No rows match the current selection.</div>
+      </section>
     </aside>
   </div>
 
@@ -1142,11 +1328,11 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         solver: 'forceAtlas2Based',
         forceAtlas2Based: {
           gravitationalConstant: -100,
-          centralGravity: 0.05,
-          springLength: 90,
+          centralGravity: 0.01,
+          springLength: 80,
           springConstant: 0.06,
-          damping: 0.65,
-          avoidOverlap: 0.5
+          damping: 0.85,
+          avoidOverlap: 1
         },
         stabilization: { iterations: 300, fit: true },
         maxVelocity: 12,
@@ -1350,8 +1536,17 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     // and grow from there with how many files are tagged to them.
     const ROW_SIZE = 9;
     const ROW_SIZE_HIGHLIGHTED = 13;
+    const ROW_EXTENT_MAX_BOOST = 2;
     const ROW_FONT_SIZE = 10;
     const ROW_FONT_SIZE_HIGHLIGHTED = 12;
+    const maxExtentValue = ROWS.reduce((maximum, row) => Math.max(maximum, row.extent_value || 0), 0);
+
+    function rowNodeSize(row, highlighted) {
+      const base = highlighted ? ROW_SIZE_HIGHLIGHTED : ROW_SIZE;
+      if (!row.extent_value || maxExtentValue <= 0) return base;
+      const extentGrowth = ROW_EXTENT_MAX_BOOST * Math.log1p(row.extent_value) / Math.log1p(maxExtentValue);
+      return base + extentGrowth;
+    }
 
     // The smallest-count facet always renders at FACET_MIN_SIZE and the
     // largest-count facet always renders at FACET_MAX_SIZE -- counts in
@@ -1432,21 +1627,97 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       const [primaryParentId] = parentIds.sort((a, b) => facetLabel(a).localeCompare(facetLabel(b)) || a.localeCompare(b));
       if (primaryParentId) PRIMARY_FACET_PARENT_BY_ID.set(childId, primaryParentId);
     });
+    function getTopLevelFacetId(facetId) {
+      let topLevelId = facetId;
+      const visited = new Set();
+      while (PRIMARY_FACET_PARENT_BY_ID.has(topLevelId) && !visited.has(topLevelId)) {
+        visited.add(topLevelId);
+        topLevelId = PRIMARY_FACET_PARENT_BY_ID.get(topLevelId);
+      }
+      return topLevelId;
+    }
 
-    function buildNetworkData(rows) {
+    const TOP_LEVEL_FACET_ID_BY_ID = new Map(FACETS.map(f => [f.id, getTopLevelFacetId(f.id)]));
+    const COLLAPSIBLE_ROOT_FACET_IDS = new Set(
+      FACETS
+        .filter(f => TOP_LEVEL_FACET_ID_BY_ID.get(f.id) === f.id && (FACET_CHILDREN_BY_PARENT.get(f.id) || []).length > 0)
+        .map(f => f.id)
+    );
+    const expandedTopLevelFacetIds = new Set();
+
+    function isFacetBranchExpanded(facetId) {
+      const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+      return !COLLAPSIBLE_ROOT_FACET_IDS.has(rootId) || expandedTopLevelFacetIds.has(rootId);
+    }
+
+    function isFacetNodeVisible(facetId) {
+      return TOP_LEVEL_FACET_ID_BY_ID.get(facetId) === facetId || isFacetBranchExpanded(facetId);
+    }
+
+    function getRowsInExpandedBranches(rows) {
+      return rows.filter(row => {
+        if (!row.facets.length) return true;
+        return row.facets.some(facetId => {
+          const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+          return !COLLAPSIBLE_ROOT_FACET_IDS.has(rootId) || expandedTopLevelFacetIds.has(rootId);
+        });
+      });
+    }
+
+    function setFacetBranchExpanded(rootId, expanded) {
+      if (!COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) return;
+
+      if (expanded) {
+        expandedTopLevelFacetIds.add(rootId);
+        selectedFacetIds.add(rootId);
+        return;
+      }
+
+      expandedTopLevelFacetIds.delete(rootId);
+      for (const facetId of selectedFacetIds) {
+        if (TOP_LEVEL_FACET_ID_BY_ID.get(facetId) === rootId) selectedFacetIds.delete(facetId);
+      }
+    }
+
+    function toggleFacetSelection(facetId) {
+      const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+      if (selectedFacetIds.has(facetId)) {
+        if (facetId === rootId && COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) {
+          setFacetBranchExpanded(rootId, false);
+        } else {
+          selectedFacetIds.delete(facetId);
+          if (!Array.from(selectedFacetIds).some(id => TOP_LEVEL_FACET_ID_BY_ID.get(id) === rootId)) {
+            expandedTopLevelFacetIds.delete(rootId);
+          }
+        }
+        return;
+      }
+
+      selectedFacetIds.add(facetId);
+      if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) expandedTopLevelFacetIds.add(rootId);
+    }
+
+    function buildNetworkData(rows, matchingRows) {
       const visibleFacetIds = new Set();
       const edges = [];
       const selectedRow = ROWS.find(r => r.id === selectedRowId) || null;
       const hoveredRow = ROWS.find(r => r.id === hoveredRowId) || null;
 
+      matchingRows.forEach(row => row.facets.forEach(facetId => {
+        const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+        if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) visibleFacetIds.add(rootId);
+      }));
+
       const nodes = rows.map(row => {
-        row.facets.forEach(fid => visibleFacetIds.add(fid));
+        row.facets.forEach(fid => {
+          if (isFacetBranchExpanded(fid)) visibleFacetIds.add(fid);
+        });
         const highlighted = (selectedRow && selectedRow.id === row.id) || (hoveredRow && hoveredRow.id === row.id);
         return {
           id: row.id,
           label: rowLabel(row),
           group: 'row',
-          size: highlighted ? ROW_SIZE_HIGHLIGHTED : ROW_SIZE,
+          size: rowNodeSize(row, highlighted),
           font: {
             color: getTheme().rowLabel,
             size: highlighted ? ROW_FONT_SIZE_HIGHLIGHTED : ROW_FONT_SIZE,
@@ -1483,7 +1754,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       });
 
       FACETS.forEach(f => {
-        if (visibleFacetIds.has(f.id) || selectedFacetIds.has(f.id)) {
+        if (isFacetNodeVisible(f.id) && (visibleFacetIds.has(f.id) || selectedFacetIds.has(f.id))) {
           const isKeywordFacet = f.id.startsWith('kw_');
           const selected = selectedFacetIds.has(f.id);
           const size = facetNodeSize(f.count, selected);
@@ -1534,9 +1805,10 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       rows.forEach(row => {
         const rowFacetIds = new Set(row.facets);
         row.facets.forEach(fid => {
-          const hasMoreSpecificRowFacet = (FACET_CHILDREN_BY_PARENT.get(fid) || [])
-            .some(childId => rowFacetIds.has(childId));
-          if (hasMoreSpecificRowFacet || !visibleFacetSet.has(fid)) return;
+          if (!isFacetNodeVisible(fid) || !visibleFacetSet.has(fid)) return;
+          const hasVisibleMoreSpecificRowFacet = (FACET_CHILDREN_BY_PARENT.get(fid) || [])
+            .some(childId => rowFacetIds.has(childId) && isFacetNodeVisible(childId));
+          if (hasVisibleMoreSpecificRowFacet) return;
           edges.push({
             from: row.id,
             to: fid,
@@ -1586,8 +1858,9 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         <div class="detail-row"><span class="detail-label">Item name:</span> <span class="detail-value">${escapeHtml(row.title || row.id)}</span></div>
         <div class="detail-row"><span class="detail-label">Dates:</span> <span class="detail-value">${escapeHtml(row.display_date || 'undated')}</span></div>
         <div class="detail-row"><span class="detail-label">Container instance:</span> <span class="detail-value">${escapeHtml(row.container_instance || '—')}</span></div>
-        <div class="detail-row"><span class="detail-label">Scope content:</span> <span class="detail-value">${escapeHtml(row.scope_content || '—')}</span></div>
-        <div class="detail-row"><span class="detail-label">Physical desc:</span> <span class="detail-value">${escapeHtml(row.physical_desc || '—')}</span></div>
+        ${(row.extents || []).length ? `<div class="detail-row"><span class="detail-label">Extents:</span> <span class="detail-value">${escapeHtml(row.extents.join('; '))}</span></div>` : ''}
+        ${row.general_note ? `<div class="detail-row"><span class="detail-label">General note:</span> <span class="detail-value">${escapeHtml(row.general_note)}</span></div>` : ''}
+        ${row.scope_content ? `<div class="detail-row"><span class="detail-label">Scope and content:</span> <span class="detail-value">${escapeHtml(row.scope_content)}</span></div>` : ''}
         <div class="detail-related">
           <div class="detail-related-title">Immediately related facets</div>
           ${relatedFacets.length ? `<div class="detail-facet-list">${relatedFacets.map(f => `<button type="button" class="detail-facet-chip ${selectedFacetIds.has(f.id) ? 'selected' : ''}" data-related-facet="${escapeHtml(f.id)}">${escapeHtml(f.label)}</button>`).join('')}</div>` : '<div class="detail-row"><span class="detail-value">No related facets.</span></div>'}
@@ -1597,8 +1870,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       detailPanel.querySelectorAll('[data-related-facet]').forEach(btn => {
         btn.addEventListener('click', () => {
           const fid = btn.dataset.relatedFacet;
-          if (selectedFacetIds.has(fid)) selectedFacetIds.delete(fid);
-          else selectedFacetIds.add(fid);
+          toggleFacetSelection(fid);
           render();
         });
       });
@@ -1623,9 +1895,13 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         }
       });
 
-      function renderFacet(facet) {
+      function renderFacet(facet, topLevelRootId = null) {
         const selected = selectedFacetIds.has(facet.id);
         const children = childrenByParent.get(facet.id) || [];
+        const isTopLevel = topLevelRootId === null;
+        const rootId = isTopLevel ? facet.id : topLevelRootId;
+        const canCollapse = isTopLevel && COLLAPSIBLE_ROOT_FACET_IDS.has(rootId);
+        const isExpanded = expandedTopLevelFacetIds.has(rootId);
         const alternateParents = (FACET_PARENTS_BY_CHILD.get(facet.id) || [])
           .filter(parentId => parentId !== PRIMARY_FACET_PARENT_BY_ID.get(facet.id))
           .map(facetLabel);
@@ -1640,24 +1916,34 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
         return `
           <div class="facet-group">
-            <button type="button" class="${classes.join(' ')}" data-facet-id="${facet.id}"${tooltip ? ` title="${escapeHtml(tooltip)}"` : ''}>
-              <span class="facet-label">${escapeHtml(facet.label)}</span>
-              <span class="count">${counts.get(facet.id) || 0}</span>
-            </button>
-            ${children.length ? `<div class="facet-children">${children.map(renderFacet).join('')}</div>` : ''}
+            <div class="facet-header-row">
+              <button type="button" class="${classes.join(' ')}" data-facet-id="${facet.id}"${tooltip ? ` title="${escapeHtml(tooltip)}"` : ''}>
+                <span class="facet-label">${escapeHtml(facet.label)}</span>
+                <span class="count">${counts.get(facet.id) || 0}</span>
+              </button>
+              ${canCollapse ? `<button type="button" class="facet-collapse-toggle" data-collapse-root="${rootId}" aria-label="${isExpanded ? 'Collapse' : 'Expand'} ${escapeHtml(facet.label)}" aria-expanded="${isExpanded}" title="${isExpanded ? 'Collapse' : 'Expand'} subsidiary facets and files"><span class="facet-collapse-chevron" aria-hidden="true"></span></button>` : ''}
+            </div>
+            ${children.length && (!canCollapse || isExpanded) ? `<div class="facet-children">${children.map(child => renderFacet(child, rootId)).join('')}</div>` : ''}
           </div>
         `;
       }
 
-      facetList.innerHTML = rootFacets.map(renderFacet).join('');
+      facetList.innerHTML = rootFacets.map(facet => renderFacet(facet)).join('');
 
       facetList.querySelectorAll('[data-facet-id]').forEach(btn => {
         btn.addEventListener('click', () => {
           const fid = btn.dataset.facetId;
-          if (selectedFacetIds.has(fid)) selectedFacetIds.delete(fid);
-          else selectedFacetIds.add(fid);
+          toggleFacetSelection(fid);
           selectedRowId = null;
           hoveredRowId = null;
+          render();
+        });
+      });
+
+      facetList.querySelectorAll('[data-collapse-root]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const rootId = btn.dataset.collapseRoot;
+          setFacetBranchExpanded(rootId, !expandedTopLevelFacetIds.has(rootId));
           render();
         });
       });
@@ -1665,9 +1951,15 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       clearFacets.disabled = selectedFacetIds.size === 0;
     }
 
-    function renderRowList(rows) {
-      rowCount.textContent = `${rows.length} matching row${rows.length === 1 ? '' : 's'}`;
+    function renderRowList(rows, matchingRowCount = rows.length) {
+      const hiddenRowCount = matchingRowCount - rows.length;
+      rowCount.textContent = hiddenRowCount > 0
+        ? `${rows.length} shown, ${hiddenRowCount} hidden in collapsed facets`
+        : `${rows.length} matching row${rows.length === 1 ? '' : 's'}`;
       emptyState.style.display = rows.length ? 'none' : 'block';
+      emptyState.textContent = matchingRowCount
+        ? 'Matching files are hidden under collapsed facets.'
+        : 'No rows match the current selection.';
 
       rowList.innerHTML = rows.map(row => {
         const selected = row.id === selectedRowId;
@@ -1708,24 +2000,21 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       const timelineOn = timelineToggle.checked && !!slider.noUiSlider;
       const { startDate, endDate } = currentRange();
       const timelineRows = getTimelineRows();
-      const visibleRows = getVisibleRows();
+      const matchingRows = getVisibleRows();
+      const visibleRows = getRowsInExpandedBranches(matchingRows);
 
-      renderFacetList(visibleRows);
-      renderRowList(visibleRows);
+      if (selectedRowId && !visibleRows.some(r => r.id === selectedRowId)) selectedRowId = null;
+      if (hoveredRowId && !visibleRows.some(r => r.id === hoveredRowId)) hoveredRowId = null;
+
+      renderFacetList(matchingRows);
+      renderRowList(visibleRows, matchingRows.length);
       renderDetailPanel();
 
-      const data = buildNetworkData(visibleRows);
+      const data = buildNetworkData(visibleRows, matchingRows);
       network.setData({
         nodes: new vis.DataSet(data.nodes),
         edges: new vis.DataSet(data.edges)
       });
-
-      if (selectedRowId && !visibleRows.some(r => r.id === selectedRowId)) {
-        selectedRowId = null;
-      }
-      if (hoveredRowId && !visibleRows.some(r => r.id === hoveredRowId)) {
-        hoveredRowId = null;
-      }
 
       if (!timelineOn) {
         rangeText.innerHTML = selectedFacetIds.size
@@ -1743,8 +2032,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         const clickedId = params.nodes[0];
         const isFacet = FACETS.some(f => f.id === clickedId);
         if (isFacet) {
-          if (selectedFacetIds.has(clickedId)) selectedFacetIds.delete(clickedId);
-          else selectedFacetIds.add(clickedId);
+          toggleFacetSelection(clickedId);
           selectedRowId = null;
           hoveredRowId = null;
           render();
@@ -1759,6 +2047,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
       if (params.nodes.length === 0 && params.edges.length === 0) {
         selectedFacetIds.clear();
+        expandedTopLevelFacetIds.clear();
         selectedRowId = null;
         hoveredRowId = null;
         render();
@@ -1791,6 +2080,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
     clearFacets.addEventListener('click', function() {
       selectedFacetIds.clear();
+      expandedTopLevelFacetIds.clear();
       selectedRowId = null;
       hoveredRowId = null;
       render();
