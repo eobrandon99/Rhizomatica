@@ -515,6 +515,36 @@ def normalize_label(label):
     return re.sub(r"\s+", " ", label.strip().lower())
 
 
+def propagate_embedded_facet_memberships(rows, facets_by_id):
+  words_by_facet = {
+    facet_id: tuple(WORD_RE.findall(normalize_label(label)))
+    for facet_id, label in facets_by_id.items()
+  }
+  sources_by_target = defaultdict(list)
+  for source_id, source_words in words_by_facet.items():
+    if not source_words:
+      continue
+    for target_id, target_words in words_by_facet.items():
+      if source_id != target_id and is_sub_ngram(target_words, source_words):
+        sources_by_target[target_id].append(source_id)
+
+  if not sources_by_target:
+    return
+
+  rows_by_id = {row["id"]: row for row in rows}
+  rows_by_facet = defaultdict(set)
+  for row in rows:
+    for facet_id in row["facets"]:
+      rows_by_facet[facet_id].add(row["id"])
+
+  for target_id, source_ids in sources_by_target.items():
+    for source_id in source_ids:
+      for row_id in rows_by_facet[source_id]:
+        target_facets = rows_by_id[row_id]["facets"]
+        if target_id not in target_facets:
+          target_facets.append(target_id)
+
+
 def merge_same_label_facets(rows, facets_by_id):
     """If two facets carry the exact same label text (ignoring case and
     stray whitespace), they're the same real-world entity reached through
@@ -608,6 +638,7 @@ def build_records(root, keyword_min_file_count, facet_redundancy_ratio, keyword_
 
     merge_same_label_facets(rows, facets_by_id)
     merge_acronym_facets(rows, facets_by_id)
+    propagate_embedded_facet_memberships(rows, facets_by_id)
     merge_duplicate_facets(rows, facets_by_id)
 
     facet_counts = {facet_id: 0 for facet_id in facets_by_id}
