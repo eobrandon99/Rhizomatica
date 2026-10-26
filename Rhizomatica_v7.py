@@ -47,6 +47,8 @@ DEFAULT_CONFIG = {
     "facet_redundancy_ratio": 0.7,
 }
 
+# Stopwords affect keyword candidate selection and acronym matching, not the
+# hierarchy labels read from series titles.
 STOPWORDS = frozenset(
     """
     a an the and or but if then than so of in on at by for to from with
@@ -54,7 +56,7 @@ STOPWORDS = frozenset(
     his her you your our we they he she i not no nor too very can will
     just should now into during about above below between after before
     over under again further once here there when where why how all any
-    both each few more most other some such only own same other
+    both each few more most other some such only own same other include includes inc inc.
     """.split()
 )
 
@@ -73,7 +75,7 @@ GENERIC_WORDS = frozenset(
 )
 
 C_LEVEL_RE = re.compile(r"^c\d*$")
-WORD_RE = re.compile(r"[a-zA-Z']+")
+WORD_RE = re.compile(r"[a-zA-Z'’]+")
 SEGMENT_SPLIT_RE = re.compile(r"[,:;()\[\]\"/]+|\.\s+")
 # Dotted abbreviations like "U.S." or "U.S.A." have no space between the
 # periods, so they'd otherwise tokenize as separate single letters ("U",
@@ -84,6 +86,7 @@ ABBREVIATION_RE = re.compile(r"\b(?:[A-Za-z]\.){2,}(?![A-Za-z])")
 AO_URI_RE = re.compile(r"/archival_objects/(\d+)")
 EXTENT_NUMBER_RE = re.compile(r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?")
 MAX_NGRAM = 4
+MAX_ACRONYM_EXPANSION_NGRAM = 8
 
 
 def load_config():
@@ -225,7 +228,17 @@ def unitid_facet_id(node, fallback_title):
     return slugify(fallback_title)
 
 
-def walk(node, ancestor_facets, inherited_date, rows, facets_by_id, counter):
+def hierarchy_facet_id(node, fallback_title, facets_by_id):
+    base_id = unitid_facet_id(node, fallback_title)
+    facet_id = f"series_{base_id}"
+    suffix = 2
+    while facet_id in facets_by_id:
+        facet_id = f"series_{base_id}_{suffix}"
+        suffix += 1
+    return facet_id
+
+
+def walk(node, ancestor_facets, inherited_date, rows, facets_by_id, hierarchy_parent_by_id, counter):
     children = [child for child in node if C_LEVEL_RE.match(local_tag(child))]
     did_fields = extract_did_fields(node)
     has_title = bool(did_fields["title"])
@@ -266,13 +279,14 @@ def walk(node, ancestor_facets, inherited_date, rows, facets_by_id, counter):
         next_ancestor_facets = ancestor_facets
         next_inherited_date = did_fields
     else:
-        facet_id = unitid_facet_id(node, did_fields["title"] or f"series_{len(facets_by_id) + 1}")
+        facet_id = hierarchy_facet_id(node, did_fields["title"] or f"series_{len(facets_by_id) + 1}", facets_by_id)
         facets_by_id[facet_id] = did_fields["title"] or facet_id
+        hierarchy_parent_by_id[facet_id] = ancestor_facets[-1] if ancestor_facets else None
         next_ancestor_facets = ancestor_facets + [facet_id]
         next_inherited_date = inherited_date
 
     for child in children:
-        walk(child, next_ancestor_facets, next_inherited_date, rows, facets_by_id, counter)
+        walk(child, next_ancestor_facets, next_inherited_date, rows, facets_by_id, hierarchy_parent_by_id, counter)
 
 
 def normalize_abbreviations(text):
@@ -294,6 +308,82 @@ def tokenize_title_segments(title):
 def tokenize_row_segments(row):
     for field in ("title", "general_note", "scope_content"):
         yield from tokenize_title_segments(row.get(field) or "")
+
+
+IRREGULAR_SINGULARS = {
+    "analyses": "analysis",
+    "children": "child",
+    "crises": "crisis",
+    "criteria": "criterion",
+    "diagnoses": "diagnosis",
+    "feet": "foot",
+    "geese": "goose",
+    "halves": "half",
+    "hypotheses": "hypothesis",
+    "indices": "index",
+    "knives": "knife",
+    "leaves": "leaf",
+    "lives": "life",
+    "matrices": "matrix",
+    "men": "man",
+    "mice": "mouse",
+    "oxen": "ox",
+    "people": "person",
+    "phenomena": "phenomenon",
+    "series": "series",
+    "shoes": "shoe",
+    "species": "species",
+    "teeth": "tooth",
+    "theses": "thesis",
+    "toes": "toe",
+    "vertices": "vertex",
+    "women": "woman",
+    "news": "news",
+    "politics": "politics",
+    "mathematics": "mathematics",
+    "physics": "physics",
+    "economics": "economics",
+    "ethics": "ethics",
+    "linguistics": "linguistics",
+    "athletics": "athletics",
+    "statistics": "statistics",
+}
+
+
+def normalize_keyword_word(word):
+    """Normalize English possessives and common noun plurals to singular."""
+    base = word
+    has_singular_possessive = base.lower().endswith(("'s", "’s"))
+    if has_singular_possessive:
+        base = base[:-2]
+    elif base.endswith(("'", "’")):
+        base = base[:-1]
+
+    lowered = base.lower()
+    if has_singular_possessive and lowered.endswith("s"):
+        singular = lowered
+    elif base.isupper():
+        singular = lowered
+    elif base.endswith("s") and base[:-1].isupper():
+        singular = base[:-1].lower()
+    elif lowered in IRREGULAR_SINGULARS:
+        singular = IRREGULAR_SINGULARS[lowered]
+    elif lowered.endswith("ies") and len(lowered) > 4:
+        singular = lowered[:-3] + "y"
+    elif lowered.endswith(("ches", "shes", "sses", "xes", "zes")):
+        singular = lowered[:-2]
+    elif lowered.endswith("oes"):
+        singular = lowered[:-2]
+    elif lowered.endswith("s") and not lowered.endswith(("ss", "us", "is")):
+        singular = lowered[:-1]
+    else:
+        singular = lowered
+
+    if base.isupper() or (len(base) > 2 and base[:2].isupper()):
+        return singular.upper()
+    if base[0:1].isupper():
+        return singular.capitalize()
+    return singular
 
 
 def ngram_facet_id(chunk):
@@ -344,9 +434,13 @@ def merge_redundant_facets(final_chunks, redundancy_ratio):
     return dict(merged)
 
 
-def extract_keyword_facets(rows, min_file_count, redundancy_ratio):
+def extract_keyword_facets(rows, min_file_count, redundancy_ratio, collection_title=""):
     """Entity + frequency hybrid: find recurring words AND phrases in file
   titles, general notes, and scope-and-content text and turn them into facets.
+
+    Possessives and common English noun plurals are normalized before
+    candidates are counted and matched, so variants share a facet labeled
+    with the most frequently occurring original form.
 
     - Multi-word phrases (e.g. "Ann Arbor", "User's Reference Guide",
       "Project Management Committee") are treated as entities outright --
@@ -362,15 +456,39 @@ def extract_keyword_facets(rows, min_file_count, redundancy_ratio):
       own facet (see MAX_NGRAM).
     """
     candidate_rows = defaultdict(set)
-    candidate_label = {}
+    candidate_label_counts = defaultdict(lambda: defaultdict(int))
+    candidate_label_spellings = {}
+    extended_expansion_rows = defaultdict(lambda: defaultdict(set))
     acronym_seen = set()
+    acronym_occurrence_rows = defaultdict(set)
+    collection_title_chunks = set()
+    for words in tokenize_title_segments(collection_title):
+        normalized = [normalize_keyword_word(word).lower() for word in words]
+        for length in range(1, len(normalized) + 1):
+            for i in range(len(normalized) - length + 1):
+                collection_title_chunks.add(tuple(normalized[i:i + length]))
+        title_initials = facet_initials(" ".join(normalized))
+        if len(title_initials) >= 2:
+            collection_title_chunks.add((title_initials,))
+
     for row in rows:
         for words in tokenize_row_segments(row):
-            lowered = [w.lower() for w in words]
-            n = len(words)
-            for i, word in enumerate(words):
+            normalized_words = [
+                (normalize_keyword_word(word), word) for word in words
+            ]
+            normalized_words = [
+                (normalized, surface)
+                for normalized, surface in normalized_words
+                if normalized
+            ]
+            normalized = [normalized for normalized, _ in normalized_words]
+            surface_words = [surface for _, surface in normalized_words]
+            lowered = [word.lower() for word in normalized]
+            n = len(normalized)
+            for i, word in enumerate(normalized):
                 if word.isupper() and len(word) >= 2:
                     acronym_seen.add(lowered[i])
+                    acronym_occurrence_rows[lowered[i]].add(row["id"])
             for length in range(1, MAX_NGRAM + 1):
                 for i in range(0, n - length + 1):
                     chunk = tuple(lowered[i:i + length])
@@ -381,11 +499,25 @@ def extract_keyword_facets(rows, min_file_count, redundancy_ratio):
                         # at 2 letters when the source actually wrote them in
                         # caps; otherwise this would admit ordinary 2-letter
                         # fragments missed by the stopword list.
-                        min_len = 2 if words[i].isupper() else 3
+                        min_len = 2 if normalized[i].isupper() else 3
                         if len(chunk[0]) < min_len:
                             continue
                     candidate_rows[chunk].add(row["id"])
-                    candidate_label.setdefault(chunk, " ".join(words[i:i + length]))
+                    surface_label = " ".join(surface_words[i:i + length])
+                    surface_key = surface_label.casefold()
+                    candidate_label_counts[chunk][surface_key] += 1
+                    candidate_label_spellings.setdefault((chunk, surface_key), surface_label)
+            for length in range(MAX_NGRAM + 1, min(MAX_ACRONYM_EXPANSION_NGRAM, n) + 1):
+                for i in range(0, n - length + 1):
+                    chunk = tuple(lowered[i:i + length])
+                    acronym = facet_initials(" ".join(normalized[i:i + length]))
+                    if len(acronym) >= 2:
+                        extended_expansion_rows[acronym][chunk].add(row["id"])
+
+    candidate_label = {
+        chunk: candidate_label_spellings[(chunk, max(forms, key=forms.get))]
+        for chunk, forms in candidate_label_counts.items()
+    }
 
     def is_entity(chunk):
         if len(chunk) > 1:
@@ -396,15 +528,20 @@ def extract_keyword_facets(rows, min_file_count, redundancy_ratio):
     qualifying = {
         chunk
         for chunk, row_ids in candidate_rows.items()
-        if len(row_ids) >= min_file_count and is_entity(chunk)
+        if (
+            len(row_ids) >= min_file_count
+            and is_entity(chunk)
+            and chunk not in collection_title_chunks
+        )
     }
 
     facet_rows = defaultdict(set)
     for row in rows:
         matched_chunks = set()
         for words in tokenize_row_segments(row):
-            lowered = [w.lower() for w in words]
-            n = len(words)
+            lowered = [normalize_keyword_word(word).lower() for word in words]
+            lowered = [word for word in lowered if word]
+            n = len(lowered)
             i = 0
             while i < n:
                 step = 1
@@ -418,28 +555,29 @@ def extract_keyword_facets(rows, min_file_count, redundancy_ratio):
         for chunk in matched_chunks:
             facet_rows[chunk].add(row["id"])
 
-    acronym_rows = {
-        chunk: row_ids
-        for chunk, row_ids in facet_rows.items()
-        if len(chunk) == 1 and chunk[0] in acronym_seen
-    }
     excluded_component_rows = defaultdict(set)
+    expansions_by_acronym = defaultdict(dict)
     for expansion_chunk, expansion_row_ids in candidate_rows.items():
-        if len(expansion_chunk) < 2:
-            continue
-        acronym = facet_initials(candidate_label[expansion_chunk])
-        acronym_chunk = (acronym,)
-        if acronym_chunk not in acronym_rows:
+        if len(expansion_chunk) >= 2:
+            acronym = facet_initials(candidate_label[expansion_chunk])
+            expansions_by_acronym[acronym][expansion_chunk] = expansion_row_ids
+    for acronym, expansions in extended_expansion_rows.items():
+        expansions_by_acronym[acronym].update(expansions)
+
+    for acronym, expansions in expansions_by_acronym.items():
+        matching_acronym_rows = acronym_occurrence_rows.get(acronym)
+        if not matching_acronym_rows:
             continue
 
-        matching_rows = acronym_rows[acronym_chunk] & expansion_row_ids
-        if not matching_rows:
-            continue
-        for start in range(len(expansion_chunk)):
-            for end in range(start + 1, len(expansion_chunk) + 1):
-                component = expansion_chunk[start:end]
-                if component != expansion_chunk:
-                    excluded_component_rows[component].update(matching_rows)
+        for expansion_chunk, expansion_row_ids in expansions.items():
+            matching_rows = matching_acronym_rows & expansion_row_ids
+            if not matching_rows:
+                continue
+            for start in range(len(expansion_chunk)):
+                for end in range(start + 1, len(expansion_chunk) + 1):
+                    component = expansion_chunk[start:end]
+                    if component != expansion_chunk:
+                        excluded_component_rows[component].update(matching_rows)
 
     for chunk, row_ids in facet_rows.items():
         row_ids.difference_update(excluded_component_rows.get(chunk, set()))
@@ -503,6 +641,7 @@ def propagate_embedded_facet_memberships(rows, facets_by_id):
   words_by_facet = {
     facet_id: tuple(WORD_RE.findall(normalize_label(label)))
     for facet_id, label in facets_by_id.items()
+    if facet_id.startswith("kw_")
   }
   sources_by_target = defaultdict(list)
   for source_id, source_words in words_by_facet.items():
@@ -530,14 +669,11 @@ def propagate_embedded_facet_memberships(rows, facets_by_id):
 
 
 def merge_same_label_facets(rows, facets_by_id):
-    """If two facets carry the exact same label text (ignoring case and
-    stray whitespace), they're the same real-world entity reached through
-    two different nodes -- common in a large collection where, say, two
-    unrelated series both end up titled "Correspondence". Merge them into
-    one facet and union their files."""
+    """Merge duplicate keyword labels without merging source hierarchy nodes."""
     groups = defaultdict(list)
     for facet_id, label in facets_by_id.items():
-        groups[normalize_label(label)].append(facet_id)
+        if facet_id.startswith("kw_"):
+            groups[normalize_label(label)].append(facet_id)
 
     id_remap = {}
     for facet_ids in groups.values():
@@ -561,9 +697,9 @@ def merge_acronym_facets(rows, facets_by_id):
     into it."""
     acronym_ids = [
         fid for fid, label in facets_by_id.items()
-        if label.isalpha() and label.isupper() and len(label) >= 2
+        if fid.startswith("kw_") and label.isalpha() and label.isupper() and len(label) >= 2
     ]
-    phrase_ids = [fid for fid, label in facets_by_id.items() if " " in label]
+    phrase_ids = [fid for fid, label in facets_by_id.items() if fid.startswith("kw_") and " " in label]
 
     id_remap = {}
     for acronym_id in acronym_ids:
@@ -578,8 +714,7 @@ def merge_acronym_facets(rows, facets_by_id):
 
 
 def merge_duplicate_facets(rows, facets_by_id):
-    """If two facets (hierarchy or keyword, doesn't matter) end up tagging
-    the exact same set of files, they're redundant -- fold them into one."""
+    """Merge duplicate keyword memberships while preserving hierarchy nodes."""
     row_sets_by_facet = defaultdict(set)
     for row in rows:
         for facet_id in row["facets"]:
@@ -587,7 +722,8 @@ def merge_duplicate_facets(rows, facets_by_id):
 
     groups = defaultdict(list)
     for facet_id, row_ids in row_sets_by_facet.items():
-        groups[frozenset(row_ids)].append(facet_id)
+        if facet_id.startswith("kw_"):
+            groups[frozenset(row_ids)].append(facet_id)
 
     id_remap = {}
     for facet_ids in groups.values():
@@ -608,16 +744,19 @@ def build_records(root, keyword_min_file_count, facet_redundancy_ratio, keyword_
     dsc = archdesc.find("dsc") if archdesc is not None else None
     rows = []
     facets_by_id = {}
+    hierarchy_parent_by_id = {}
     counter = [0]
     if dsc is not None:
         for child in dsc:
             if C_LEVEL_RE.match(local_tag(child)):
-                walk(child, [], None, rows, facets_by_id, counter)
+                walk(child, [], None, rows, facets_by_id, hierarchy_parent_by_id, counter)
 
     if keyword_min_file_count is None:
       keyword_min_file_count = max(1, math.ceil(len(rows) * keyword_min_file_ratio))
 
-    keyword_facets = extract_keyword_facets(rows, keyword_min_file_count, facet_redundancy_ratio)
+    keyword_facets = extract_keyword_facets(
+        rows, keyword_min_file_count, facet_redundancy_ratio, collection_title
+    )
     facets_by_id.update(keyword_facets)
 
     merge_same_label_facets(rows, facets_by_id)
@@ -631,7 +770,13 @@ def build_records(root, keyword_min_file_count, facet_redundancy_ratio, keyword_
             facet_counts[facet_id] += 1
 
     facets = [
-        {"id": facet_id, "label": label, "count": facet_counts.get(facet_id, 0)}
+        {
+            "id": facet_id,
+            "label": label,
+            "count": facet_counts.get(facet_id, 0),
+            "kind": "keyword" if facet_id.startswith("kw_") else "hierarchy",
+            "parent_id": hierarchy_parent_by_id.get(facet_id),
+        }
         for facet_id, label in facets_by_id.items()
     ]
 
@@ -772,6 +917,9 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     #facetSidebar {
       grid-area: facets;
       height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
     #dateSidebar {
       grid-area: dates;
@@ -828,11 +976,41 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       flex: 0 0 auto;
       width: auto !important;
     }
-    #facetList {
+    #facetSections {
       display: flex;
+      flex: 1 1 0;
       flex-direction: column;
       gap: 8px;
-      margin-bottom: 0;
+      min-height: 0;
+    }
+    .facet-section {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+    }
+    .facet-section-header {
+      flex: 0 0 auto;
+      margin: 0;
+      padding: 7px 8px;
+      border-bottom: 1px solid #e0e0e0;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #555;
+    }
+    .facet-section-list {
+      display: flex;
+      flex: 1 1 0;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+      overflow: auto;
+      padding: 8px;
     }
     .facet-group {
       display: flex;
@@ -1156,6 +1334,13 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     body[data-theme="dark"] .facet-children {
       border-color: #475569;
     }
+    body[data-theme="dark"] .facet-section {
+      border-color: #334155;
+    }
+    body[data-theme="dark"] .facet-section-header {
+      border-bottom-color: #334155;
+      color: #cbd5e1;
+    }
     body[data-theme="dark"] .detail-panel.empty {
       background: transparent;
       color: #94a3b8;
@@ -1247,7 +1432,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
           "related";
       }
       #facetSidebar {
-        max-height: 38vh;
+        max-height: 58vh;
       }
       #rightSidebar {
         flex-direction: column;
@@ -1282,7 +1467,16 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         <div id="facetHeader">Facet spotlight</div>
         <button id="clearFacets" class="toolbar-btn" disabled>Clear selection</button>
       </div>
-      <div id="facetList"></div>
+      <div id="facetSections">
+        <section class="facet-section" aria-labelledby="hierarchyFacetHeader">
+          <h3 id="hierarchyFacetHeader" class="facet-section-header">Finding aid hierarchy</h3>
+          <div id="hierarchyFacetList" class="facet-section-list"></div>
+        </section>
+        <section class="facet-section" aria-labelledby="keywordFacetHeader">
+          <h3 id="keywordFacetHeader" class="facet-section-header">Keyword facets</h3>
+          <div id="keywordFacetList" class="facet-section-list"></div>
+        </section>
+      </div>
     </aside>
 
     <section id="dateSidebar" aria-labelledby="timelineHeader">
@@ -1323,7 +1517,8 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     const timelineToggle = document.getElementById('timelineToggle');
     const clearFacets = document.getElementById('clearFacets');
     const themeToggle = document.getElementById('themeToggle');
-    const facetList = document.getElementById('facetList');
+    const hierarchyFacetList = document.getElementById('hierarchyFacetList');
+    const keywordFacetList = document.getElementById('keywordFacetList');
     const rowList = document.getElementById('rowList');
     const rowCount = document.getElementById('rowCount');
     const emptyState = document.getElementById('emptyState');
@@ -1603,18 +1798,18 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       return facet ? facet.label : fid;
     }
 
-    function buildFacetContainmentLinks() {
-      const filesByFacet = new Map(FACETS.map(f => [f.id, new Set()]));
+    function buildFacetContainmentLinks(facets = FACETS) {
+      const filesByFacet = new Map(facets.map(f => [f.id, new Set()]));
       ROWS.forEach(row => row.facets.forEach(fid => filesByFacet.get(fid)?.add(row.id)));
       const links = [];
 
-      FACETS.forEach(child => {
+      facets.forEach(child => {
         const childFiles = filesByFacet.get(child.id);
         if (!childFiles || childFiles.size === 0) return;
 
         let smallestSupersetSize = Infinity;
         const parentIds = [];
-        FACETS.forEach(parent => {
+        facets.forEach(parent => {
           const parentFiles = filesByFacet.get(parent.id);
           if (!parentFiles || parentFiles.size <= childFiles.size) return;
           if (![...childFiles].every(rowId => parentFiles.has(rowId))) return;
@@ -1633,6 +1828,30 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     }
 
     const FACET_CONTAINMENT_LINKS = buildFacetContainmentLinks();
+    const HIERARCHICAL_FACETS = FACETS.filter(f => f.kind === 'hierarchy');
+    const HIERARCHY_PARENTS_BY_CHILD = new Map(HIERARCHICAL_FACETS.map(f => [f.id, []]));
+    const HIERARCHY_CHILDREN_BY_PARENT = new Map(HIERARCHICAL_FACETS.map(f => [f.id, []]));
+    HIERARCHICAL_FACETS.forEach(facet => {
+      const parentId = facet.parent_id;
+      if (!parentId || !HIERARCHY_PARENTS_BY_CHILD.has(parentId)) return;
+      HIERARCHY_PARENTS_BY_CHILD.get(facet.id).push(parentId);
+      HIERARCHY_CHILDREN_BY_PARENT.get(parentId).push(facet.id);
+    });
+    const PRIMARY_HIERARCHY_PARENT_BY_ID = new Map();
+    HIERARCHY_PARENTS_BY_CHILD.forEach((parentIds, childId) => {
+      const [parentId] = parentIds;
+      if (parentId) PRIMARY_HIERARCHY_PARENT_BY_ID.set(childId, parentId);
+    });
+    const HIERARCHY_ROOT_IDS = new Set(
+      HIERARCHICAL_FACETS
+        .filter(f => !PRIMARY_HIERARCHY_PARENT_BY_ID.has(f.id))
+        .map(f => f.id)
+    );
+    const COLLAPSIBLE_HIERARCHY_ROOT_IDS = new Set(
+      Array.from(HIERARCHY_ROOT_IDS).filter(rootId => (HIERARCHY_CHILDREN_BY_PARENT.get(rootId) || []).length > 0)
+    );
+    const expandedHierarchyRootIds = new Set();
+
     const FACET_PARENTS_BY_CHILD = new Map(FACETS.map(f => [f.id, []]));
     const FACET_CHILDREN_BY_PARENT = new Map(FACETS.map(f => [f.id, []]));
     FACET_CONTAINMENT_LINKS.forEach(link => FACET_PARENTS_BY_CHILD.get(link.from)?.push(link.to));
@@ -1642,6 +1861,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       const [primaryParentId] = parentIds.sort((a, b) => facetLabel(a).localeCompare(facetLabel(b)) || a.localeCompare(b));
       if (primaryParentId) PRIMARY_FACET_PARENT_BY_ID.set(childId, primaryParentId);
     });
+
     function getTopLevelFacetId(facetId) {
       let topLevelId = facetId;
       const visited = new Set();
@@ -1770,7 +1990,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
       FACETS.forEach(f => {
         if (isFacetNodeVisible(f.id) && (visibleFacetIds.has(f.id) || selectedFacetIds.has(f.id))) {
-          const isKeywordFacet = f.id.startsWith('kw_');
+          const isKeywordFacet = f.kind === 'keyword';
           const selected = selectedFacetIds.has(f.id);
           const size = facetNodeSize(f.count, selected);
           const background = isKeywordFacet ? getTheme().keywordFacetBackground : getTheme().facetBackground;
@@ -1893,39 +2113,32 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
     function renderFacetList(rows) {
       const counts = buildFacetCounts(rows);
-      const sortedFacets = FACETS
-        .filter(f => selectedFacetIds.has(f.id) || (counts.get(f.id) || 0) > 0)
-        .sort((a, b) => (counts.get(b.id) || 0) - (counts.get(a.id) || 0) || a.label.localeCompare(b.label));
-      const visibleFacetIds = new Set(sortedFacets.map(f => f.id));
-      const childrenByParent = new Map();
+      const hasMatchingFiles = facet => selectedFacetIds.has(facet.id) || (counts.get(facet.id) || 0) > 0;
+      const childrenByParent = HIERARCHY_CHILDREN_BY_PARENT;
       const rootFacets = [];
 
-      sortedFacets.forEach(facet => {
-        const parentId = PRIMARY_FACET_PARENT_BY_ID.get(facet.id);
-        if (parentId && visibleFacetIds.has(parentId)) {
-          if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
-          childrenByParent.get(parentId).push(facet);
-        } else {
-          rootFacets.push(facet);
-        }
+      HIERARCHICAL_FACETS.forEach(facet => {
+        if (!PRIMARY_HIERARCHY_PARENT_BY_ID.has(facet.id) && hasMatchingFiles(facet)) rootFacets.push(facet);
       });
 
       function renderFacet(facet, topLevelRootId = null) {
         const selected = selectedFacetIds.has(facet.id);
-        const children = childrenByParent.get(facet.id) || [];
+        const children = (childrenByParent.get(facet.id) || [])
+          .map(facetId => FACETS.find(candidate => candidate.id === facetId))
+          .filter(child => child && hasMatchingFiles(child));
         const isTopLevel = topLevelRootId === null;
         const rootId = isTopLevel ? facet.id : topLevelRootId;
-        const canCollapse = isTopLevel && COLLAPSIBLE_ROOT_FACET_IDS.has(rootId);
-        const isExpanded = expandedTopLevelFacetIds.has(rootId);
-        const alternateParents = (FACET_PARENTS_BY_CHILD.get(facet.id) || [])
-          .filter(parentId => parentId !== PRIMARY_FACET_PARENT_BY_ID.get(facet.id))
+        const canCollapse = isTopLevel && COLLAPSIBLE_HIERARCHY_ROOT_IDS.has(rootId);
+        const isExpanded = expandedHierarchyRootIds.has(rootId);
+        const alternateParents = (HIERARCHY_PARENTS_BY_CHILD.get(facet.id) || [])
+          .filter(parentId => parentId !== PRIMARY_HIERARCHY_PARENT_BY_ID.get(facet.id))
           .map(facetLabel);
-        const primaryParentId = PRIMARY_FACET_PARENT_BY_ID.get(facet.id);
+        const primaryParentId = PRIMARY_HIERARCHY_PARENT_BY_ID.get(facet.id);
         const tooltip = primaryParentId
           ? `Contained by ${facetLabel(primaryParentId)}${alternateParents.length ? `; also contained by ${alternateParents.join(', ')}` : ''}`
           : '';
         const classes = ['facet-pill'];
-        if (facet.id.startsWith('kw_')) classes.push('keyword-facet');
+        if (facet.kind === 'keyword') classes.push('keyword-facet');
         if (selected) classes.push('selected');
         if (children.length) classes.push('has-subsidiaries');
 
@@ -1936,29 +2149,48 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
                 <span class="facet-label">${escapeHtml(facet.label)}</span>
                 <span class="count">${counts.get(facet.id) || 0}</span>
               </button>
-              ${canCollapse ? `<button type="button" class="facet-collapse-toggle" data-collapse-root="${rootId}" aria-label="${isExpanded ? 'Collapse' : 'Expand'} ${escapeHtml(facet.label)}" aria-expanded="${isExpanded}" title="${isExpanded ? 'Collapse' : 'Expand'} subsidiary facets and files"><span class="facet-collapse-chevron" aria-hidden="true"></span></button>` : ''}
+              ${canCollapse ? `<button type="button" class="facet-collapse-toggle" data-collapse-root="${rootId}" aria-label="${isExpanded ? 'Collapse' : 'Expand'} ${escapeHtml(facet.label)}" aria-expanded="${isExpanded}" title="${isExpanded ? 'Collapse' : 'Expand'} subsidiary facets"><span class="facet-collapse-chevron" aria-hidden="true"></span></button>` : ''}
             </div>
             ${children.length && (!canCollapse || isExpanded) ? `<div class="facet-children">${children.map(child => renderFacet(child, rootId)).join('')}</div>` : ''}
           </div>
         `;
       }
 
-      facetList.innerHTML = rootFacets.map(facet => renderFacet(facet)).join('');
+      const facetButton = facet => `
+        <button type="button" class="facet-pill ${facet.kind === 'keyword' ? 'keyword-facet' : ''} ${selectedFacetIds.has(facet.id) ? 'selected' : ''}" data-facet-id="${escapeHtml(facet.id)}">
+          <span class="facet-label">${escapeHtml(facet.label)}</span>
+          <span class="count">${counts.get(facet.id) || 0}</span>
+        </button>
+      `;
 
-      facetList.querySelectorAll('[data-facet-id]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const fid = btn.dataset.facetId;
-          toggleFacetSelection(fid);
-          selectedRowId = null;
-          hoveredRowId = null;
-          render();
+      hierarchyFacetList.innerHTML = rootFacets.map(facet => renderFacet(facet)).join('');
+      const keywordFacets = FACETS
+        .filter(facet => facet.kind === 'keyword' && hasMatchingFiles(facet))
+        .sort((a, b) => a.label.localeCompare(b.label));
+      keywordFacetList.innerHTML = keywordFacets.length
+        ? keywordFacets.map(facet => facetButton(facet)).join('')
+        : '<div class="detail-panel empty">No keyword facets match the current spotlight.</div>';
+
+      [hierarchyFacetList, keywordFacetList].forEach(list => {
+        list.querySelectorAll('[data-facet-id]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const fid = btn.dataset.facetId;
+            toggleFacetSelection(fid);
+            selectedRowId = null;
+            hoveredRowId = null;
+            render();
+          });
         });
       });
 
-      facetList.querySelectorAll('[data-collapse-root]').forEach(btn => {
+      hierarchyFacetList.querySelectorAll('[data-collapse-root]').forEach(btn => {
         btn.addEventListener('click', () => {
           const rootId = btn.dataset.collapseRoot;
-          setFacetBranchExpanded(rootId, !expandedTopLevelFacetIds.has(rootId));
+          if (expandedHierarchyRootIds.has(rootId)) {
+            expandedHierarchyRootIds.delete(rootId);
+          } else {
+            expandedHierarchyRootIds.add(rootId);
+          }
           render();
         });
       });
@@ -2061,6 +2293,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       }
 
       if (params.nodes.length === 0 && params.edges.length === 0) {
+        if (!selectedFacetIds.size) return;
         selectedFacetIds.clear();
         expandedTopLevelFacetIds.clear();
         selectedRowId = null;

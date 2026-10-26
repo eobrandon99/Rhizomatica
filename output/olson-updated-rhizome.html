@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gary M. Olson papers</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css">
+  <style>
+    html, body {
+      height: 100%;
+    }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #fff;
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #controls {
+      padding: 10px 14px;
+      border-bottom: 1px solid #ddd;
+      background: #f7f7f7;
+      flex: 0 0 auto;
+    }
+    #title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #222;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      user-select: none;
+      font-size: 13px;
+    }
+    #themeToggleBox {
+      position: fixed;
+      top: 12px;
+      right: 16px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.88);
+      padding: 6px 10px;
+      border-radius: 8px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      font-size: 13px;
+      user-select: none;
+    }
+
+    #themeToggleBox label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    #themeToggleBox input[type="checkbox"] {
+      margin: 0;
+    }
+
+    body[data-theme="dark"] #themeToggleBox {
+      background: rgba(30,30,30,0.88);
+      color: #fff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    }
+    .facet-spotlight {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: #FFF2B3;
+      border: 1px solid #FFB300;
+      font-weight: 700;
+    }
+    #toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 8px 0 6px 0;
+    }
+    .toolbar-btn {
+      border: 1px solid #bbb;
+      background: #fff;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .toolbar-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    #rangeText {
+      margin-top: 6px;
+      font-size: 13px;
+      line-height: 1.35;
+      color: #333;
+    }
+    #page {
+      display: grid;
+      grid-template-columns: minmax(210px, 0.78fr) minmax(0, 2.2fr) minmax(260px, 0.95fr);
+      grid-template-rows: minmax(130px, 150px) minmax(0, 1fr);
+      grid-template-areas:
+        "facets dates related"
+        "facets network related";
+      gap: 10px;
+      width: 100%;
+      flex: 1 1 auto;
+      min-height: 0;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    #facetSidebar, #dateSidebar, #rowSidebar, #detailSidebar {
+      background: #fafafa;
+      padding: 12px;
+      box-sizing: border-box;
+      overflow: auto;
+      min-width: 0;
+      min-height: 0;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+    }
+    #facetSidebar {
+      grid-area: facets;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #dateSidebar {
+      grid-area: dates;
+      height: 100%;
+    }
+    #rowSidebar {
+      flex: 1 1 0;
+      min-height: 120px;
+    }
+    #rightSidebar {
+      grid-area: related;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    #detailSidebar {
+      display: flex;
+      flex-direction: column;
+      flex: 0 1 auto;
+      gap: 6px;
+      min-height: 150px;
+      max-height: 58%;
+      min-width: 0;
+      overflow: hidden;
+    }
+    #container {
+      grid-area: network;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+    }
+    #facetHeader, #rowHeader, #detailHeader, #timelineHeader {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 8px 0;
+      color: #333;
+    }
+    .panel-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .panel-heading #facetHeader {
+      margin: 0;
+    }
+    .panel-heading .toolbar-btn {
+      flex: 0 0 auto;
+      width: auto !important;
+    }
+    #facetSections {
+      display: flex;
+      flex: 1 1 0;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+    }
+    .facet-section {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+    }
+    .facet-section-header {
+      flex: 0 0 auto;
+      margin: 0;
+      padding: 7px 8px;
+      border-bottom: 1px solid #e0e0e0;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #555;
+    }
+    .facet-section-list {
+      display: flex;
+      flex: 1 1 0;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+      overflow: auto;
+      padding: 8px;
+    }
+    .facet-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+    .facet-header-row {
+      display: flex;
+      align-items: stretch;
+      gap: 4px;
+      min-width: 0;
+    }
+    .facet-header-row .facet-pill {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .facet-collapse-toggle {
+      display: grid;
+      flex: 0 0 34px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid #cfcfcf;
+      border-radius: 8px;
+      background: #fff;
+      color: #444;
+      cursor: pointer;
+    }
+    .facet-collapse-toggle:hover {
+      background: #f2f4f6;
+      border-color: #8a929b;
+    }
+    .facet-collapse-chevron {
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(-45deg);
+      transition: transform 0.15s ease;
+    }
+    .facet-collapse-toggle[aria-expanded="true"] .facet-collapse-chevron {
+      transform: rotate(45deg);
+    }
+    .facet-children {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+      margin-left: 12px;
+      padding-left: 10px;
+      border-left: 1px solid #d6dbe1;
+    }
+    #facetSidebar .tool-section + .tool-section {
+      margin-top: 2px;
+    }
+    #facetSidebar .tool-section {
+      margin: 0;
+    }
+    #timelineBlock {
+      margin-top: 0 !important;
+    }
+    .facet-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #cfcfcf;
+      background: #fff;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+      text-align: left;
+    }
+    .facet-label {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .facet-pill.has-subsidiaries .facet-label {
+      font-weight: 700;
+    }
+    .facet-pill:hover {
+      background: #fff8e8;
+      border-color: #ffb300;
+      transform: translateY(-1px);
+    }
+    .facet-pill.selected {
+      background: #fff2b3;
+      border-color: #ffb300;
+      font-weight: 700;
+    }
+    .facet-pill.keyword-facet {
+      background: #dccbef;
+      border-color: #7952a3;
+      color: #30194b;
+    }
+    .facet-pill.keyword-facet:hover {
+      background: #cdb5e6;
+      border-color: #6b3fa0;
+    }
+    .facet-pill.keyword-facet.selected {
+      background: #6b3fa0;
+      border-color: #4b2677;
+      color: #fff;
+    }
+    .facet-pill .count {
+      flex: 0 0 auto;
+      color: #666;
+      font-weight: 600;
+    }
+    .detail-panel {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      border: 0;
+      background: transparent;
+      border-radius: 0;
+      padding: 0;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #222;
+      box-shadow: none;
+      margin: 0;
+    }
+    .detail-panel.empty {
+      color: #666;
+      background: transparent;
+      font-style: italic;
+    }
+    .detail-row {
+      margin-bottom: 6px;
+    }
+    .detail-label {
+      font-weight: 700;
+      color: #333;
+    }
+    .detail-value {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .detail-related {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #e7e7e7;
+    }
+    .detail-related-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #444;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .detail-facet-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .detail-facet-chip {
+      appearance: none;
+      border: 1px solid #d0d7e2;
+      background: #f7f9fc;
+      color: #17324d;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .detail-facet-chip:hover {
+      background: #e9f2ff;
+      border-color: #9dc2ff;
+    }
+    .detail-facet-chip.selected {
+      background: #FFE082;
+      border-color: #FF8C00;
+      color: #7a4a00;
+      font-weight: 700;
+    }
+    .sidebar-item {
+      width: 100%;
+      text-align: left;
+      background: #fff;
+      border: 1px solid #e4e4e4;
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+    }
+    .sidebar-item:hover {
+      background: #fff8e8;
+      border-color: #ffb300;
+      transform: translateX(2px);
+    }
+    .sidebar-item.selected {
+      background: #fff2b3;
+      border-color: #ffb300;
+    }
+    .row-id {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 2px;
+      color: #111;
+    }
+    .row-date {
+      font-size: 12px;
+      color: #333;
+    }
+    .row-box {
+      font-size: 12px;
+      color: #666;
+      margin-top: 2px;
+    }
+    .row-match {
+      font-size: 12px;
+      color: #666;
+      margin-top: 3px;
+    }
+    #emptyState {
+      font-size: 13px;
+      color: #666;
+      padding: 10px 0;
+    }
+    #copyright {
+      position: fixed;
+      bottom: 10px;
+      right: 12px;
+      font-size: 12px;
+      color: #666;
+      background: rgba(255,255,255,0.8);
+      padding: 4px 8px;
+      border-radius: 6px;
+      backdrop-filter: blur(2px);
+      z-index: 9999;
+    }
+    .noUi-target { height: 5px; }
+    .noUi-connect { background: #4C78A8; }
+    .noUi-horizontal .noUi-handle {
+      width: 12px;
+      height: 12px;
+      right: -6px;
+      top: -4px;
+      border-radius: 50%;
+    }
+    .noUi-handle:before,
+    .noUi-handle:after { display: none; }
+    body[data-theme="dark"] {
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    body[data-theme="dark"] #controls {
+      background: #111827;
+      border-bottom-color: #334155;
+    }
+    body[data-theme="dark"] #title,
+    body[data-theme="dark"] #facetHeader,
+    body[data-theme="dark"] #rowHeader,
+    body[data-theme="dark"] #detailHeader,
+    body[data-theme="dark"] #timelineHeader,
+    body[data-theme="dark"] .detail-label,
+    body[data-theme="dark"] .row-id,
+    body[data-theme="dark"] .detail-related-title {
+      color: #f8fafc;
+    }
+    body[data-theme="dark"] #rangeText,
+    body[data-theme="dark"] #rowCount,
+    body[data-theme="dark"] .row-date,
+    body[data-theme="dark"] .row-box,
+    body[data-theme="dark"] .row-match {
+      color: #cbd5e1;
+    }
+    body[data-theme="dark"] #facetSidebar,
+    body[data-theme="dark"] #dateSidebar,
+    body[data-theme="dark"] #rowSidebar,
+    body[data-theme="dark"] #detailSidebar {
+      background: #0b1220;
+      border-color: #334155;
+    }
+    body[data-theme="dark"] .facet-pill,
+    body[data-theme="dark"] .sidebar-item,
+    body[data-theme="dark"] .facet-collapse-toggle {
+      background: #111827;
+      border-color: #334155;
+      color: #e5e7eb;
+    }
+    body[data-theme="dark"] .facet-pill:hover,
+    body[data-theme="dark"] .sidebar-item:hover,
+    body[data-theme="dark"] .facet-collapse-toggle:hover {
+      background: #1e293b;
+      border-color: #64748b;
+    }
+    body[data-theme="dark"] .facet-pill.selected,
+    body[data-theme="dark"] .sidebar-item.selected {
+      background: #334155;
+      border-color: #60a5fa;
+      color: #f8fafc;
+    }
+    body[data-theme="dark"] .facet-pill.keyword-facet {
+      background: #3b2b50;
+      border-color: #a884d2;
+      color: #f2e8ff;
+    }
+    body[data-theme="dark"] .facet-pill.keyword-facet:hover {
+      background: #4a3563;
+      border-color: #c5a8ec;
+    }
+    body[data-theme="dark"] .facet-pill.keyword-facet.selected {
+      background: #684395;
+      border-color: #d5b8f4;
+      color: #fff;
+    }
+    body[data-theme="dark"] .facet-pill .count {
+      color: #94a3b8;
+    }
+    body[data-theme="dark"] .facet-children {
+      border-color: #475569;
+    }
+    body[data-theme="dark"] .facet-section {
+      border-color: #334155;
+    }
+    body[data-theme="dark"] .facet-section-header {
+      border-bottom-color: #334155;
+      color: #cbd5e1;
+    }
+    body[data-theme="dark"] .detail-panel.empty {
+      background: transparent;
+      color: #94a3b8;
+    }
+    body[data-theme="dark"] .detail-facet-chip {
+      background: #1e293b;
+      border-color: #475569;
+      color: #e2e8f0;
+    }
+    body[data-theme="dark"] .detail-facet-chip:hover {
+      background: #334155;
+      border-color: #60a5fa;
+    }
+    body[data-theme="dark"] .detail-facet-chip.selected {
+      background: #92400e;
+      border-color: #f59e0b;
+      color: #fef3c7;
+    }
+    body[data-theme="dark"] .facet-spotlight {
+      background: #92400e;
+      border-color: #f59e0b;
+      color: #fef3c7;
+    }
+    body[data-theme="dark"] .toolbar-btn {
+      background: #111827;
+      border-color: #475569;
+      color: #e5e7eb;
+    }
+    body[data-theme="dark"] .toolbar-btn:disabled {
+      opacity: 0.5;
+    }
+    body[data-theme="dark"] #copyright {
+      background: rgba(15, 23, 42, 0.88);
+      color: #cbd5e1;
+    }
+    body[data-theme="dark"] .noUi-target {
+      background: #334155;
+      border-color: #475569;
+    }
+    body[data-theme="dark"] .noUi-connect {
+      background: #60a5fa;
+    }
+    body[data-theme="dark"] .noUi-horizontal .noUi-handle {
+      background: #e2e8f0;
+      border-color: #cbd5e1;
+      box-shadow: none;
+    }
+    body[data-theme="dark"] .noUi-handle:before,
+    body[data-theme="dark"] .noUi-handle:after {
+      background: #64748b;
+    }
+    body[data-theme="dark"] .detail-label,
+    body[data-theme="dark"] .detail-value {
+      color: #e5e7eb;
+    }
+    body[data-theme="dark"] .detail-value {
+      white-space: pre-wrap;
+    }
+    @media (max-width: 950px) {
+      #page {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: minmax(130px, 150px) minmax(0, 1fr) minmax(240px, 34vh);
+        grid-template-areas:
+          "facets dates"
+          "facets network"
+          "related related";
+        overflow: auto;
+      }
+      #rightSidebar {
+        flex-direction: row;
+      }
+      #rowSidebar {
+        min-height: 0;
+      }
+      #detailSidebar {
+        flex: 0 0 38%;
+        max-height: none;
+        min-height: 0;
+      }
+    }
+    @media (max-width: 700px) {
+      #page {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(190px, 38vh) minmax(145px, auto) minmax(380px, 60vh) minmax(430px, 65vh);
+        grid-template-areas:
+          "facets"
+          "dates"
+          "network"
+          "related";
+      }
+      #facetSidebar {
+        max-height: 58vh;
+      }
+      #rightSidebar {
+        flex-direction: column;
+      }
+      #rowSidebar {
+        min-height: 180px;
+      }
+      #detailSidebar {
+        flex: 0 1 auto;
+        min-height: 160px;
+        max-height: 48%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <div id="title">Gary M. Olson papers</div>
+    <div id="themeToggleBox">
+      <label for="themeToggle">
+        <input type="checkbox" id="themeToggle">
+        Dark mode
+      </label>
+    </div>
+    <div id="toolbar">
+    </div>
+  </div>
+
+  <div id="page">
+    <aside id="facetSidebar">
+      <div class="panel-heading">
+        <div id="facetHeader">Facet spotlight</div>
+        <button id="clearFacets" class="toolbar-btn" disabled>Clear selection</button>
+      </div>
+      <div id="facetSections">
+        <section class="facet-section" aria-labelledby="hierarchyFacetHeader">
+          <h3 id="hierarchyFacetHeader" class="facet-section-header">Finding aid hierarchy</h3>
+          <div id="hierarchyFacetList" class="facet-section-list"></div>
+        </section>
+        <section class="facet-section" aria-labelledby="keywordFacetHeader">
+          <h3 id="keywordFacetHeader" class="facet-section-header">Keyword facets</h3>
+          <div id="keywordFacetList" class="facet-section-list"></div>
+        </section>
+      </div>
+    </aside>
+
+    <section id="dateSidebar" aria-labelledby="timelineHeader">
+      <div id="timelineHeader">Date filtering</div>
+      <div class="toggle-row" style="margin-top: 0;">
+        <input type="checkbox" id="timelineToggle">
+        <label for="timelineToggle">Enable timeline filter</label>
+      </div>
+      <div id="sliderWrap"><div id="slider"></div></div>
+      <div id="rangeText">Timeline disabled - showing everything, including records without dates.</div>
+    </section>
+
+    <div id="container"></div>
+
+    <aside id="rightSidebar">
+      <section id="rowSidebar">
+        <div id="rowHeader">Related files</div>
+        <div id="rowCount"></div>
+        <div id="rowList"></div>
+        <div id="emptyState" style="display:none;">No rows match the current selection.</div>
+      </section>
+
+      <section id="detailSidebar">
+        <div id="detailHeader">File spotlight</div>
+        <div id="detailPanel" class="detail-panel empty">Hover or click a file node or row to preview details.</div>
+      </section>
+    </aside>
+  </div>
+
+  <script>
+    const ROWS = [{"id": "ao_525595", "title": "Technical Review of the Effort to Port Diamond and Cronus to the HP9020A Workstation: Final Report", "display_date": "December 1986", "date_expr": "December 1986", "begin": "1986-12-01", "end": "1986-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_technical", "kw_report", "kw_review", "kw_diamond"]}, {"id": "ao_525596", "title": "Proposal to the National Science Foundation for a Cooperative Agreement for Experimental Research in Electronic Submission (EXPRES) of Multimedia Proposals and Documents", "display_date": "August 1986", "date_expr": "August 1986", "begin": "1986-08-01", "end": "1986-08-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_research", "kw_document", "kw_expres", "kw_national", "kw_science", "kw_proposal"]}, {"id": "ao_525597", "title": "NSF EXPRES Site Visit", "display_date": "September 10, 1986", "date_expr": "September 10, 1986", "begin": "1986-09-10", "end": "1986-09-10", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_expres", "kw_nsf", "kw_site_visit"]}, {"id": "ao_525598", "title": "Cambridge Visit", "display_date": "December 11-12, 1986", "date_expr": "December 11-12, 1986", "begin": "1986-12-11", "end": "1986-12-12", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591"]}, {"id": "ao_525599", "title": "EXPRES Meeting, BBN Laboratories", "display_date": "December 12, 1986", "date_expr": "December 12, 1986", "begin": "1986-12-12", "end": "1986-12-12", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_expres", "kw_meeting"]}, {"id": "ao_525600", "title": "NSF Trip", "display_date": "January 7-8, 1987", "date_expr": "January 7-8, 1987", "begin": "1987-01-07", "end": "1987-01-08", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_nsf", "kw_trip"]}, {"id": "ao_525601", "title": "NSF, Carnegie Mellon University (CMU) Trip", "display_date": "January 27-28, 1987", "date_expr": "January 27-28, 1987", "begin": "1987-01-27", "end": "1987-01-28", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_nsf", "kw_trip", "kw_cmu"]}, {"id": "ao_525602", "title": "Meeting at NSF", "display_date": "February 12, 1987", "date_expr": "February 12, 1987", "begin": "1987-02-12", "end": "1987-02-12", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_nsf", "kw_meeting"]}, {"id": "ao_525603", "title": "BBN Visit to UM", "display_date": "March 4-6, 1987", "date_expr": "March 4-6, 1987", "begin": "1987-03-04", "end": "1987-03-06", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591"]}, {"id": "ao_525604", "title": "National Center for Atmospheric Research (NCAR) Visit", "display_date": "March 27, 1987", "date_expr": "March 27, 1987", "begin": "1987-03-27", "end": "1987-03-27", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591"]}, {"id": "ao_525605", "title": "Project Management Committee (PMC) Meeting", "display_date": "July 22, 1987", "date_expr": "July 22, 1987", "begin": "1987-07-22", "end": "1987-07-22", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_meeting"]}, {"id": "ao_525606", "title": "Needs, Requirements, and Evaluation Group (NRE) Report", "display_date": "August 7, 1987", "date_expr": "August 7, 1987", "begin": "1987-08-07", "end": "1987-08-07", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_report"]}, {"id": "ao_525607", "title": "Technical Review", "display_date": "September 10-11, 1987", "date_expr": "September 10-11, 1987", "begin": "1987-09-10", "end": "1987-09-11", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_technical", "kw_review"]}, {"id": "ao_525608", "title": "Engineering National Advisory Committee (NAC)", "display_date": "October 1987", "date_expr": "October 1987", "begin": "1987-10-01", "end": "1987-10-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591"]}, {"id": "ao_525609", "title": "Areas of work for UM EXPRES Development Team", "display_date": "October 1987", "date_expr": "October 1987", "begin": "1987-10-01", "end": "1987-10-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_um_expres", "kw_expres"]}, {"id": "ao_525610", "title": "UM EXPRES Development Team Progress Report", "display_date": "November 4, 1987", "date_expr": "November 4, 1987", "begin": "1987-11-04", "end": "1987-11-04", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_report", "kw_um_expres", "kw_expres"]}, {"id": "ao_525611", "title": "UM EXPRES Project Review and Plans for Year 2", "display_date": "December 13, 1987", "date_expr": "December 13, 1987", "begin": "1987-12-13", "end": "1987-12-13", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_review", "kw_um_expres", "kw_project", "kw_year", "kw_plan", "kw_expres"]}, {"id": "ao_525612", "title": "Project Management Committee (PMC) Meeting", "display_date": "December 16, 1987", "date_expr": "December 16, 1987", "begin": "1987-12-16", "end": "1987-12-16", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_meeting"]}, {"id": "ao_525613", "title": "Postscript Experiment, Interim Report", "display_date": "April 4, 1988", "date_expr": "April 4, 1988", "begin": "1988-04-04", "end": "1988-04-04", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_report"]}, {"id": "ao_525614", "title": "Interoperability Meeting", "display_date": "April 7, 1988", "date_expr": "April 7, 1988", "begin": "1988-04-07", "end": "1988-04-07", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_meeting"]}, {"id": "ao_525615", "title": "Advisory Committee", "display_date": "April 7-8, 1988", "date_expr": "April 7-8, 1988", "begin": "1988-04-07", "end": "1988-04-08", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591"]}, {"id": "ao_525616", "title": "UM EXPRES Goals and Mid-Course Plan", "display_date": "June 22, 1988", "date_expr": "June 22, 1988", "begin": "1988-06-22", "end": "1988-06-22", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_um_expres", "kw_plan", "kw_expres"]}, {"id": "ao_525617", "title": "Project Management Committee (PMC) Meeting", "display_date": "September 2, 1988", "date_expr": "September 2, 1988", "begin": "1988-09-02", "end": "1988-09-02", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_meeting"]}, {"id": "ao_525618", "title": "CMU-EXPRES Progress Report", "display_date": "October 1987-September 1988", "date_expr": "October 1987-September 1988", "begin": "1987-10-01", "end": "1988-09-30", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_report", "kw_expres", "kw_cmu"]}, {"id": "ao_525619", "title": "Net Express Meeting at Ann Arbor", "display_date": "November 14-15, 1988", "date_expr": "November 14-15, 1988", "begin": "1988-11-14", "end": "1988-11-15", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_meeting"]}, {"id": "ao_525620", "title": "Technical Advisory Committee Meeting", "display_date": "November 14-15, 1988", "date_expr": "November 14-15, 1988", "begin": "1988-11-14", "end": "1988-11-15", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_technical", "kw_meeting"]}, {"id": "ao_525621", "title": "Technical Advisory Panel", "display_date": "November 1988", "date_expr": "November 1988", "begin": "1988-11-01", "end": "1988-11-30", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_technical"]}, {"id": "ao_525622", "title": "UM EXPRES Project Review and Plans for Year 3", "display_date": "November 30, 1988", "date_expr": "November 30, 1988", "begin": "1988-11-30", "end": "1988-11-30", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525591", "kw_review", "kw_um_expres", "kw_project", "kw_year", "kw_plan", "kw_expres"]}, {"id": "ao_525623", "title": "Presentation Materials", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_material", "kw_presentation"]}, {"id": "ao_525624", "title": "Demos at Conferences, Hanover Fair", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592"]}, {"id": "ao_525625", "title": "EXPRES Highlighted at Ann Arbor Meeting", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_expres", "kw_meeting"]}, {"id": "ao_525626", "title": "EXPRES -- Seminar Series", "display_date": "November 1986-January 1987", "date_expr": "November 1986-January 1987", "begin": "1986-11-01", "end": "1987-01-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_expres"]}, {"id": "ao_525627", "title": "Langenberg Panel (Information Technologies and the Conduct of Research)", "display_date": "January 8, 1987", "date_expr": "January 8, 1987", "begin": "1987-01-08", "end": "1987-01-08", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_research", "kw_technology", "kw_information"]}, {"id": "ao_525628", "title": "Cognitive Science and Machine Intelligence Laboratory (CSMIL) Bulletin, Issue 19 \"EXPRES Project,\"", "display_date": "January 12, 1987", "date_expr": "January 12, 1987", "begin": "1987-01-12", "end": "1987-01-12", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_expres_project", "kw_expres", "kw_project"]}, {"id": "ao_525629", "title": "Andrew Demo", "display_date": "April 14, 1987", "date_expr": "April 14, 1987", "begin": "1987-04-14", "end": "1987-04-14", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592"]}, {"id": "ao_525630", "title": "EXPRES Newsletter, Vol. 1, no. 1", "display_date": "June 1987", "date_expr": "June 1987", "begin": "1987-06-01", "end": "1987-06-30", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_expres"]}, {"id": "ao_525631", "title": "National Science Foundation (NSF) Event", "display_date": "June 8, 1987", "date_expr": "June 8, 1987", "begin": "1987-06-08", "end": "1987-06-08", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_nsf"]}, {"id": "ao_525632", "title": "Trip Report: Technical Support for Work Group Collaboration (NYU Symposium)", "display_date": "June 28, 1987", "date_expr": "June 28, 1987", "begin": "1987-06-28", "end": "1987-06-28", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_technical", "kw_report", "kw_trip"]}, {"id": "ao_525633", "title": "EDUCOM (Los Angeles)", "display_date": "1987", "date_expr": "1987", "begin": "1987-01-01", "end": "1987-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592"]}, {"id": "ao_525634", "title": "EXPRES Initiative Unix in the Office, Vol. 10, no. 11", "display_date": "November 1987", "date_expr": "November 1987", "begin": "1987-11-01", "end": "1987-11-30", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_expres"]}, {"id": "ao_525635", "title": "Combined Trip Report: ANSI X3V1 Meeting, NBS OSI Implementers Workshop", "display_date": "November 2, 1987", "date_expr": "November 2, 1987", "begin": "1987-11-02", "end": "1987-11-02", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_report", "kw_meeting", "kw_trip", "kw_workshop"]}, {"id": "ao_525636", "title": "EXPRES Videotape Notes and Correspondence", "display_date": "November-December 1987", "date_expr": "November-December 1987", "begin": "1987-11-01", "end": "1987-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_expres"]}, {"id": "ao_525637", "title": "Chapter on EXPRES, Kraut et al Book", "display_date": "1988", "date_expr": "1988", "begin": "1988-01-01", "end": "1988-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_expres"]}, {"id": "ao_525638", "title": "EXPRES Newsletter, Vol. 2, no. 1", "display_date": "January 1988", "date_expr": "January 1988", "begin": "1988-01-01", "end": "1988-01-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_expres"]}, {"id": "ao_525639", "title": "CSNET News: \"EXPRES Project Completes First Year\" No. 16", "display_date": "1988", "date_expr": "1988", "begin": "1988-01-01", "end": "1988-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_year", "kw_expres_project", "kw_expres", "kw_project"]}, {"id": "ao_525640", "title": "EXPRES Event", "display_date": "March 4-5, 1988", "date_expr": "March 4-5, 1988", "begin": "1988-03-04", "end": "1988-03-05", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_expres"]}, {"id": "ao_525641", "title": "Baseline Studies of Current Practice: Methods and Some Significant Results (Transparencies)", "display_date": "March 1988", "date_expr": "March 1988", "begin": "1988-03-01", "end": "1988-03-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592"]}, {"id": "ao_525642", "title": "Article: \"Computer Giants Back UM EXPRES\" University Record, Special Report \"Getting the Job Done,\"", "display_date": "April 18, 1988", "date_expr": "April 18, 1988", "begin": "1988-04-18", "end": "1988-04-18", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_report", "kw_university", "kw_um_expres", "kw_expres"]}, {"id": "ao_525643", "title": "The Carnegie-Mellon University (CMU) Open Document Architecture Consortium", "display_date": "February 28, 1989", "date_expr": "February 28, 1989", "begin": "1989-02-28", "end": "1989-02-28", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525592", "kw_document", "kw_cmu"]}, {"id": "ao_525644", "title": "Installing and Using MMDeliver on the Sun 3, Sun 4, and Sun 386i", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525593"]}, {"id": "ao_525645", "title": "Sending Mail with Diamond Release 4.1 on the Sun 3, Sun 4, and Sun 386i", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525593", "kw_diamond", "kw_release"]}, {"id": "ao_525646", "title": "UM EXPRES Tutorial", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525593", "kw_um_expres", "kw_expres"]}, {"id": "ao_525647", "title": "Diamond Multimedia Document System: Tutorial, Release 3", "display_date": "February 1987", "date_expr": "February 1987", "begin": "1987-02-01", "end": "1987-02-28", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525593", "kw_diamond", "kw_document", "kw_release"]}, {"id": "ao_525648", "title": "Diamond User's Reference Guide, Release 3.1", "display_date": "November 1987", "date_expr": "November 1987", "begin": "1987-11-01", "end": "1987-11-30", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525593", "kw_diamond", "kw_release", "kw_user_reference_guide", "kw_user"]}, {"id": "ao_525649", "title": "EXPRES User's Reference Guide, UM EXPRES 1.0", "display_date": "January 1988", "date_expr": "January 1988", "begin": "1988-01-01", "end": "1988-01-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525593", "kw_expres", "kw_um_expres", "kw_user_reference_guide", "kw_user"]}, {"id": "ao_525650", "title": "Diamond Multimedia Document System, User's Reference Guide, Release 3.2", "display_date": "June 1988", "date_expr": "June 1988", "begin": "1988-06-01", "end": "1988-06-30", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525593", "kw_diamond", "kw_document", "kw_release", "kw_user_reference_guide", "kw_user"]}, {"id": "ao_525651", "title": "EXPRES User's Reference Guide, UM EXPRES 2.0", "display_date": "July 1988", "date_expr": "July 1988", "begin": "1988-07-01", "end": "1988-07-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525593", "kw_expres", "kw_um_expres", "kw_user_reference_guide", "kw_user"]}, {"id": "ao_525652", "title": "UM EXPRES 2.0 Release", "display_date": "August 31, 1988", "date_expr": "August 31, 1988", "begin": "1988-08-31", "end": "1988-08-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525593", "kw_um_expres", "kw_release", "kw_expres"]}, {"id": "ao_525653", "title": "Carnegie Mellon University (CMU)", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_cmu"]}, {"id": "ao_525654", "title": "Correspondence, Misc.", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594"]}, {"id": "ao_525655", "title": "Deployment", "display_date": "1987", "date_expr": "1987", "begin": "1987-01-01", "end": "1987-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_deployment"]}, {"id": "ao_525656", "title": "Deployment: Beta Test Agreements", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_deployment"]}, {"id": "ao_525657", "title": "Deployment: Data Capture", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_deployment", "kw_data"]}, {"id": "ao_525658", "title": "Deployment: Sites", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_deployment"]}, {"id": "ao_525659", "title": "Diamond", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_diamond"]}, {"id": "ao_525660", "title": "Diamond 3.1", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_diamond"]}, {"id": "ao_525661", "title": "Diamond Dialogue Boxes", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_diamond"]}, {"id": "ao_525662", "title": "EXPRES", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_expres"]}, {"id": "ao_525663", "title": "EXPRES -- Current", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_expres"]}, {"id": "ao_525664", "title": "EXPRES Directory Listing", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_expres"]}, {"id": "ao_525665", "title": "EXPRES -- Now", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_expres"]}, {"id": "ao_525666", "title": "EXPRES -- Project", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_expres_project", "kw_expres", "kw_project"]}, {"id": "ao_525667", "title": "Legal Materials", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_material"]}, {"id": "ao_525668", "title": "National Science Foundation (NSF)", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_nsf"]}, {"id": "ao_525669", "title": "NSF -- Astronomy", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_nsf"]}, {"id": "ao_525670", "title": "NSF -- Atmospheric Sciences", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_science", "kw_nsf"]}, {"id": "ao_525671", "title": "NSF -- CISE", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_nsf"]}, {"id": "ao_525672", "title": "Other Universities", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_university"]}, {"id": "ao_525673", "title": "Other Universities", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_university"]}, {"id": "ao_525674", "title": "Project Management Notes", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594"]}, {"id": "ao_525675", "title": "Research Plans", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_research", "kw_plan"]}, {"id": "ao_525676", "title": "Site Selection", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594"]}, {"id": "ao_525677", "title": "University of Michigan", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_university"]}, {"id": "ao_525678", "title": "University of Michigan Atmospheric Sciences", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_science", "kw_university"]}, {"id": "ao_525679", "title": "User Trials Task Force", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103539", "series_ao_525594", "kw_user"]}, {"id": "ao_1103439", "title": "Workshop", "display_date": "October 1995", "date_expr": "October 1995", "begin": "1995-10-01", "end": "1995-10-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_workshop"]}, {"id": "ao_1103440", "title": "Workshop", "display_date": "December 1996", "date_expr": "December 1996", "begin": "1996-12-01", "end": "1996-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_workshop"]}, {"id": "ao_1103441", "title": "Data logs and analysis", "display_date": "1993-1996", "date_expr": "1993-1996", "begin": "1993-01-01", "end": "1996-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_data"]}, {"id": "ao_1103442", "title": "Reports", "display_date": "1993-1995", "date_expr": "1993-1995", "begin": "1993-01-01", "end": "1995-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_report"]}, {"id": "ao_1103443", "title": "Graphing Client User's Guide", "display_date": "1995", "date_expr": "1995", "begin": "1995-01-01", "end": "1995-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_user"]}, {"id": "ao_1103444", "title": "SSF Radar Schedules", "display_date": "1995-1996", "date_expr": "1995-1996", "begin": "1995-01-01", "end": "1996-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438"]}, {"id": "ao_1103445", "title": "\"Towards a National Collaboratory: Report of an Invitational Workshop\"", "display_date": "1989", "date_expr": "1989", "begin": "1989-01-01", "end": "1989-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_report", "kw_national", "kw_workshop", "kw_collaboratory"]}, {"id": "ao_1103446", "title": "Related publications and clippings", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438"]}, {"id": "ao_1103447", "title": "\"From Laboratories to Collaboratories.\" Research", "display_date": "1993-1995", "date_expr": "1993-1995", "begin": "1993-01-01", "end": "1995-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_research", "kw_collaboratory"]}, {"id": "ao_1103448", "title": "Publications", "display_date": "1994-1998", "date_expr": "1994-1998", "begin": "1994-01-01", "end": "1998-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438"]}, {"id": "ao_1103449", "title": "National Center for Atmospheric Research workshop", "display_date": "2002", "date_expr": "2002", "begin": "2002-01-01", "end": "2002-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_research", "kw_national", "kw_workshop"]}, {"id": "ao_1103450", "title": "Behavioral science presentation and research data", "display_date": "1994", "date_expr": "1994", "begin": "1994-01-01", "end": "1994-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 expandable folders"], "facets": ["series_ao_1103438", "kw_research", "kw_science", "kw_presentation", "kw_data"]}, {"id": "ao_1103451", "title": "Campaigns", "display_date": "1993-1997", "date_expr": "1993-1997", "begin": "1993-01-01", "end": "1997-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 expandable folders"], "facets": ["series_ao_1103438"]}, {"id": "ao_1103452", "title": "SWAT team", "display_date": "1995", "date_expr": "1995", "begin": "1995-01-01", "end": "1995-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438"]}, {"id": "ao_1103453", "title": "User feedback", "display_date": "1994", "date_expr": "1994", "begin": "1994-01-01", "end": "1994-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_user"]}, {"id": "ao_1103454", "title": "Proshare experiment", "display_date": "1995", "date_expr": "1995", "begin": "1995-01-01", "end": "1995-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438"]}, {"id": "ao_1103455", "title": "Design", "display_date": "1992-1994", "date_expr": "1992-1994", "begin": "1992-01-01", "end": "1994-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_design"]}, {"id": "ao_1103456", "title": "Displays", "display_date": "1991, undated", "date_expr": "1991, undated", "begin": "1991-01-01", "end": "1991-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438"]}, {"id": "ao_1103457", "title": "Original workshop", "display_date": "1991-1992", "date_expr": "1991-1992", "begin": "1991-01-01", "end": "1992-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_workshop"]}, {"id": "ao_1103458", "title": "Project proposal", "display_date": "1992", "date_expr": "1992", "begin": "1992-01-01", "end": "1992-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_proposal", "kw_project"]}, {"id": "ao_1103459", "title": "Proposal change", "display_date": "1996", "date_expr": "1996", "begin": "1996-01-01", "end": "1996-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_proposal"]}, {"id": "ao_1103460", "title": "Clauer site visit", "display_date": "1992", "date_expr": "1992", "begin": "1992-01-01", "end": "1992-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_site_visit"]}, {"id": "ao_1103461", "title": "Workshop", "display_date": "October 1992", "date_expr": "October 1992", "begin": "1992-10-01", "end": "1992-10-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_workshop"]}, {"id": "ao_1103462", "title": "Site visit", "display_date": "December 1993", "date_expr": "December 1993", "begin": "1993-12-01", "end": "1993-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_site_visit"]}, {"id": "ao_1103463", "title": "VGS", "display_date": "1993-1994", "date_expr": "1993-1994", "begin": "1993-01-01", "end": "1994-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 expandable folders"], "facets": ["series_ao_1103438"]}, {"id": "ao_1103464", "title": "Workshop", "display_date": "December 1993", "date_expr": "December 1993", "begin": "1993-12-01", "end": "1993-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_workshop"]}, {"id": "ao_1103465", "title": "Workshop", "display_date": "November 1994", "date_expr": "November 1994", "begin": "1994-11-01", "end": "1994-11-30", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_workshop"]}, {"id": "ao_1103466", "title": "Site visit", "display_date": "1995", "date_expr": "1995", "begin": "1995-01-01", "end": "1995-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 2.0, "extents": ["2 folders"], "facets": ["series_ao_1103438", "kw_site_visit"]}, {"id": "ao_1103467", "title": "Operations Committee", "display_date": "1992-1997", "date_expr": "1992-1997", "begin": "1992-01-01", "end": "1997-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 expandable folders"], "facets": ["series_ao_1103438"]}, {"id": "ao_1103468", "title": "Copenhagen site", "display_date": "1993", "date_expr": "1993", "begin": "1993-01-01", "end": "1993-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438"]}, {"id": "ao_1103469", "title": "Version 5 documentation", "display_date": "1994-1995", "date_expr": "1994-1995", "begin": "1994-01-01", "end": "1995-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438"]}, {"id": "ao_1103470", "title": "Design", "display_date": "1994", "date_expr": "1994", "begin": "1994-01-01", "end": "1994-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_design"]}, {"id": "ao_1103471", "title": "Outreach", "display_date": "1993-1994", "date_expr": "1993-1994", "begin": "1993-01-01", "end": "1994-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438"]}, {"id": "ao_1103472", "title": "Collaboriation Builder's Environment", "display_date": "1995-1997", "date_expr": "1995-1997", "begin": "1995-01-01", "end": "1997-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438"]}, {"id": "ao_1103473", "title": "Conversation coding and threading research", "display_date": "1993-1996", "date_expr": "1993-1996", "begin": "1993-01-01", "end": "1996-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_research"]}, {"id": "ao_1103474", "title": "User interface design", "display_date": "1995-1998", "date_expr": "1995-1998", "begin": "1995-01-01", "end": "1998-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_user", "kw_design"]}, {"id": "ao_1103475", "title": "Usage data analysis", "display_date": "1995", "date_expr": "1995", "begin": "1995-01-01", "end": "1995-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_data"]}, {"id": "ao_1103476", "title": "NSF Knowledge and Distributed Intelligence grant proposal", "display_date": "1998", "date_expr": "1998", "begin": "1998-01-01", "end": "1998-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_proposal", "kw_nsf"]}, {"id": "ao_1103477", "title": "Workshop", "display_date": "December 1996", "date_expr": "December 1996", "begin": "1996-12-01", "end": "1996-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_workshop"]}, {"id": "ao_1103478", "title": "ASQ paper", "display_date": "1997", "date_expr": "1997", "begin": "1997-01-01", "end": "1997-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438"]}, {"id": "ao_1103479", "title": "\"The Transformational Effect of Collaboratories on the Practice of Science\"", "display_date": "1998", "date_expr": "1998", "begin": "1998-01-01", "end": "1998-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_science", "kw_collaboratory"]}, {"id": "ao_1103480", "title": "Supplement", "display_date": "1997", "date_expr": "1997", "begin": "1997-01-01", "end": "1997-12-31", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438"]}, {"id": "ao_1103481", "title": "6th year supplement", "display_date": "1997-1998", "date_expr": "1997-1998", "begin": "1997-01-01", "end": "1998-12-31", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_year"]}, {"id": "ao_1103482", "title": "Presentation slides", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_presentation"]}, {"id": "ao_1103483", "title": "Production schedule", "display_date": "1997", "date_expr": "1997", "begin": "1997-01-01", "end": "1997-12-31", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438"]}, {"id": "ao_1103484", "title": "Core meeting notes", "display_date": "1996-1997", "date_expr": "1996-1997", "begin": "1996-01-01", "end": "1997-12-31", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_meeting"]}, {"id": "ao_1103485", "title": "Award notices and miscellaneous data", "display_date": "1992-1997", "date_expr": "1992-1997", "begin": "1992-01-01", "end": "1997-12-31", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_data"]}, {"id": "ao_1103486", "title": "Site visit packet", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_site_visit"]}, {"id": "ao_1103487", "title": "Space Physics and Aeronomy Research Collaboratory (SPARC)", "display_date": "1998-2002", "date_expr": "1998-2002", "begin": "1998-01-01", "end": "2002-12-31", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 expandable folders"], "facets": ["series_ao_1103438"]}, {"id": "ao_1103488", "title": "Panel of experts binder", "display_date": "1993", "date_expr": "1993", "begin": "1993-01-01", "end": "1993-12-31", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103438", "kw_binder"]}, {"id": "ao_1103490", "title": "XI Group", "display_date": "1994-1995", "date_expr": "1994-1995", "begin": "1994-01-01", "end": "1995-12-31", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103489"]}, {"id": "ao_1103491", "title": "Information and Technology Services", "display_date": "1995-1996", "date_expr": "1995-1996", "begin": "1995-01-01", "end": "1996-12-31", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103489", "kw_technology", "kw_information"]}, {"id": "ao_1103492", "title": "School of Information, Technology, and Social Systems planning", "display_date": "1995", "date_expr": "1995", "begin": "1995-01-01", "end": "1995-12-31", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103489", "kw_technology", "kw_information"]}, {"id": "ao_1103493", "title": "Administrative file", "display_date": "1995-1996", "date_expr": "1995-1996", "begin": "1995-01-01", "end": "1996-12-31", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103489"]}, {"id": "ao_1103494", "title": "Planning materials", "display_date": "1995", "date_expr": "1995", "begin": "1995-01-01", "end": "1995-12-31", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103489", "kw_material"]}, {"id": "ao_1103495", "title": "Presentation slides", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103489", "kw_presentation"]}, {"id": "ao_1103497", "title": "Botswana-Harvard AIDS Care Training Program", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_aids"]}, {"id": "ao_1103498", "title": "University of Natal", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_university"]}, {"id": "ao_1103499", "title": "HIV/AIDS articles", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_aids"]}, {"id": "ao_1103500", "title": "Business plan and IT proposal", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_proposal", "kw_plan"]}, {"id": "ao_1103501", "title": "Presentation slides", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_presentation"]}, {"id": "ao_1103538", "title": "Physical materials", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "series_ao_1103502", "kw_material"]}, {"id": "ao_1103503", "title": "KITSO AIDS Training Program: ARV Therapy Course for Physicians", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "series_ao_1103502", "kw_aids"]}, {"id": "ao_1103504", "title": "\"African Priorities for HIV and AIDS: A Summary Document from the National AIDS Plan of Several Sub-Saharan Countries\"", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_document", "kw_national", "kw_plan", "kw_aids"]}, {"id": "ao_1103505", "title": "Prospective funding sources", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496"]}, {"id": "ao_1103506", "title": "Prospective funding sources", "display_date": "2002", "date_expr": "2002", "begin": "2002-01-01", "end": "2002-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496"]}, {"id": "ao_1103507", "title": "Stephen Effros agreement, draft business plan and bylaws", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_plan"]}, {"id": "ao_1103508", "title": "Project overview", "display_date": "2000-2001", "date_expr": "2000-2001", "begin": "2000-01-01", "end": "2001-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_project"]}, {"id": "ao_1103509", "title": "Business plan and scientific plan drafts", "display_date": "2000-2001", "date_expr": "2000-2001", "begin": "2000-01-01", "end": "2001-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_plan"]}, {"id": "ao_1103510", "title": "Resource requirements", "display_date": "1999-2000", "date_expr": "1999-2000", "begin": "1999-01-01", "end": "2000-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496"]}, {"id": "ao_1103511", "title": "Institute of Human Virology", "display_date": "1999-2000", "date_expr": "1999-2000", "begin": "1999-01-01", "end": "2000-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496"]}, {"id": "ao_1103512", "title": "Science and Technology Center proposal", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_science", "kw_proposal", "kw_technology"]}, {"id": "ao_1103513", "title": "Internet integration", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496"]}, {"id": "ao_1103514", "title": "NSF e-voting", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_nsf"]}, {"id": "ao_1103515", "title": "Meetings", "display_date": "1999-2000", "date_expr": "1999-2000", "begin": "1999-01-01", "end": "2000-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_meeting"]}, {"id": "ao_1103516", "title": "Meetings", "display_date": "2000-2001", "date_expr": "2000-2001", "begin": "2000-01-01", "end": "2001-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_meeting"]}, {"id": "ao_1103517", "title": "Project overview binder", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_project", "kw_binder"]}, {"id": "ao_1103518", "title": "Project binder", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_project", "kw_binder"]}, {"id": "ao_1103519", "title": "Information Technology", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496", "kw_technology", "kw_information"]}, {"id": "ao_1103520", "title": "Related publications and clippings", "display_date": "2000-2001", "date_expr": "2000-2001", "begin": "2000-01-01", "end": "2001-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496"]}, {"id": "ao_1103521", "title": "Survey", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103496"]}, {"id": "ao_1103522", "title": "International Cancer and AIDS Research and Education Net", "display_date": "1995-1997", "date_expr": "1995-1997", "begin": "1995-01-01", "end": "1997-12-31", "container_instance": "Box 6", "box": "[Box 6]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 expandable folders"], "facets": ["series_ao_1103496", "kw_research", "kw_aids"]}, {"id": "ao_1103524", "title": "Science of Collaboratories workshop binder", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "Box 6", "box": "[Box 6]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 2.0, "extents": ["2 folders"], "facets": ["series_ao_1103523", "kw_science", "kw_workshop", "kw_collaboratory", "kw_binder"]}, {"id": "ao_1103525", "title": "Collaboratories at a Glance", "display_date": "2002", "date_expr": "2002", "begin": "2002-01-01", "end": "2002-12-31", "container_instance": "Box 6", "box": "[Box 6]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103523", "kw_collaboratory"]}, {"id": "ao_1103526", "title": "Technical Underpinnings of Collaboratories workshop binder", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "Box 6", "box": "[Box 6]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103523", "kw_technical", "kw_workshop", "kw_collaboratory", "kw_binder"]}, {"id": "ao_1103527", "title": "Comparative Investigations Part Two. Workshop binder", "display_date": "2003", "date_expr": "2003", "begin": "2003-01-01", "end": "2003-12-31", "container_instance": "Box 6", "box": "[Box 6]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103523", "kw_workshop", "kw_binder"]}, {"id": "ao_1103528", "title": "Collaboratory workshops", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 6", "box": "[Box 6]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103523", "kw_workshop", "kw_collaboratory"]}, {"id": "ao_1103529", "title": "Biomedical Informatics Research Network: Coordination Center binder", "display_date": "2003", "date_expr": "2003", "begin": "2003-01-01", "end": "2003-12-31", "container_instance": "Box 6", "box": "[Box 6]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103523", "kw_research", "kw_binder"]}, {"id": "ao_1103530", "title": "Pritzker Network", "display_date": "1996-1998", "date_expr": "1996-1998", "begin": "1996-01-01", "end": "1998-12-31", "container_instance": "Box 6", "box": "[Box 6]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103523"]}, {"id": "ao_1103531", "title": "\"Design Considerations in Building a Distributed Collaboratory\"", "display_date": "1995", "date_expr": "1995", "begin": "1995-01-01", "end": "1995-12-31", "container_instance": "Box 6", "box": "[Box 6]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103523", "kw_collaboratory", "kw_design"]}, {"id": "ao_1103536", "title": "Kellogg Foundation meeting transcript", "display_date": "March 27, 1996", "date_expr": "March 27, 1996", "begin": "1996-03-27", "end": "1996-03-27", "container_instance": "Box 7", "box": "[Box 7]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103523", "kw_meeting"]}, {"id": "ao_1103537", "title": "University of Maryland Distance Education program", "display_date": "1993-1994", "date_expr": "1993-1994", "begin": "1993-01-01", "end": "1994-12-31", "container_instance": "Box 7", "box": "[Box 7]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103523", "kw_university"]}, {"id": "ao_1103533", "title": "Miscellaneous", "display_date": "1989-1994", "date_expr": "1989-1994", "begin": "1989-01-01", "end": "1994-12-31", "container_instance": "Box 7", "box": "[Box 7]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103532"]}, {"id": "ao_1103534", "title": "Elmers, CTS, Observation Area", "display_date": "1990-1991", "date_expr": "1990-1991", "begin": "1990-01-01", "end": "1991-12-31", "container_instance": "Box 7", "box": "[Box 7]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103532"]}, {"id": "ao_1103535", "title": "EXPRES project, open house", "display_date": "1988", "date_expr": "1988", "begin": "1988-01-01", "end": "1988-12-31", "container_instance": "Box 7", "box": "[Box 7]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1103532", "kw_expres_project", "kw_expres", "kw_project"]}];
+    const FACETS = [{"id": "series_ao_1103539", "label": "Experimental Research in Electronic Submission (EXPRES)", "count": 85, "kind": "hierarchy", "parent_id": null}, {"id": "series_ao_525591", "label": "Meetings and Reports", "count": 28, "kind": "hierarchy", "parent_id": "series_ao_1103539"}, {"id": "series_ao_525592", "label": "Publicity and Presentations", "count": 21, "kind": "hierarchy", "parent_id": "series_ao_1103539"}, {"id": "series_ao_525593", "label": "Publications", "count": 9, "kind": "hierarchy", "parent_id": "series_ao_1103539"}, {"id": "series_ao_525594", "label": "Subject Files", "count": 27, "kind": "hierarchy", "parent_id": "series_ao_1103539"}, {"id": "series_ao_1103438", "label": "Upper Atmospheric Research Collaboratory (UARC)", "count": 50, "kind": "hierarchy", "parent_id": null}, {"id": "series_ao_1103489", "label": "University of Michigan School of Information", "count": 6, "kind": "hierarchy", "parent_id": null}, {"id": "series_ao_1103496", "label": "Waterford Project", "count": 26, "kind": "hierarchy", "parent_id": null}, {"id": "series_ao_1103502", "label": "Harvard AIDS Institute publications", "count": 2, "kind": "hierarchy", "parent_id": "series_ao_1103496"}, {"id": "series_ao_1103523", "label": "Scientific collaboration", "count": 10, "kind": "hierarchy", "parent_id": null}, {"id": "series_ao_1103532", "label": "Photographs and slides", "count": 3, "kind": "hierarchy", "parent_id": null}, {"id": "kw_technical", "label": "Technical", "count": 6, "kind": "keyword", "parent_id": null}, {"id": "kw_report", "label": "Report", "count": 10, "kind": "keyword", "parent_id": null}, {"id": "kw_review", "label": "Review", "count": 4, "kind": "keyword", "parent_id": null}, {"id": "kw_diamond", "label": "Diamond", "count": 8, "kind": "keyword", "parent_id": null}, {"id": "kw_research", "label": "Research", "count": 9, "kind": "keyword", "parent_id": null}, {"id": "kw_document", "label": "Document", "count": 5, "kind": "keyword", "parent_id": null}, {"id": "kw_expres", "label": "EXPRES", "count": 30, "kind": "keyword", "parent_id": null}, {"id": "kw_national", "label": "National", "count": 4, "kind": "keyword", "parent_id": null}, {"id": "kw_science", "label": "Science", "count": 7, "kind": "keyword", "parent_id": null}, {"id": "kw_proposal", "label": "Proposal", "count": 6, "kind": "keyword", "parent_id": null}, {"id": "kw_nsf", "label": "NSF", "count": 11, "kind": "keyword", "parent_id": null}, {"id": "kw_site_visit", "label": "Site Visit", "count": 5, "kind": "keyword", "parent_id": null}, {"id": "kw_meeting", "label": "Meeting", "count": 14, "kind": "keyword", "parent_id": null}, {"id": "kw_trip", "label": "Trip", "count": 4, "kind": "keyword", "parent_id": null}, {"id": "kw_cmu", "label": "CMU", "count": 4, "kind": "keyword", "parent_id": null}, {"id": "kw_university", "label": "University", "count": 7, "kind": "keyword", "parent_id": null}, {"id": "kw_um_expres", "label": "UM EXPRES", "count": 10, "kind": "keyword", "parent_id": null}, {"id": "kw_project", "label": "Project", "count": 10, "kind": "keyword", "parent_id": null}, {"id": "kw_year", "label": "Year", "count": 4, "kind": "keyword", "parent_id": null}, {"id": "kw_plan", "label": "Plan", "count": 8, "kind": "keyword", "parent_id": null}, {"id": "kw_material", "label": "Materials", "count": 4, "kind": "keyword", "parent_id": null}, {"id": "kw_presentation", "label": "Presentation", "count": 5, "kind": "keyword", "parent_id": null}, {"id": "kw_technology", "label": "Technology", "count": 5, "kind": "keyword", "parent_id": null}, {"id": "kw_information", "label": "Information", "count": 4, "kind": "keyword", "parent_id": null}, {"id": "kw_expres_project", "label": "EXPRES Project", "count": 4, "kind": "keyword", "parent_id": null}, {"id": "kw_workshop", "label": "Workshop", "count": 14, "kind": "keyword", "parent_id": null}, {"id": "kw_release", "label": "Release", "count": 5, "kind": "keyword", "parent_id": null}, {"id": "kw_user_reference_guide", "label": "User's Reference Guide", "count": 4, "kind": "keyword", "parent_id": null}, {"id": "kw_deployment", "label": "Deployment", "count": 4, "kind": "keyword", "parent_id": null}, {"id": "kw_data", "label": "Data", "count": 5, "kind": "keyword", "parent_id": null}, {"id": "kw_user", "label": "User's", "count": 8, "kind": "keyword", "parent_id": null}, {"id": "kw_collaboratory", "label": "Collaboratories", "count": 8, "kind": "keyword", "parent_id": null}, {"id": "kw_design", "label": "Design", "count": 4, "kind": "keyword", "parent_id": null}, {"id": "kw_binder", "label": "binder", "count": 7, "kind": "keyword", "parent_id": null}, {"id": "kw_aids", "label": "AIDS", "count": 5, "kind": "keyword", "parent_id": null}];
+    const availableDates = ["1986-08-01", "1986-08-31", "1986-09-10", "1986-11-01", "1986-12-01", "1986-12-11", "1986-12-12", "1986-12-31", "1987-01-01", "1987-01-07", "1987-01-08", "1987-01-12", "1987-01-27", "1987-01-28", "1987-01-31", "1987-02-01", "1987-02-12", "1987-02-28", "1987-03-04", "1987-03-06", "1987-03-27", "1987-04-14", "1987-06-01", "1987-06-08", "1987-06-28", "1987-06-30", "1987-07-22", "1987-08-07", "1987-09-10", "1987-09-11", "1987-10-01", "1987-10-31", "1987-11-01", "1987-11-02", "1987-11-04", "1987-11-30", "1987-12-13", "1987-12-16", "1987-12-31", "1988-01-01", "1988-01-31", "1988-03-01", "1988-03-04", "1988-03-05", "1988-03-31", "1988-04-04", "1988-04-07", "1988-04-08", "1988-04-18", "1988-06-01", "1988-06-22", "1988-06-30", "1988-07-01", "1988-07-31", "1988-08-31", "1988-09-02", "1988-09-30", "1988-11-01", "1988-11-14", "1988-11-15", "1988-11-30", "1988-12-31", "1989-01-01", "1989-02-28", "1989-12-31", "1990-01-01", "1991-01-01", "1991-12-31", "1992-01-01", "1992-10-01", "1992-10-31", "1992-12-31", "1993-01-01", "1993-12-01", "1993-12-31", "1994-01-01", "1994-11-01", "1994-11-30", "1994-12-31", "1995-01-01", "1995-10-01", "1995-10-31", "1995-12-31", "1996-01-01", "1996-03-27", "1996-12-01", "1996-12-31", "1997-01-01", "1997-12-31", "1998-01-01", "1998-12-31", "1999-01-01", "2000-01-01", "2000-12-31", "2001-01-01", "2001-12-31", "2002-01-01", "2002-12-31", "2003-01-01", "2003-12-31"];
+
+    const container = document.getElementById('container');
+    const slider = document.getElementById('slider');
+    const rangeText = document.getElementById('rangeText');
+    const timelineToggle = document.getElementById('timelineToggle');
+    const clearFacets = document.getElementById('clearFacets');
+    const themeToggle = document.getElementById('themeToggle');
+    const hierarchyFacetList = document.getElementById('hierarchyFacetList');
+    const keywordFacetList = document.getElementById('keywordFacetList');
+    const rowList = document.getElementById('rowList');
+    const rowCount = document.getElementById('rowCount');
+    const emptyState = document.getElementById('emptyState');
+    const detailPanel = document.getElementById('detailPanel');
+
+    const options = {
+      interaction: { hover: true },
+      nodes: { shape: 'dot', size: 14 },
+      edges: {
+        smooth: true,
+        color: { color: '#999' },
+        length: 110,
+        width: 1.2
+      },
+      physics: {
+        enabled: true,
+        solver: 'forceAtlas2Based',
+        forceAtlas2Based: {
+          gravitationalConstant: -100,
+          centralGravity: 0.01,
+          springLength: 80,
+          springConstant: 0.06,
+          damping: 0.85,
+          avoidOverlap: 1
+        },
+        stabilization: { iterations: 300, fit: true },
+        maxVelocity: 12,
+        minVelocity: 0.35,
+        timestep: 0.35
+      },
+      groups: {
+        row: {
+          color: {
+            background: '#4C78A8',
+            border: '#4C78A8',
+            highlight: { background: '#B7D8FF', border: '#2F6FDB' },
+            hover: { background: '#6B95C8', border: '#4C78A8' }
+          },
+          font: { color: '#111111' },
+          size: 18
+        },
+        facet: {
+          color: {
+            background: '#F58518',
+            border: '#C96F10',
+            highlight: '#FF9F1C',
+            hover: '#FF9F1C'
+          },
+          font: { color: '#000000' }
+        }
+      }
+    };
+
+    const network = new vis.Network(container, { nodes: [], edges: [] }, options);
+
+    let selectedFacetIds = new Set();
+    let selectedRowId = null;
+    let hoveredRowId = null;
+    const THEME_KEY = 'rhizomatica-theme';
+    const THEME_PALETTES = {
+      light: {
+        rowBackground: '#4C78A8',
+        rowBorder: '#4C78A8',
+        rowHoverBackground: '#6B95C8',
+        rowSelectedBackground: '#6B95C8',
+        rowSelectedBorder: '#2F6FDB',
+        facetBackground: '#F58518',
+        facetBorder: '#C96F10',
+        facetHoverBackground: '#FF9F1C',
+        facetSelectedBackground: '#FFE082',
+        facetSelectedBorder: '#FF8C00',
+        keywordFacetBackground: '#D8C4ED',
+        keywordFacetBorder: '#7446A8',
+        keywordFacetHoverBackground: '#C5A9E2',
+        keywordFacetSelectedBackground: '#7446A8',
+        keywordFacetSelectedBorder: '#512F7D',
+        keywordFacetLabel: '#321A4A',
+        keywordFacetSelectedLabel: '#FFFFFF',
+        keywordFacetHighlight: 'rgba(116, 70, 168, 0.42)',
+        rowLabel: '#111111',
+        facetLabel: '#000000',
+        edge: '#999',
+        edgeSelected: '#FFB300',
+        containmentEdge: '#52616B',
+        detailHighlight: 'rgba(47, 111, 219, 0.28)',
+        facetHighlight: 'rgba(255, 140, 0, 0.45)'
+      },
+      dark: {
+        rowBackground: '#60A5FA',
+        rowBorder: '#3B82F6',
+        rowHoverBackground: '#93C5FD',
+        rowSelectedBackground: '#2563EB',
+        rowSelectedBorder: '#93C5FD',
+        facetBackground: '#F59E0B',
+        facetBorder: '#D97706',
+        facetHoverBackground: '#FBBF24',
+        facetSelectedBackground: '#92400E',
+        facetSelectedBorder: '#FCD34D',
+        keywordFacetBackground: '#4A3563',
+        keywordFacetBorder: '#B99ADD',
+        keywordFacetHoverBackground: '#5A4177',
+        keywordFacetSelectedBackground: '#7653A6',
+        keywordFacetSelectedBorder: '#DCC7F2',
+        keywordFacetLabel: '#F4EAFE',
+        keywordFacetSelectedLabel: '#FFFFFF',
+        keywordFacetHighlight: 'rgba(185, 154, 221, 0.45)',
+        rowLabel: '#F8FAFC',
+        facetLabel: '#F8FAFC',
+        edge: '#64748B',
+        edgeSelected: '#F59E0B',
+        containmentEdge: '#FACC15',
+        detailHighlight: 'rgba(96, 165, 250, 0.32)',
+        facetHighlight: 'rgba(251, 191, 36, 0.40)'
+      }
+    };
+    let theme = 'light';
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, ch => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      })[ch]);
+    }
+
+    function getTheme() {
+      return THEME_PALETTES[theme] || THEME_PALETTES.light;
+    }
+
+    function applyTheme(nextTheme, persist = true) {
+      theme = nextTheme === 'dark' ? 'dark' : 'light';
+      document.body.dataset.theme = theme;
+      if (themeToggle) themeToggle.checked = theme === 'dark';
+      if (persist) {
+        try {
+          localStorage.setItem(THEME_KEY, theme);
+        } catch (e) {
+          /* ignore */
+        }
+      }
+    }
+
+    try {
+      const savedTheme = localStorage.getItem(THEME_KEY);
+      if (savedTheme) {
+        theme = savedTheme;
+      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        theme = 'dark';
+      }
+    } catch (e) {
+      /* ignore */
+    }
+    applyTheme(theme, false);
+
+    if (availableDates.length >= 2) {
+      noUiSlider.create(slider, {
+        start: [0, availableDates.length - 1],
+        connect: true,
+        step: 1,
+        range: { min: 0, max: availableDates.length - 1 }
+      });
+    } else {
+      slider.style.display = 'none';
+      timelineToggle.checked = false;
+      timelineToggle.disabled = true;
+      rangeText.textContent = 'No usable dates found - timeline filter disabled.';
+    }
+
+    function currentRange() {
+      if (!slider.noUiSlider) return { startDate: null, endDate: null };
+      const values = slider.noUiSlider.get().map(v => parseInt(v, 10));
+      return {
+        startDate: availableDates[values[0]],
+        endDate: availableDates[values[1]]
+      };
+    }
+
+    function rowMatchesTimeline(row, timelineOn, startDate, endDate) {
+      if (!timelineOn) return true;
+      if (!row.begin && !row.end) return false;
+      return row.begin <= endDate && row.end >= startDate;
+    }
+
+    function rowMatchesFacets(row) {
+      if (!selectedFacetIds.size) return true;
+      for (const fid of selectedFacetIds) {
+        if (!row.facets.includes(fid)) return false;
+      }
+      return true;
+    }
+
+    function getVisibleRows() {
+      const timelineOn = timelineToggle.checked && !!slider.noUiSlider;
+      const { startDate, endDate } = currentRange();
+      return ROWS.filter(row => rowMatchesTimeline(row, timelineOn, startDate, endDate) && rowMatchesFacets(row));
+    }
+
+    function getTimelineRows() {
+      const timelineOn = timelineToggle.checked && !!slider.noUiSlider;
+      const { startDate, endDate } = currentRange();
+      return ROWS.filter(row => rowMatchesTimeline(row, timelineOn, startDate, endDate));
+    }
+
+    function buildFacetCounts(rows) {
+      const counts = new Map();
+      FACETS.forEach(f => counts.set(f.id, 0));
+      rows.forEach(row => {
+        row.facets.forEach(fid => {
+          if (counts.has(fid)) counts.set(fid, counts.get(fid) + 1);
+        });
+      });
+      return counts;
+    }
+
+    function rowLabel(row) {
+      const lines = [row.title || row.id];
+      if (row.display_date) lines.push(row.display_date);
+      return lines.join('\n');
+    }
+
+    // File nodes stay fixed and small; facet nodes have a floor well above
+    // ROW_SIZE_HIGHLIGHTED so a facet is always bigger than any file node,
+    // and grow from there with how many files are tagged to them.
+    const ROW_SIZE = 9;
+    const ROW_SIZE_HIGHLIGHTED = 13;
+    const ROW_EXTENT_MAX_BOOST = 2;
+    const ROW_FONT_SIZE = 10;
+    const ROW_FONT_SIZE_HIGHLIGHTED = 12;
+    const maxExtentValue = ROWS.reduce((maximum, row) => Math.max(maximum, row.extent_value || 0), 0);
+
+    function rowNodeSize(row, highlighted) {
+      const base = highlighted ? ROW_SIZE_HIGHLIGHTED : ROW_SIZE;
+      if (!row.extent_value || maxExtentValue <= 0) return base;
+      const extentGrowth = ROW_EXTENT_MAX_BOOST * Math.log1p(row.extent_value) / Math.log1p(maxExtentValue);
+      return base + extentGrowth;
+    }
+
+    // The smallest-count facet always renders at FACET_MIN_SIZE and the
+    // largest-count facet always renders at FACET_MAX_SIZE -- counts in
+    // between are stretched across that full range (eased with
+    // FACET_GROWTH_EXPONENT < 1 so growth is steep early then levels off).
+    // Sizing this way means nothing saturates at the cap early and bumping
+    // FACET_MAX_SIZE always visibly grows the biggest facets.
+    const FACET_MIN_SIZE = 15;
+    const FACET_MAX_SIZE = 150;
+    const FACET_GROWTH_EXPONENT = 0.6;
+    const FACET_SELECTED_BOOST = 14;
+    const FACET_MIN_FONT_SIZE = 13;
+    const FACET_MAX_FONT_SIZE = 40;
+
+    const facetCountRange = FACETS.reduce(
+      (range, f) => ({ min: Math.min(range.min, f.count), max: Math.max(range.max, f.count) }),
+      { min: Infinity, max: -Infinity }
+    );
+    if (!Number.isFinite(facetCountRange.min)) {
+      facetCountRange.min = 0;
+      facetCountRange.max = 1;
+    }
+
+    function facetNodeSize(count, selected) {
+      const span = facetCountRange.max - facetCountRange.min;
+      const t = span > 0 ? (count - facetCountRange.min) / span : 1;
+      const eased = Math.pow(Math.max(t, 0), FACET_GROWTH_EXPONENT);
+      const base = FACET_MIN_SIZE + eased * (FACET_MAX_SIZE - FACET_MIN_SIZE);
+      const boosted = selected ? base + FACET_SELECTED_BOOST : base;
+      return Math.max(FACET_MIN_SIZE, Math.min(boosted, FACET_MAX_SIZE + FACET_SELECTED_BOOST));
+    }
+
+    function facetFontSize(size) {
+      return Math.round(Math.max(FACET_MIN_FONT_SIZE, Math.min(size * 0.26, FACET_MAX_FONT_SIZE)));
+    }
+
+    function facetLabel(fid) {
+      const facet = FACETS.find(f => f.id === fid);
+      return facet ? facet.label : fid;
+    }
+
+    function buildFacetContainmentLinks(facets = FACETS) {
+      const filesByFacet = new Map(facets.map(f => [f.id, new Set()]));
+      ROWS.forEach(row => row.facets.forEach(fid => filesByFacet.get(fid)?.add(row.id)));
+      const links = [];
+
+      facets.forEach(child => {
+        const childFiles = filesByFacet.get(child.id);
+        if (!childFiles || childFiles.size === 0) return;
+
+        let smallestSupersetSize = Infinity;
+        const parentIds = [];
+        facets.forEach(parent => {
+          const parentFiles = filesByFacet.get(parent.id);
+          if (!parentFiles || parentFiles.size <= childFiles.size) return;
+          if (![...childFiles].every(rowId => parentFiles.has(rowId))) return;
+
+          if (parentFiles.size < smallestSupersetSize) {
+            smallestSupersetSize = parentFiles.size;
+            parentIds.length = 0;
+          }
+          if (parentFiles.size === smallestSupersetSize) parentIds.push(parent.id);
+        });
+
+        parentIds.forEach(parentId => links.push({ from: child.id, to: parentId }));
+      });
+
+      return links;
+    }
+
+    const FACET_CONTAINMENT_LINKS = buildFacetContainmentLinks();
+    const HIERARCHICAL_FACETS = FACETS.filter(f => f.kind === 'hierarchy');
+    const HIERARCHY_PARENTS_BY_CHILD = new Map(HIERARCHICAL_FACETS.map(f => [f.id, []]));
+    const HIERARCHY_CHILDREN_BY_PARENT = new Map(HIERARCHICAL_FACETS.map(f => [f.id, []]));
+    HIERARCHICAL_FACETS.forEach(facet => {
+      const parentId = facet.parent_id;
+      if (!parentId || !HIERARCHY_PARENTS_BY_CHILD.has(parentId)) return;
+      HIERARCHY_PARENTS_BY_CHILD.get(facet.id).push(parentId);
+      HIERARCHY_CHILDREN_BY_PARENT.get(parentId).push(facet.id);
+    });
+    const PRIMARY_HIERARCHY_PARENT_BY_ID = new Map();
+    HIERARCHY_PARENTS_BY_CHILD.forEach((parentIds, childId) => {
+      const [parentId] = parentIds;
+      if (parentId) PRIMARY_HIERARCHY_PARENT_BY_ID.set(childId, parentId);
+    });
+    const HIERARCHY_ROOT_IDS = new Set(
+      HIERARCHICAL_FACETS
+        .filter(f => !PRIMARY_HIERARCHY_PARENT_BY_ID.has(f.id))
+        .map(f => f.id)
+    );
+    const COLLAPSIBLE_HIERARCHY_ROOT_IDS = new Set(
+      Array.from(HIERARCHY_ROOT_IDS).filter(rootId => (HIERARCHY_CHILDREN_BY_PARENT.get(rootId) || []).length > 0)
+    );
+    const expandedHierarchyRootIds = new Set();
+
+    const FACET_PARENTS_BY_CHILD = new Map(FACETS.map(f => [f.id, []]));
+    const FACET_CHILDREN_BY_PARENT = new Map(FACETS.map(f => [f.id, []]));
+    FACET_CONTAINMENT_LINKS.forEach(link => FACET_PARENTS_BY_CHILD.get(link.from)?.push(link.to));
+    FACET_CONTAINMENT_LINKS.forEach(link => FACET_CHILDREN_BY_PARENT.get(link.to)?.push(link.from));
+    const PRIMARY_FACET_PARENT_BY_ID = new Map();
+    FACET_PARENTS_BY_CHILD.forEach((parentIds, childId) => {
+      const [primaryParentId] = parentIds.sort((a, b) => facetLabel(a).localeCompare(facetLabel(b)) || a.localeCompare(b));
+      if (primaryParentId) PRIMARY_FACET_PARENT_BY_ID.set(childId, primaryParentId);
+    });
+
+    function getTopLevelFacetId(facetId) {
+      let topLevelId = facetId;
+      const visited = new Set();
+      while (PRIMARY_FACET_PARENT_BY_ID.has(topLevelId) && !visited.has(topLevelId)) {
+        visited.add(topLevelId);
+        topLevelId = PRIMARY_FACET_PARENT_BY_ID.get(topLevelId);
+      }
+      return topLevelId;
+    }
+
+    const TOP_LEVEL_FACET_ID_BY_ID = new Map(FACETS.map(f => [f.id, getTopLevelFacetId(f.id)]));
+    const COLLAPSIBLE_ROOT_FACET_IDS = new Set(
+      FACETS
+        .filter(f => TOP_LEVEL_FACET_ID_BY_ID.get(f.id) === f.id && (FACET_CHILDREN_BY_PARENT.get(f.id) || []).length > 0)
+        .map(f => f.id)
+    );
+    const expandedTopLevelFacetIds = new Set();
+
+    function isFacetBranchExpanded(facetId) {
+      const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+      return !COLLAPSIBLE_ROOT_FACET_IDS.has(rootId) || expandedTopLevelFacetIds.has(rootId);
+    }
+
+    function isFacetNodeVisible(facetId) {
+      return TOP_LEVEL_FACET_ID_BY_ID.get(facetId) === facetId || isFacetBranchExpanded(facetId);
+    }
+
+    function getRowsInExpandedBranches(rows) {
+      return rows.filter(row => {
+        if (!row.facets.length) return true;
+        return row.facets.some(facetId => {
+          const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+          return !COLLAPSIBLE_ROOT_FACET_IDS.has(rootId) || expandedTopLevelFacetIds.has(rootId);
+        });
+      });
+    }
+
+    function setFacetBranchExpanded(rootId, expanded) {
+      if (!COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) return;
+
+      if (expanded) {
+        expandedTopLevelFacetIds.add(rootId);
+        selectedFacetIds.add(rootId);
+        return;
+      }
+
+      expandedTopLevelFacetIds.delete(rootId);
+      for (const facetId of selectedFacetIds) {
+        if (TOP_LEVEL_FACET_ID_BY_ID.get(facetId) === rootId) selectedFacetIds.delete(facetId);
+      }
+    }
+
+    function toggleFacetSelection(facetId) {
+      const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+      if (selectedFacetIds.has(facetId)) {
+        if (facetId === rootId && COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) {
+          setFacetBranchExpanded(rootId, false);
+        } else {
+          selectedFacetIds.delete(facetId);
+          if (!Array.from(selectedFacetIds).some(id => TOP_LEVEL_FACET_ID_BY_ID.get(id) === rootId)) {
+            expandedTopLevelFacetIds.delete(rootId);
+          }
+        }
+        return;
+      }
+
+      selectedFacetIds.add(facetId);
+      if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) expandedTopLevelFacetIds.add(rootId);
+    }
+
+    function buildNetworkData(rows, matchingRows) {
+      const visibleFacetIds = new Set();
+      const edges = [];
+      const selectedRow = ROWS.find(r => r.id === selectedRowId) || null;
+      const hoveredRow = ROWS.find(r => r.id === hoveredRowId) || null;
+
+      matchingRows.forEach(row => row.facets.forEach(facetId => {
+        const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+        if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) visibleFacetIds.add(rootId);
+      }));
+
+      const nodes = rows.map(row => {
+        row.facets.forEach(fid => {
+          if (isFacetBranchExpanded(fid)) visibleFacetIds.add(fid);
+        });
+        const highlighted = (selectedRow && selectedRow.id === row.id) || (hoveredRow && hoveredRow.id === row.id);
+        return {
+          id: row.id,
+          label: rowLabel(row),
+          group: 'row',
+          size: rowNodeSize(row, highlighted),
+          font: {
+            color: getTheme().rowLabel,
+            size: highlighted ? ROW_FONT_SIZE_HIGHLIGHTED : ROW_FONT_SIZE,
+            bold: highlighted
+          },
+          borderWidth: highlighted ? 3 : 1.5,
+          color: highlighted
+            ? {
+                background: getTheme().rowSelectedBackground,
+                border: getTheme().rowSelectedBorder,
+                highlight: { background: getTheme().rowSelectedBackground, border: getTheme().rowSelectedBorder },
+                hover: { background: getTheme().rowHoverBackground, border: getTheme().rowSelectedBorder }
+              }
+            : {
+                background: getTheme().rowBackground,
+                border: getTheme().rowBorder,
+                highlight: { background: getTheme().rowHoverBackground, border: getTheme().rowSelectedBorder },
+                hover: { background: getTheme().rowHoverBackground, border: getTheme().rowBorder }
+              },
+          shadow: highlighted ? {
+            enabled: true,
+            color: getTheme().detailHighlight,
+            size: 10,
+            x: 0,
+            y: 0
+          } : false,
+          title: [
+            `<b>Item name:</b> ${escapeHtml(row.title || row.id)}`,
+            row.display_date ? `<b>Dates:</b> ${escapeHtml(row.display_date)}` : '<b>Dates:</b> undated',
+            row.scope_content ? `<b>Scope content:</b> ${escapeHtml(row.scope_content)}` : '',
+            row.physical_desc ? `<b>Physical desc:</b> ${escapeHtml(row.physical_desc)}` : ''
+          ].filter(Boolean).join('<br>')
+        };
+      });
+
+      FACETS.forEach(f => {
+        if (isFacetNodeVisible(f.id) && (visibleFacetIds.has(f.id) || selectedFacetIds.has(f.id))) {
+          const isKeywordFacet = f.kind === 'keyword';
+          const selected = selectedFacetIds.has(f.id);
+          const size = facetNodeSize(f.count, selected);
+          const background = isKeywordFacet ? getTheme().keywordFacetBackground : getTheme().facetBackground;
+          const border = isKeywordFacet ? getTheme().keywordFacetBorder : getTheme().facetBorder;
+          const hoverBackground = isKeywordFacet ? getTheme().keywordFacetHoverBackground : getTheme().facetHoverBackground;
+          const selectedBackground = isKeywordFacet ? getTheme().keywordFacetSelectedBackground : getTheme().facetSelectedBackground;
+          const selectedBorder = isKeywordFacet ? getTheme().keywordFacetSelectedBorder : getTheme().facetSelectedBorder;
+          nodes.push({
+            id: f.id,
+            label: f.label,
+            group: 'facet',
+            title: `${escapeHtml(f.label)}<br>${f.count} row${f.count === 1 ? '' : 's'}`,
+            size,
+            font: {
+              color: isKeywordFacet
+                ? (selected ? getTheme().keywordFacetSelectedLabel : getTheme().keywordFacetLabel)
+                : getTheme().facetLabel,
+              size: facetFontSize(size),
+              bold: selected
+            },
+            color: selected
+              ? {
+                  background: selectedBackground,
+                  border: selectedBorder,
+                  highlight: { background: selectedBackground, border: selectedBorder },
+                  hover: { background: selectedBackground, border: selectedBorder }
+                }
+              : {
+                  background,
+                  border,
+                  highlight: { background: hoverBackground, border },
+                  hover: { background: hoverBackground, border }
+                },
+            borderWidth: selected ? 3 : 1.5,
+            shadow: selected ? {
+              enabled: true,
+              color: isKeywordFacet ? getTheme().keywordFacetHighlight : getTheme().facetHighlight,
+              size: 12,
+              x: 0,
+              y: 0
+            } : false
+          });
+        }
+      });
+
+      const visibleFacetSet = new Set(nodes.filter(n => n.group === 'facet').map(n => n.id));
+      rows.forEach(row => {
+        const rowFacetIds = new Set(row.facets);
+        row.facets.forEach(fid => {
+          if (!isFacetNodeVisible(fid) || !visibleFacetSet.has(fid)) return;
+          const hasVisibleMoreSpecificRowFacet = (FACET_CHILDREN_BY_PARENT.get(fid) || [])
+            .some(childId => rowFacetIds.has(childId) && isFacetNodeVisible(childId));
+          if (hasVisibleMoreSpecificRowFacet) return;
+          edges.push({
+            from: row.id,
+            to: fid,
+            width: selectedFacetIds.has(fid) ? 3 : 1.2,
+            color: selectedFacetIds.has(fid) ? { color: getTheme().edgeSelected } : { color: getTheme().edge },
+            title: `Connected facet: ${fid}`
+          });
+        });
+      });
+
+      FACET_CONTAINMENT_LINKS.forEach(link => {
+        if (!visibleFacetSet.has(link.from) || !visibleFacetSet.has(link.to)) return;
+        const child = FACETS.find(f => f.id === link.from);
+        const parent = FACETS.find(f => f.id === link.to);
+        if (!child || !parent) return;
+
+        edges.push({
+          from: link.from,
+          to: link.to,
+          arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+          dashes: [8, 5],
+          width: 2.2,
+          color: { color: getTheme().containmentEdge, opacity: 0.8 },
+          title: `<b>Facet subset</b><br>Contained by: ${escapeHtml(parent.label)}<br>${child.count} files`
+        });
+      });
+
+      return { nodes, edges };
+    }
+
+    function getCurrentDetailRow() {
+      return ROWS.find(r => r.id === hoveredRowId) || ROWS.find(r => r.id === selectedRowId) || null;
+    }
+
+    function renderDetailPanel() {
+      const row = getCurrentDetailRow();
+      if (!row) {
+        detailPanel.classList.add('empty');
+        detailPanel.innerHTML = 'Hover or click a file node or row to preview details.';
+        return;
+      }
+
+      const relatedFacets = (row.facets || []).map(fid => ({ id: fid, label: facetLabel(fid) }));
+
+      detailPanel.classList.remove('empty');
+      detailPanel.innerHTML = `
+        <div class="detail-row"><span class="detail-label">Item name:</span> <span class="detail-value">${escapeHtml(row.title || row.id)}</span></div>
+        <div class="detail-row"><span class="detail-label">Dates:</span> <span class="detail-value">${escapeHtml(row.display_date || 'undated')}</span></div>
+        <div class="detail-row"><span class="detail-label">Container instance:</span> <span class="detail-value">${escapeHtml(row.container_instance || '—')}</span></div>
+        ${(row.extents || []).length ? `<div class="detail-row"><span class="detail-label">Extents:</span> <span class="detail-value">${escapeHtml(row.extents.join('; '))}</span></div>` : ''}
+        ${row.general_note ? `<div class="detail-row"><span class="detail-label">General note:</span> <span class="detail-value">${escapeHtml(row.general_note)}</span></div>` : ''}
+        ${row.scope_content ? `<div class="detail-row"><span class="detail-label">Scope and content:</span> <span class="detail-value">${escapeHtml(row.scope_content)}</span></div>` : ''}
+        <div class="detail-related">
+          <div class="detail-related-title">Immediately related facets</div>
+          ${relatedFacets.length ? `<div class="detail-facet-list">${relatedFacets.map(f => `<button type="button" class="detail-facet-chip ${selectedFacetIds.has(f.id) ? 'selected' : ''}" data-related-facet="${escapeHtml(f.id)}">${escapeHtml(f.label)}</button>`).join('')}</div>` : '<div class="detail-row"><span class="detail-value">No related facets.</span></div>'}
+        </div>
+      `;
+
+      detailPanel.querySelectorAll('[data-related-facet]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const fid = btn.dataset.relatedFacet;
+          toggleFacetSelection(fid);
+          render();
+        });
+      });
+    }
+
+    function renderFacetList(rows) {
+      const counts = buildFacetCounts(rows);
+      const hasMatchingFiles = facet => selectedFacetIds.has(facet.id) || (counts.get(facet.id) || 0) > 0;
+      const childrenByParent = HIERARCHY_CHILDREN_BY_PARENT;
+      const rootFacets = [];
+
+      HIERARCHICAL_FACETS.forEach(facet => {
+        if (!PRIMARY_HIERARCHY_PARENT_BY_ID.has(facet.id) && hasMatchingFiles(facet)) rootFacets.push(facet);
+      });
+
+      function renderFacet(facet, topLevelRootId = null) {
+        const selected = selectedFacetIds.has(facet.id);
+        const children = (childrenByParent.get(facet.id) || [])
+          .map(facetId => FACETS.find(candidate => candidate.id === facetId))
+          .filter(child => child && hasMatchingFiles(child));
+        const isTopLevel = topLevelRootId === null;
+        const rootId = isTopLevel ? facet.id : topLevelRootId;
+        const canCollapse = isTopLevel && COLLAPSIBLE_HIERARCHY_ROOT_IDS.has(rootId);
+        const isExpanded = expandedHierarchyRootIds.has(rootId);
+        const alternateParents = (HIERARCHY_PARENTS_BY_CHILD.get(facet.id) || [])
+          .filter(parentId => parentId !== PRIMARY_HIERARCHY_PARENT_BY_ID.get(facet.id))
+          .map(facetLabel);
+        const primaryParentId = PRIMARY_HIERARCHY_PARENT_BY_ID.get(facet.id);
+        const tooltip = primaryParentId
+          ? `Contained by ${facetLabel(primaryParentId)}${alternateParents.length ? `; also contained by ${alternateParents.join(', ')}` : ''}`
+          : '';
+        const classes = ['facet-pill'];
+        if (facet.kind === 'keyword') classes.push('keyword-facet');
+        if (selected) classes.push('selected');
+        if (children.length) classes.push('has-subsidiaries');
+
+        return `
+          <div class="facet-group">
+            <div class="facet-header-row">
+              <button type="button" class="${classes.join(' ')}" data-facet-id="${facet.id}"${tooltip ? ` title="${escapeHtml(tooltip)}"` : ''}>
+                <span class="facet-label">${escapeHtml(facet.label)}</span>
+                <span class="count">${counts.get(facet.id) || 0}</span>
+              </button>
+              ${canCollapse ? `<button type="button" class="facet-collapse-toggle" data-collapse-root="${rootId}" aria-label="${isExpanded ? 'Collapse' : 'Expand'} ${escapeHtml(facet.label)}" aria-expanded="${isExpanded}" title="${isExpanded ? 'Collapse' : 'Expand'} subsidiary facets"><span class="facet-collapse-chevron" aria-hidden="true"></span></button>` : ''}
+            </div>
+            ${children.length && (!canCollapse || isExpanded) ? `<div class="facet-children">${children.map(child => renderFacet(child, rootId)).join('')}</div>` : ''}
+          </div>
+        `;
+      }
+
+      const facetButton = facet => `
+        <button type="button" class="facet-pill ${facet.kind === 'keyword' ? 'keyword-facet' : ''} ${selectedFacetIds.has(facet.id) ? 'selected' : ''}" data-facet-id="${escapeHtml(facet.id)}">
+          <span class="facet-label">${escapeHtml(facet.label)}</span>
+          <span class="count">${counts.get(facet.id) || 0}</span>
+        </button>
+      `;
+
+      hierarchyFacetList.innerHTML = rootFacets.map(facet => renderFacet(facet)).join('');
+      const keywordFacets = FACETS
+        .filter(facet => facet.kind === 'keyword' && hasMatchingFiles(facet))
+        .sort((a, b) => a.label.localeCompare(b.label));
+      keywordFacetList.innerHTML = keywordFacets.length
+        ? keywordFacets.map(facet => facetButton(facet)).join('')
+        : '<div class="detail-panel empty">No keyword facets match the current spotlight.</div>';
+
+      [hierarchyFacetList, keywordFacetList].forEach(list => {
+        list.querySelectorAll('[data-facet-id]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const fid = btn.dataset.facetId;
+            toggleFacetSelection(fid);
+            selectedRowId = null;
+            hoveredRowId = null;
+            render();
+          });
+        });
+      });
+
+      hierarchyFacetList.querySelectorAll('[data-collapse-root]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const rootId = btn.dataset.collapseRoot;
+          if (expandedHierarchyRootIds.has(rootId)) {
+            expandedHierarchyRootIds.delete(rootId);
+          } else {
+            expandedHierarchyRootIds.add(rootId);
+          }
+          render();
+        });
+      });
+
+      clearFacets.disabled = selectedFacetIds.size === 0;
+    }
+
+    function renderRowList(rows, matchingRowCount = rows.length) {
+      const hiddenRowCount = matchingRowCount - rows.length;
+      rowCount.textContent = hiddenRowCount > 0
+        ? `${rows.length} shown, ${hiddenRowCount} hidden in collapsed facets`
+        : `${rows.length} matching row${rows.length === 1 ? '' : 's'}`;
+      emptyState.style.display = rows.length ? 'none' : 'block';
+      emptyState.textContent = matchingRowCount
+        ? 'Matching files are hidden under collapsed facets.'
+        : 'No rows match the current selection.';
+
+      rowList.innerHTML = rows.map(row => {
+        const selected = row.id === selectedRowId;
+        const matched = row.facets.filter(fid => selectedFacetIds.has(fid)).join(', ');
+        return `
+          <button type="button" class="sidebar-item ${selected ? 'selected' : ''}" data-row-id="${row.id}">
+            <span class="row-id">${escapeHtml(row.title || row.id)}</span>
+            <div class="row-date">${escapeHtml(row.display_date || 'undated')}</div>
+            ${row.box ? `<div class="row-box">${escapeHtml(row.box)}</div>` : ''}
+            ${matched ? `<div class="row-match">Matches: ${escapeHtml(matched)}</div>` : ''}
+          </button>
+        `;
+      }).join('');
+
+      rowList.querySelectorAll('[data-row-id]').forEach(btn => {
+        const rowId = btn.dataset.rowId;
+        btn.addEventListener('mouseenter', () => {
+          hoveredRowId = rowId;
+          renderDetailPanel();
+        });
+        btn.addEventListener('mouseleave', () => {
+          if (hoveredRowId === rowId && selectedRowId !== rowId) {
+            hoveredRowId = null;
+            renderDetailPanel();
+          }
+        });
+        btn.addEventListener('click', () => {
+          selectedRowId = rowId;
+          hoveredRowId = rowId;
+          network.focus(selectedRowId, { scale: 1.2, animation: true });
+          render();
+        });
+      });
+    }
+
+    function render() {
+      applyTheme(theme, false);
+      const timelineOn = timelineToggle.checked && !!slider.noUiSlider;
+      const { startDate, endDate } = currentRange();
+      const timelineRows = getTimelineRows();
+      const matchingRows = getVisibleRows();
+      const visibleRows = getRowsInExpandedBranches(matchingRows);
+
+      if (selectedRowId && !visibleRows.some(r => r.id === selectedRowId)) selectedRowId = null;
+      if (hoveredRowId && !visibleRows.some(r => r.id === hoveredRowId)) hoveredRowId = null;
+
+      renderFacetList(matchingRows);
+      renderRowList(visibleRows, matchingRows.length);
+      renderDetailPanel();
+
+      const data = buildNetworkData(visibleRows, matchingRows);
+      network.setData({
+        nodes: new vis.DataSet(data.nodes),
+        edges: new vis.DataSet(data.edges)
+      });
+
+      if (!timelineOn) {
+        rangeText.innerHTML = selectedFacetIds.size
+          ? `Timeline disabled - spotlighting <span class="facet-spotlight">${Array.from(selectedFacetIds).join(', ')}</span>.`
+          : 'Timeline disabled - showing everything, including records without dates.';
+      } else {
+        rangeText.innerHTML = selectedFacetIds.size
+          ? `Timeline enabled - ${startDate} to ${endDate} - spotlighting <span class="facet-spotlight">${Array.from(selectedFacetIds).join(', ')}</span>.`
+          : `Timeline enabled - showing records active from ${startDate} to ${endDate}.`;
+      }
+    }
+
+    network.on('click', function(params) {
+      if (params.nodes.length === 1) {
+        const clickedId = params.nodes[0];
+        const isFacet = FACETS.some(f => f.id === clickedId);
+        if (isFacet) {
+          toggleFacetSelection(clickedId);
+          selectedRowId = null;
+          hoveredRowId = null;
+          render();
+          return;
+        }
+
+        selectedRowId = clickedId;
+        hoveredRowId = clickedId;
+        render();
+        return;
+      }
+
+      if (params.nodes.length === 0 && params.edges.length === 0) {
+        if (!selectedFacetIds.size) return;
+        selectedFacetIds.clear();
+        expandedTopLevelFacetIds.clear();
+        selectedRowId = null;
+        hoveredRowId = null;
+        render();
+      }
+    });
+
+    network.on('hoverNode', function(params) {
+      const hoveredId = params.node;
+      const isFacet = FACETS.some(f => f.id === hoveredId);
+      if (!isFacet) {
+        hoveredRowId = hoveredId;
+        renderDetailPanel();
+      }
+    });
+
+    network.on('blurNode', function(params) {
+      const blurredId = params.node;
+      if (hoveredRowId === blurredId && selectedRowId !== blurredId) {
+        hoveredRowId = null;
+        renderDetailPanel();
+      }
+    });
+
+    if (themeToggle) {
+      themeToggle.addEventListener('change', function() {
+        applyTheme(this.checked ? 'dark' : 'light');
+        render();
+      });
+    }
+
+    clearFacets.addEventListener('click', function() {
+      selectedFacetIds.clear();
+      expandedTopLevelFacetIds.clear();
+      selectedRowId = null;
+      hoveredRowId = null;
+      render();
+    });
+
+    if (slider.noUiSlider) {
+      slider.noUiSlider.on('update', render);
+    }
+
+    timelineToggle.addEventListener('change', function() {
+      slider.style.display = this.checked ? 'block' : 'none';
+      render();
+    });
+
+    timelineToggle.checked = false;
+    slider.style.display = 'none';
+    render();
+
+    let lastModified = null;
+
+    async function checkForUpdate() {
+      try {
+        const response = await fetch(window.location.href, { method: 'HEAD' });
+        const newModified = response.headers.get('Last-Modified');
+        if (lastModified && newModified !== lastModified) {
+          location.reload();
+        }
+        lastModified = newModified;
+      } catch (e) {
+        console.warn('Update check failed', e);
+      }
+    }
+
+    setInterval(checkForUpdate, 2000);
+  </script>
+
+  <div id="copyright">Rhizomatica. Copyright 2026, Evan Brandon.</div>
+</body>
+</html>
