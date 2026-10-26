@@ -68,23 +68,7 @@ STOPWORDS = frozenset(
 # how common its individual words are.
 GENERIC_WORDS = frozenset(
     """
-    meeting meetings report reports reporting trip trips visit visits
-    deployment deployments release releases review reviews notes note
-    correspondence materials material event events site sites panel
-    panels group groups committee team teams tutorial tutorials
-    universities university vol volume current work works research
-    draft drafts letter letters memo memos memorandum agenda agendas
-    minutes proposal proposals plan plans program programs document
-    documents series folder folders item items file files record
-    records paper papers summary summaries overview background session
-    sessions workshop workshops conference conferences presentation
-    presentations demonstration demonstrations demo demos article
-    articles newsletter newsletters bulletin bulletins issue issues
-    interim final progress management advisory technical activities
-    activity information guide guides reference references manual
-    manuals installing installation using sending support project
-    projects part session one two three four five six seven eight nine ten eleven twelve thirteen 
-    box digital physical materials
+
     """.split()
 )
 
