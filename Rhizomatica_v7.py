@@ -56,7 +56,8 @@ STOPWORDS = frozenset(
     his her you your our we they he she i not no nor too very can will
     just should now into during about above below between after before
     over under again further once here there when where why how all any
-    both each few more most other some such only own same other include includes inc inc.
+    both each few more most other some such only own same other include includes also see non consists consist related relates
+    material materials series sub-series sub 
     """.split()
 )
 
@@ -70,7 +71,7 @@ STOPWORDS = frozenset(
 # how common its individual words are.
 GENERIC_WORDS = frozenset(
     """
-
+    inc inc. file files digital physical Physical Digital material materials series sub-series sub 
     """.split()
 )
 
@@ -2191,7 +2192,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
           } else {
             expandedHierarchyRootIds.add(rootId);
           }
-          render();
+          renderFacetList(getVisibleRows());
         });
       });
 
