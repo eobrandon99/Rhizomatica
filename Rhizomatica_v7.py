@@ -155,7 +155,7 @@ def extract_did_fields(node):
                 break
 
     unittitle = ""
-    date_expr = ""
+    date_exprs = []
     normal = ""
     container_instance = ""
     extent_value = None
@@ -167,6 +167,8 @@ def extract_did_fields(node):
                 unittitle = text_of(child)
             elif tag == "unitdate":
                 date_expr = text_of(child)
+                if date_expr:
+                    date_exprs.append(date_expr)
                 normal = child.get("normal", "")
             elif tag == "container":
                 label = child.get("label", "").strip()
@@ -190,6 +192,7 @@ def extract_did_fields(node):
         begin = parse_normal_date(half[0], is_end=False)
         end = parse_normal_date(half[1] if len(half) > 1 else half[0], is_end=True)
 
+    date_expr = ", ".join(date_exprs)
     if date_expr:
         display_date = date_expr
     elif begin and end and begin != end:
@@ -994,15 +997,40 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       border-radius: 6px;
     }
     .facet-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
       flex: 0 0 auto;
       margin: 0;
       padding: 7px 8px;
       border-bottom: 1px solid #e0e0e0;
+    }
+    .facet-section-title {
+      min-width: 0;
+      margin: 0;
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
       color: #555;
+    }
+    .facet-sort-select {
+      flex: 0 0 auto;
+      max-width: 58%;
+      padding: 3px 4px;
+      border: 1px solid #cfcfcf;
+      border-radius: 4px;
+      background: #fff;
+      color: #444;
+      font: inherit;
+      font-size: 10px;
+      text-transform: none;
+    }
+    body[data-theme="dark"] .facet-sort-select {
+      border-color: #475569;
+      background: #1e293b;
+      color: #e2e8f0;
     }
     .facet-section-list {
       display: flex;
@@ -1340,6 +1368,8 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     }
     body[data-theme="dark"] .facet-section-header {
       border-bottom-color: #334155;
+    }
+    body[data-theme="dark"] .facet-section-title {
       color: #cbd5e1;
     }
     body[data-theme="dark"] .detail-panel.empty {
@@ -1470,11 +1500,19 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       </div>
       <div id="facetSections">
         <section class="facet-section" aria-labelledby="hierarchyFacetHeader">
-          <h3 id="hierarchyFacetHeader" class="facet-section-header">Finding aid hierarchy</h3>
+          <div class="facet-section-header">
+            <h3 id="hierarchyFacetHeader" class="facet-section-title">Finding aid hierarchy</h3>
+          </div>
           <div id="hierarchyFacetList" class="facet-section-list"></div>
         </section>
         <section class="facet-section" aria-labelledby="keywordFacetHeader">
-          <h3 id="keywordFacetHeader" class="facet-section-header">Keyword facets</h3>
+          <div class="facet-section-header">
+            <h3 id="keywordFacetHeader" class="facet-section-title">Keyword facets</h3>
+            <select id="keywordFacetSort" class="facet-sort-select" aria-label="Sort keyword facets">
+              <option value="alphabetical">Alphabetical</option>
+              <option value="connections">Most connections</option>
+            </select>
+          </div>
           <div id="keywordFacetList" class="facet-section-list"></div>
         </section>
       </div>
@@ -1520,6 +1558,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     const themeToggle = document.getElementById('themeToggle');
     const hierarchyFacetList = document.getElementById('hierarchyFacetList');
     const keywordFacetList = document.getElementById('keywordFacetList');
+    const keywordFacetSort = document.getElementById('keywordFacetSort');
     const rowList = document.getElementById('rowList');
     const rowCount = document.getElementById('rowCount');
     const emptyState = document.getElementById('emptyState');
@@ -1750,6 +1789,9 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     const ROW_EXTENT_MAX_BOOST = 2;
     const ROW_FONT_SIZE = 10;
     const ROW_FONT_SIZE_HIGHLIGHTED = 12;
+    const MAX_VISIBLE_FILE_NODES = 150;
+    let groupedRowsByNodeId = new Map();
+    let hoveredGroupNodeId = null;
     const maxExtentValue = ROWS.reduce((maximum, row) => Math.max(maximum, row.extent_value || 0), 0);
 
     function rowNodeSize(row, highlighted) {
@@ -1944,51 +1986,13 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) visibleFacetIds.add(rootId);
       }));
 
-      const nodes = rows.map(row => {
+      rows.forEach(row => {
         row.facets.forEach(fid => {
           if (isFacetBranchExpanded(fid)) visibleFacetIds.add(fid);
         });
-        const highlighted = (selectedRow && selectedRow.id === row.id) || (hoveredRow && hoveredRow.id === row.id);
-        return {
-          id: row.id,
-          label: rowLabel(row),
-          group: 'row',
-          size: rowNodeSize(row, highlighted),
-          font: {
-            color: getTheme().rowLabel,
-            size: highlighted ? ROW_FONT_SIZE_HIGHLIGHTED : ROW_FONT_SIZE,
-            bold: highlighted
-          },
-          borderWidth: highlighted ? 3 : 1.5,
-          color: highlighted
-            ? {
-                background: getTheme().rowSelectedBackground,
-                border: getTheme().rowSelectedBorder,
-                highlight: { background: getTheme().rowSelectedBackground, border: getTheme().rowSelectedBorder },
-                hover: { background: getTheme().rowHoverBackground, border: getTheme().rowSelectedBorder }
-              }
-            : {
-                background: getTheme().rowBackground,
-                border: getTheme().rowBorder,
-                highlight: { background: getTheme().rowHoverBackground, border: getTheme().rowSelectedBorder },
-                hover: { background: getTheme().rowHoverBackground, border: getTheme().rowBorder }
-              },
-          shadow: highlighted ? {
-            enabled: true,
-            color: getTheme().detailHighlight,
-            size: 10,
-            x: 0,
-            y: 0
-          } : false,
-          title: [
-            `<b>Item name:</b> ${escapeHtml(row.title || row.id)}`,
-            row.display_date ? `<b>Dates:</b> ${escapeHtml(row.display_date)}` : '<b>Dates:</b> undated',
-            row.scope_content ? `<b>Scope content:</b> ${escapeHtml(row.scope_content)}` : '',
-            row.physical_desc ? `<b>Physical desc:</b> ${escapeHtml(row.physical_desc)}` : ''
-          ].filter(Boolean).join('<br>')
-        };
       });
 
+      const facetNodes = [];
       FACETS.forEach(f => {
         if (isFacetNodeVisible(f.id) && (visibleFacetIds.has(f.id) || selectedFacetIds.has(f.id))) {
           const isKeywordFacet = f.kind === 'keyword';
@@ -1999,7 +2003,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
           const hoverBackground = isKeywordFacet ? getTheme().keywordFacetHoverBackground : getTheme().facetHoverBackground;
           const selectedBackground = isKeywordFacet ? getTheme().keywordFacetSelectedBackground : getTheme().facetSelectedBackground;
           const selectedBorder = isKeywordFacet ? getTheme().keywordFacetSelectedBorder : getTheme().facetSelectedBorder;
-          nodes.push({
+          facetNodes.push({
             id: f.id,
             label: f.label,
             group: 'facet',
@@ -2037,14 +2041,116 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         }
       });
 
-      const visibleFacetSet = new Set(nodes.filter(n => n.group === 'facet').map(n => n.id));
+      const visibleFacetSet = new Set(facetNodes.map(n => n.id));
+      const rowFacetTargets = new Map();
+      const groupsByConnection = new Map();
       rows.forEach(row => {
         const rowFacetIds = new Set(row.facets);
-        row.facets.forEach(fid => {
-          if (!isFacetNodeVisible(fid) || !visibleFacetSet.has(fid)) return;
+        const targets = row.facets.filter(fid => {
+          if (!isFacetNodeVisible(fid) || !visibleFacetSet.has(fid)) return false;
           const hasVisibleMoreSpecificRowFacet = (FACET_CHILDREN_BY_PARENT.get(fid) || [])
             .some(childId => rowFacetIds.has(childId) && isFacetNodeVisible(childId));
-          if (hasVisibleMoreSpecificRowFacet) return;
+          return !hasVisibleMoreSpecificRowFacet;
+        });
+        rowFacetTargets.set(row.id, targets);
+
+        if (rows.length > MAX_VISIBLE_FILE_NODES && targets.length) {
+          const connectionKey = JSON.stringify([...targets].sort());
+          if (!groupsByConnection.has(connectionKey)) {
+            groupsByConnection.set(connectionKey, { facetIds: [...targets].sort(), rows: [] });
+          }
+          groupsByConnection.get(connectionKey).rows.push(row);
+        }
+      });
+
+      groupedRowsByNodeId = new Map();
+      const groupedRowIds = new Set();
+      const rowIds = new Set(ROWS.map(row => row.id));
+      const fileNodes = [];
+      let groupIndex = 0;
+      groupsByConnection.forEach(group => {
+        if (group.rows.length < 2) return;
+        let groupId;
+        do {
+          groupId = `__rhizomatica_file_group_${groupIndex++}`;
+        } while (rowIds.has(groupId));
+
+        groupedRowsByNodeId.set(groupId, group);
+        group.rows.forEach(row => groupedRowIds.add(row.id));
+        fileNodes.push({
+          id: groupId,
+          label: `${group.rows.length} files within`,
+          group: 'row',
+          size: ROW_SIZE * Math.sqrt(group.rows.length),
+          font: { color: getTheme().rowLabel, size: ROW_FONT_SIZE, bold: true },
+          borderWidth: 1.5,
+          color: {
+            background: getTheme().rowBackground,
+            border: getTheme().rowBorder,
+            highlight: { background: getTheme().rowHoverBackground, border: getTheme().rowBorder },
+            hover: { background: getTheme().rowHoverBackground, border: getTheme().rowBorder }
+          },
+          title: `<b>${group.rows.length} files within</b><br>Connected facets: ${group.facetIds.map(facetLabel).map(escapeHtml).join(', ')}`
+        });
+
+        group.facetIds.forEach(fid => {
+          edges.push({
+            from: groupId,
+            to: fid,
+            width: selectedFacetIds.has(fid) ? 3 : 1.2,
+            color: selectedFacetIds.has(fid) ? { color: getTheme().edgeSelected } : { color: getTheme().edge },
+            title: `Connected facet: ${fid}`
+          });
+        });
+      });
+
+      rows.forEach(row => {
+        if (groupedRowIds.has(row.id)) return;
+        const highlighted = (selectedRow && selectedRow.id === row.id) || (hoveredRow && hoveredRow.id === row.id);
+        fileNodes.push({
+          id: row.id,
+          label: rowLabel(row),
+          group: 'row',
+          size: rowNodeSize(row, highlighted),
+          font: {
+            color: getTheme().rowLabel,
+            size: highlighted ? ROW_FONT_SIZE_HIGHLIGHTED : ROW_FONT_SIZE,
+            bold: highlighted
+          },
+          borderWidth: highlighted ? 3 : 1.5,
+          color: highlighted
+            ? {
+                background: getTheme().rowSelectedBackground,
+                border: getTheme().rowSelectedBorder,
+                highlight: { background: getTheme().rowSelectedBackground, border: getTheme().rowSelectedBorder },
+                hover: { background: getTheme().rowHoverBackground, border: getTheme().rowSelectedBorder }
+              }
+            : {
+                background: getTheme().rowBackground,
+                border: getTheme().rowBorder,
+                highlight: { background: getTheme().rowHoverBackground, border: getTheme().rowSelectedBorder },
+                hover: { background: getTheme().rowHoverBackground, border: getTheme().rowBorder }
+              },
+          shadow: highlighted ? {
+            enabled: true,
+            color: getTheme().detailHighlight,
+            size: 10,
+            x: 0,
+            y: 0
+          } : false,
+          title: [
+            `<b>Item name:</b> ${escapeHtml(row.title || row.id)}`,
+            row.display_date ? `<b>Dates:</b> ${escapeHtml(row.display_date)}` : '<b>Dates:</b> undated',
+            row.scope_content ? `<b>Scope content:</b> ${escapeHtml(row.scope_content)}` : '',
+            row.physical_desc ? `<b>Physical desc:</b> ${escapeHtml(row.physical_desc)}` : ''
+          ].filter(Boolean).join('<br>')
+        });
+      });
+
+      const nodes = fileNodes.concat(facetNodes);
+      rows.forEach(row => {
+        if (groupedRowIds.has(row.id)) return;
+        (rowFacetTargets.get(row.id) || []).forEach(fid => {
           edges.push({
             from: row.id,
             to: fid,
@@ -2080,6 +2186,16 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     }
 
     function renderDetailPanel() {
+      const groupedNode = groupedRowsByNodeId.get(hoveredGroupNodeId);
+      if (groupedNode) {
+        detailPanel.classList.remove('empty');
+        detailPanel.innerHTML = `
+          <div class="detail-row"><span class="detail-label">Files within:</span> <span class="detail-value">${groupedNode.rows.length}</span></div>
+          <div class="detail-row"><span class="detail-label">Connected facets:</span> <span class="detail-value">${groupedNode.facetIds.map(facetLabel).map(escapeHtml).join(', ')}</span></div>
+        `;
+        return;
+      }
+
       const row = getCurrentDetailRow();
       if (!row) {
         detailPanel.classList.add('empty');
@@ -2106,6 +2222,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       detailPanel.querySelectorAll('[data-related-facet]').forEach(btn => {
         btn.addEventListener('click', () => {
           const fid = btn.dataset.relatedFacet;
+          hoveredGroupNodeId = null;
           toggleFacetSelection(fid);
           render();
         });
@@ -2167,7 +2284,13 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       hierarchyFacetList.innerHTML = rootFacets.map(facet => renderFacet(facet)).join('');
       const keywordFacets = FACETS
         .filter(facet => facet.kind === 'keyword' && hasMatchingFiles(facet))
-        .sort((a, b) => a.label.localeCompare(b.label));
+        .sort((a, b) => {
+          const alphabeticalOrder = a.label.localeCompare(b.label);
+          if (keywordFacetSort.value === 'connections') {
+            return (counts.get(b.id) || 0) - (counts.get(a.id) || 0) || alphabeticalOrder;
+          }
+          return alphabeticalOrder;
+        });
       keywordFacetList.innerHTML = keywordFacets.length
         ? keywordFacets.map(facet => facetButton(facet)).join('')
         : '<div class="detail-panel empty">No keyword facets match the current spotlight.</div>';
@@ -2225,6 +2348,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       rowList.querySelectorAll('[data-row-id]').forEach(btn => {
         const rowId = btn.dataset.rowId;
         btn.addEventListener('mouseenter', () => {
+          hoveredGroupNodeId = null;
           hoveredRowId = rowId;
           renderDetailPanel();
         });
@@ -2235,6 +2359,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
           }
         });
         btn.addEventListener('click', () => {
+          hoveredGroupNodeId = null;
           selectedRowId = rowId;
           hoveredRowId = rowId;
           network.focus(selectedRowId, { scale: 1.2, animation: true });
@@ -2256,13 +2381,14 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
       renderFacetList(matchingRows);
       renderRowList(visibleRows, matchingRows.length);
-      renderDetailPanel();
 
       const data = buildNetworkData(visibleRows, matchingRows);
+      if (!groupedRowsByNodeId.has(hoveredGroupNodeId)) hoveredGroupNodeId = null;
       network.setData({
         nodes: new vis.DataSet(data.nodes),
         edges: new vis.DataSet(data.edges)
       });
+      renderDetailPanel();
 
       if (!timelineOn) {
         rangeText.innerHTML = selectedFacetIds.size
@@ -2278,15 +2404,32 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     network.on('click', function(params) {
       if (params.nodes.length === 1) {
         const clickedId = params.nodes[0];
+        if (groupedRowsByNodeId.has(clickedId)) {
+          const groupedNode = groupedRowsByNodeId.get(clickedId);
+          selectedFacetIds.clear();
+          expandedTopLevelFacetIds.clear();
+          groupedNode.facetIds.forEach(facetId => {
+            selectedFacetIds.add(facetId);
+            const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+            if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) expandedTopLevelFacetIds.add(rootId);
+          });
+          selectedRowId = null;
+          hoveredRowId = null;
+          hoveredGroupNodeId = clickedId;
+          render();
+          return;
+        }
         const isFacet = FACETS.some(f => f.id === clickedId);
         if (isFacet) {
           toggleFacetSelection(clickedId);
           selectedRowId = null;
           hoveredRowId = null;
+          hoveredGroupNodeId = null;
           render();
           return;
         }
 
+        hoveredGroupNodeId = null;
         selectedRowId = clickedId;
         hoveredRowId = clickedId;
         render();
@@ -2299,6 +2442,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         expandedTopLevelFacetIds.clear();
         selectedRowId = null;
         hoveredRowId = null;
+        hoveredGroupNodeId = null;
         render();
       }
     });
@@ -2306,7 +2450,12 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     network.on('hoverNode', function(params) {
       const hoveredId = params.node;
       const isFacet = FACETS.some(f => f.id === hoveredId);
-      if (!isFacet) {
+      if (groupedRowsByNodeId.has(hoveredId)) {
+        hoveredGroupNodeId = hoveredId;
+        hoveredRowId = null;
+        renderDetailPanel();
+      } else if (!isFacet) {
+        hoveredGroupNodeId = null;
         hoveredRowId = hoveredId;
         renderDetailPanel();
       }
@@ -2314,6 +2463,11 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
     network.on('blurNode', function(params) {
       const blurredId = params.node;
+      if (hoveredGroupNodeId === blurredId) {
+        hoveredGroupNodeId = null;
+        renderDetailPanel();
+        return;
+      }
       if (hoveredRowId === blurredId && selectedRowId !== blurredId) {
         hoveredRowId = null;
         renderDetailPanel();
@@ -2332,8 +2486,11 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       expandedTopLevelFacetIds.clear();
       selectedRowId = null;
       hoveredRowId = null;
+      hoveredGroupNodeId = null;
       render();
     });
+
+    keywordFacetSort.addEventListener('change', () => renderFacetList(getVisibleRows()));
 
     if (slider.noUiSlider) {
       slider.noUiSlider.on('update', render);
