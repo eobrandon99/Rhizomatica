@@ -13,9 +13,9 @@ Data model:
   a row (a file).
 - Every node that DOES have children becomes a facet, and all of its
   descendant files are tagged with it (and every facet above it).
-- Words that recur across multiple files' titles, general notes, or
-  scope-and-content text become keyword facets too (see keyword_min_file_ratio
-  in config.json).
+- Words and phrases in file titles, general notes, scope-and-content text,
+  and hierarchy facet titles become keyword facets (see keyword_min_file_ratio
+  in config.json). EAD <persname> entries also seed person-name matching.
 
 Input:
 - Files named <prefix>-ead.xml in the input/ folder.
@@ -57,7 +57,7 @@ STOPWORDS = frozenset(
     just should now into during about above below between after before
     over under again further once here there when where why how all any
     both each few more most other some such only own same other include includes also see non consists consist related relates
-    material materials series sub-series sub 
+    material materials series sub-series sub additionally moreover beyond circa included many specifically specific
     """.split()
 )
 
@@ -242,7 +242,10 @@ def hierarchy_facet_id(node, fallback_title, facets_by_id):
     return facet_id
 
 
-def walk(node, ancestor_facets, inherited_date, rows, facets_by_id, hierarchy_parent_by_id, counter):
+def walk(
+    node, ancestor_facets, inherited_date, rows, row_ids, facets_by_id,
+    hierarchy_parent_by_id, counter
+):
     children = [child for child in node if C_LEVEL_RE.match(local_tag(child))]
     did_fields = extract_did_fields(node)
     has_title = bool(did_fields["title"])
@@ -250,8 +253,14 @@ def walk(node, ancestor_facets, inherited_date, rows, facets_by_id, hierarchy_pa
 
     if not children:
         counter[0] += 1
-        row_id = unitid_facet_id(node, did_fields["title"] or f"file_{counter[0]}")
-        file_title = did_fields["title"] or (facets_by_id.get(ancestor_facets[-1], "") if ancestor_facets else "")
+        base_row_id = unitid_facet_id(node, did_fields["title"] or f"file_{counter[0]}")
+        row_id = base_row_id
+        suffix = 2
+        while row_id in row_ids:
+            row_id = f"{base_row_id}_{suffix}"
+            suffix += 1
+        row_ids.add(row_id)
+        file_title = did_fields["title"]
         # Fall back to the nearest untitled-but-dated ancestor's date only
         # when this file has none of its own.
         date_fields = did_fields if has_own_date else (inherited_date or did_fields)
@@ -290,7 +299,10 @@ def walk(node, ancestor_facets, inherited_date, rows, facets_by_id, hierarchy_pa
         next_inherited_date = inherited_date
 
     for child in children:
-        walk(child, next_ancestor_facets, next_inherited_date, rows, facets_by_id, hierarchy_parent_by_id, counter)
+        walk(
+            child, next_ancestor_facets, next_inherited_date, rows, row_ids,
+            facets_by_id, hierarchy_parent_by_id, counter
+        )
 
 
 def normalize_abbreviations(text):
@@ -390,6 +402,143 @@ def normalize_keyword_word(word):
     return singular
 
 
+def parse_person_name(name):
+    name = " ".join(name.split())
+    parentheticals = re.findall(r"\(([^()]*)\)", name)
+    unparenthesized = re.sub(r"\s*\([^()]*\)", "", name).strip(" ,.;")
+    parts = [part.strip() for part in unparenthesized.split(",")]
+
+    if len(parts) > 1:
+        family = WORD_RE.findall(parts[0])
+        given = WORD_RE.findall(parts[1])
+    else:
+        words = WORD_RE.findall(unparenthesized)
+        if words and words[-1].casefold().rstrip(".") in {"jr", "sr", "ii", "iii", "iv"}:
+            words = words[:-1]
+        if len(words) < 2:
+            return None
+        given, family = words[:-1], words[-1:]
+
+    if not family or not given:
+        return None
+
+    given_forms = [given]
+    for parenthetical in parentheticals:
+        expanded = WORD_RE.findall(parenthetical)
+        if not expanded:
+            continue
+        same_first = expanded[0].casefold() == given[0].casefold()
+        initial_expansion = (
+            len(given[0]) == 1
+            and expanded[0].casefold().startswith(given[0].casefold())
+        )
+        if same_first or initial_expansion:
+            given_forms.append(expanded)
+
+    return family, given_forms
+
+
+def build_person_name_index(person_names):
+    groups = {}
+    for name in person_names:
+        parsed = parse_person_name(name)
+        if parsed is None:
+            continue
+        family, given_forms = parsed
+        first = normalize_keyword_word(given_forms[0][0]).lower()
+        normalized_family = tuple(
+            normalize_keyword_word(word).lower() for word in family
+        )
+        identity = (first, normalized_family)
+        group = groups.setdefault(
+            identity, {"family": family, "given_forms": []}
+        )
+        group["given_forms"].extend(given_forms)
+
+    aliases = defaultdict(set)
+    for group in groups.values():
+        given_forms = group["given_forms"]
+        preferred_given = max(
+            given_forms,
+            key=lambda words: (
+                len(words[0]) > 1,
+                sum(len(word) > 1 for word in words[1:]),
+                len(words),
+                sum(len(word) for word in words),
+            ),
+        )
+        family = group["family"]
+        person_key = tuple(
+            normalize_keyword_word(word).lower()
+            for word in preferred_given + family
+        )
+
+        for given in given_forms:
+            first, middle = given[0], given[1:]
+            middle_variants = {()}
+            if len(middle) <= 5:
+                for word in middle:
+                    expanded_variants = set()
+                    for variant in middle_variants:
+                        expanded_variants.add(variant)
+                        expanded_variants.add(variant + (word,))
+                        if len(word) > 1:
+                            expanded_variants.add(variant + (word[0],))
+                    middle_variants = expanded_variants
+            else:
+                middle_variants.update(
+                    {
+                        tuple(middle),
+                        tuple(word[0] for word in middle),
+                    }
+                )
+
+            for middle_variant in middle_variants:
+                given_variant = (
+                    normalize_keyword_word(first).lower(),
+                    *(
+                        normalize_keyword_word(word).lower()
+                        for word in middle_variant
+                    ),
+                )
+                aliases[given_variant + person_key[len(preferred_given):]].add(person_key)
+                aliases[person_key[len(preferred_given):] + given_variant].add(person_key)
+
+    aliases_by_first = defaultdict(list)
+    for alias, person_keys in aliases.items():
+        aliases_by_first[alias[0]].append((alias, person_keys))
+    for candidates in aliases_by_first.values():
+        candidates.sort(key=lambda item: (-len(item[0]), item[0]))
+    return aliases, aliases_by_first
+
+
+def match_person_names(source, aliases_by_first):
+    matches = []
+    for field in ("title", "general_note", "scope_content"):
+        text = source.get(field) or ""
+        word_matches = list(WORD_RE.finditer(text))
+        tokens = [
+            normalize_keyword_word(word).lower()
+            for word in (match.group() for match in word_matches)
+        ]
+        for start, first in enumerate(tokens):
+            matches_at_start = {}
+            for alias, person_keys in aliases_by_first.get(first, ()):
+                if tuple(tokens[start:start + len(alias)]) == alias:
+                    for person_key in person_keys:
+                        if person_key not in matches_at_start:
+                            surface = text[
+                                word_matches[start].start():
+                                word_matches[start + len(alias) - 1].end()
+                            ]
+                            matches_at_start[person_key] = (alias, surface)
+            matches.extend(
+                (person_key, surface)
+                for person_key, (_, surface) in matches_at_start.items()
+            )
+    return matches
+
+
 def ngram_facet_id(chunk):
     parts = [re.sub(r"[^a-z0-9]+", "", w) or "x" for w in chunk]
     return "kw_" + "_".join(parts)
@@ -435,16 +584,19 @@ def merge_redundant_facets(final_chunks, redundancy_ratio):
     merged = defaultdict(set)
     for chunk, row_ids in final_chunks.items():
         merged[resolve(chunk)] |= row_ids
-    return dict(merged)
+    return dict(merged), {chunk: resolve(chunk) for chunk in chunks}
 
 
-def extract_keyword_facets(rows, min_file_count, redundancy_ratio, collection_title=""):
-    """Entity + frequency hybrid: find recurring words AND phrases in file
-  titles, general notes, and scope-and-content text and turn them into facets.
+def extract_keyword_facets(
+    rows, min_file_count, redundancy_ratio, collection_title="",
+    hierarchy_titles=(), person_names=()
+):
+    """Find recurring terms in file text and hierarchy titles.
 
     Possessives and common English noun plurals are normalized before
     candidates are counted and matched, so variants share a facet labeled
-    with the most frequently occurring original form.
+    with the most frequently occurring original form. EAD person names seed
+    aliases for first-last, last-first, and middle-name variants.
 
     - Multi-word phrases (e.g. "Ann Arbor", "User's Reference Guide",
       "Project Management Committee") are treated as entities outright --
@@ -466,6 +618,9 @@ def extract_keyword_facets(rows, min_file_count, redundancy_ratio, collection_ti
     acronym_seen = set()
     acronym_occurrence_rows = defaultdict(set)
     collection_title_chunks = set()
+    person_aliases, person_aliases_by_first = build_person_name_index(
+        person_names
+    )
     for words in tokenize_title_segments(collection_title):
         normalized = [normalize_keyword_word(word).lower() for word in words]
         for length in range(1, len(normalized) + 1):
@@ -474,9 +629,36 @@ def extract_keyword_facets(rows, min_file_count, redundancy_ratio, collection_ti
         title_initials = facet_initials(" ".join(normalized))
         if len(title_initials) >= 2:
             collection_title_chunks.add((title_initials,))
+    collection_title_chunks.update(
+        person_key
+        for person_key, _ in match_person_names(
+            {"title": collection_title}, person_aliases_by_first
+        )
+    )
 
-    for row in rows:
-        for words in tokenize_row_segments(row):
+    text_sources = [
+        (row, {row["id"]}, None)
+        for row in rows
+    ] + [
+        ({"title": hierarchy["title"]}, hierarchy["row_ids"], hierarchy["id"])
+        for hierarchy in hierarchy_titles
+        if hierarchy["row_ids"]
+    ]
+
+    def add_candidate(chunk, source_row_ids, surface_label):
+        candidate_rows[chunk].update(source_row_ids)
+        surface_key = surface_label.casefold()
+        candidate_label_counts[chunk][surface_key] += 1
+        candidate_label_spellings.setdefault((chunk, surface_key), surface_label)
+
+    person_source_matches = []
+    for source, source_row_ids, _ in text_sources:
+        person_matches = match_person_names(source, person_aliases_by_first)
+        person_source_matches.append({person_key for person_key, _ in person_matches})
+        for person_key, surface_label in person_matches:
+            add_candidate(person_key, source_row_ids, surface_label)
+
+        for words in tokenize_row_segments(source):
             normalized_words = [
                 (normalize_keyword_word(word), word) for word in words
             ]
@@ -492,7 +674,7 @@ def extract_keyword_facets(rows, min_file_count, redundancy_ratio, collection_ti
             for i, word in enumerate(normalized):
                 if word.isupper() and len(word) >= 2:
                     acronym_seen.add(lowered[i])
-                    acronym_occurrence_rows[lowered[i]].add(row["id"])
+                    acronym_occurrence_rows[lowered[i]].update(source_row_ids)
             for length in range(1, MAX_NGRAM + 1):
                 for i in range(0, n - length + 1):
                     chunk = tuple(lowered[i:i + length])
@@ -506,17 +688,16 @@ def extract_keyword_facets(rows, min_file_count, redundancy_ratio, collection_ti
                         min_len = 2 if normalized[i].isupper() else 3
                         if len(chunk[0]) < min_len:
                             continue
-                    candidate_rows[chunk].add(row["id"])
                     surface_label = " ".join(surface_words[i:i + length])
-                    surface_key = surface_label.casefold()
-                    candidate_label_counts[chunk][surface_key] += 1
-                    candidate_label_spellings.setdefault((chunk, surface_key), surface_label)
+                    person_keys = person_aliases.get(chunk)
+                    if not person_keys:
+                        add_candidate(chunk, source_row_ids, surface_label)
             for length in range(MAX_NGRAM + 1, min(MAX_ACRONYM_EXPANSION_NGRAM, n) + 1):
                 for i in range(0, n - length + 1):
                     chunk = tuple(lowered[i:i + length])
                     acronym = facet_initials(" ".join(normalized[i:i + length]))
                     if len(acronym) >= 2:
-                        extended_expansion_rows[acronym][chunk].add(row["id"])
+                        extended_expansion_rows[acronym][chunk].update(source_row_ids)
 
     candidate_label = {
         chunk: candidate_label_spellings[(chunk, max(forms, key=forms.get))]
@@ -540,9 +721,11 @@ def extract_keyword_facets(rows, min_file_count, redundancy_ratio, collection_ti
     }
 
     facet_rows = defaultdict(set)
-    for row in rows:
-        matched_chunks = set()
-        for words in tokenize_row_segments(row):
+    hierarchy_match_rows = defaultdict(lambda: defaultdict(set))
+    file_match_rows = defaultdict(set)
+    for source_index, (source, source_row_ids, hierarchy_id) in enumerate(text_sources):
+        matched_chunks = set(person_source_matches[source_index])
+        for words in tokenize_row_segments(source):
             lowered = [normalize_keyword_word(word).lower() for word in words]
             lowered = [word for word in lowered if word]
             n = len(lowered)
@@ -551,13 +734,25 @@ def extract_keyword_facets(rows, min_file_count, redundancy_ratio, collection_ti
                 step = 1
                 for length in range(min(MAX_NGRAM, n - i), 0, -1):
                     chunk = tuple(lowered[i:i + length])
+                    person_keys = person_aliases.get(chunk)
+                    if person_keys:
+                        matched_person_keys = person_keys & qualifying
+                        if matched_person_keys:
+                            matched_chunks.update(matched_person_keys)
+                            step = length
+                            break
+                        continue
                     if chunk in qualifying:
                         matched_chunks.add(chunk)
                         step = length
                         break
                 i += step
         for chunk in matched_chunks:
-            facet_rows[chunk].add(row["id"])
+            facet_rows[chunk].update(source_row_ids)
+            if hierarchy_id is not None:
+                hierarchy_match_rows[chunk][hierarchy_id].update(source_row_ids)
+            else:
+                file_match_rows[chunk].update(source_row_ids)
 
     excluded_component_rows = defaultdict(set)
     expansions_by_acronym = defaultdict(dict)
@@ -585,19 +780,52 @@ def extract_keyword_facets(rows, min_file_count, redundancy_ratio, collection_ti
 
     for chunk, row_ids in facet_rows.items():
         row_ids.difference_update(excluded_component_rows.get(chunk, set()))
+    for chunk, row_ids in file_match_rows.items():
+        row_ids.difference_update(excluded_component_rows.get(chunk, set()))
 
     final_chunks = {chunk: row_ids for chunk, row_ids in facet_rows.items() if len(row_ids) >= min_file_count}
-    final_chunks = merge_redundant_facets(final_chunks, redundancy_ratio)
+    final_chunks, chunk_remap = merge_redundant_facets(final_chunks, redundancy_ratio)
 
     rows_by_id = {row["id"]: row for row in rows}
     keyword_facets = {}
+    keyword_hierarchy_links = defaultdict(set)
+    keyword_file_matches = defaultdict(set)
+    for chunk, hierarchy_matches in hierarchy_match_rows.items():
+        final_chunk = chunk_remap.get(chunk)
+        if final_chunk not in final_chunks:
+            continue
+        for hierarchy_id, matched_row_ids in hierarchy_matches.items():
+            if final_chunks[final_chunk].intersection(matched_row_ids):
+                keyword_hierarchy_links[final_chunk].add(hierarchy_id)
+    for chunk, row_ids in file_match_rows.items():
+        final_chunk = chunk_remap.get(chunk)
+        if final_chunk in final_chunks:
+            keyword_file_matches[final_chunk].update(
+                final_chunks[final_chunk].intersection(row_ids)
+            )
+
+    for chunk, hierarchy_ids in list(keyword_hierarchy_links.items()):
+        if len(hierarchy_ids) == 1 and not keyword_file_matches.get(chunk):
+            final_chunks.pop(chunk, None)
+            del keyword_hierarchy_links[chunk]
+
     for chunk, row_ids in final_chunks.items():
         facet_id = ngram_facet_id(chunk)
         keyword_facets[facet_id] = candidate_label[chunk]
         for row_id in row_ids:
             rows_by_id[row_id]["facets"].append(facet_id)
 
-    return keyword_facets
+    return (
+        keyword_facets,
+        {
+            ngram_facet_id(chunk): hierarchy_ids
+            for chunk, hierarchy_ids in keyword_hierarchy_links.items()
+        },
+        {
+            ngram_facet_id(chunk): row_ids
+            for chunk, row_ids in keyword_file_matches.items()
+        },
+    )
 
 
 def facet_initials(label):
@@ -623,7 +851,7 @@ def apply_facet_remap(rows, facets_by_id, id_remap):
     """Rewrite every row's facet list to point merged-away ids at their
     canonical replacement (de-duplicating), then drop the merged ids."""
     if not id_remap:
-        return
+        return {}
 
     for row in rows:
         deduped = []
@@ -635,6 +863,19 @@ def apply_facet_remap(rows, facets_by_id, id_remap):
 
     for facet_id in id_remap:
         facets_by_id.pop(facet_id, None)
+
+    return id_remap
+
+
+def remap_keyword_metadata(keyword_metadata, id_remap):
+    if not id_remap:
+        return
+
+    remapped = defaultdict(set)
+    for keyword_id, values in keyword_metadata.items():
+        remapped[id_remap.get(keyword_id, keyword_id)].update(values)
+    keyword_metadata.clear()
+    keyword_metadata.update(remapped)
 
 
 def normalize_label(label):
@@ -688,7 +929,7 @@ def merge_same_label_facets(rows, facets_by_id):
             if facet_id != canonical:
                 id_remap[facet_id] = canonical
 
-    apply_facet_remap(rows, facets_by_id, id_remap)
+    return apply_facet_remap(rows, facets_by_id, id_remap)
 
 
 def merge_acronym_facets(rows, facets_by_id):
@@ -714,11 +955,12 @@ def merge_acronym_facets(rows, facets_by_id):
         canonical = min(matches, key=lambda pid: (-len(facets_by_id[pid].split()), pid))
         id_remap[acronym_id] = canonical
 
-    apply_facet_remap(rows, facets_by_id, id_remap)
+    return apply_facet_remap(rows, facets_by_id, id_remap)
 
 
-def merge_duplicate_facets(rows, facets_by_id):
+def merge_duplicate_facets(rows, facets_by_id, preserve_keyword_ids=()):
     """Merge duplicate keyword memberships while preserving hierarchy nodes."""
+    preserve_keyword_ids = set(preserve_keyword_ids)
     row_sets_by_facet = defaultdict(set)
     for row in rows:
         for facet_id in row["facets"]:
@@ -726,7 +968,7 @@ def merge_duplicate_facets(rows, facets_by_id):
 
     groups = defaultdict(list)
     for facet_id, row_ids in row_sets_by_facet.items():
-        if facet_id.startswith("kw_"):
+        if facet_id.startswith("kw_") and facet_id not in preserve_keyword_ids:
             groups[frozenset(row_ids)].append(facet_id)
 
     id_remap = {}
@@ -738,35 +980,61 @@ def merge_duplicate_facets(rows, facets_by_id):
             if facet_id != canonical:
                 id_remap[facet_id] = canonical
 
-    apply_facet_remap(rows, facets_by_id, id_remap)
+    return apply_facet_remap(rows, facets_by_id, id_remap)
 
 
 def build_records(root, keyword_min_file_count, facet_redundancy_ratio, keyword_min_file_ratio=DEFAULT_CONFIG["keyword_min_file_ratio"]):
     archdesc = root.find("archdesc")
     collection_title = text_of(archdesc.find("did/unittitle")) if archdesc is not None else "Finding Aid Network"
+    person_names = [
+        text_of(elem) for elem in root.iter()
+        if local_tag(elem) == "persname" and text_of(elem)
+    ]
 
     dsc = archdesc.find("dsc") if archdesc is not None else None
     rows = []
+    row_ids = set()
     facets_by_id = {}
     hierarchy_parent_by_id = {}
     counter = [0]
     if dsc is not None:
         for child in dsc:
             if C_LEVEL_RE.match(local_tag(child)):
-                walk(child, [], None, rows, facets_by_id, hierarchy_parent_by_id, counter)
+                walk(child, [], None, rows, row_ids, facets_by_id, hierarchy_parent_by_id, counter)
+
+    rows_by_hierarchy_facet = defaultdict(set)
+    for row in rows:
+        for facet_id in row["facets"]:
+            rows_by_hierarchy_facet[facet_id].add(row["id"])
+    hierarchy_titles = [
+        {
+            "id": facet_id,
+            "title": label,
+            "row_ids": rows_by_hierarchy_facet[facet_id],
+        }
+        for facet_id, label in facets_by_id.items()
+        if label and label != facet_id and rows_by_hierarchy_facet[facet_id]
+    ]
 
     if keyword_min_file_count is None:
       keyword_min_file_count = max(1, math.ceil(len(rows) * keyword_min_file_ratio))
 
-    keyword_facets = extract_keyword_facets(
-        rows, keyword_min_file_count, facet_redundancy_ratio, collection_title
+    keyword_facets, keyword_hierarchy_links, keyword_file_matches = extract_keyword_facets(
+        rows, keyword_min_file_count, facet_redundancy_ratio, collection_title,
+        hierarchy_titles, person_names
     )
     facets_by_id.update(keyword_facets)
 
-    merge_same_label_facets(rows, facets_by_id)
-    merge_acronym_facets(rows, facets_by_id)
+    id_remap = merge_same_label_facets(rows, facets_by_id)
+    remap_keyword_metadata(keyword_hierarchy_links, id_remap)
+    remap_keyword_metadata(keyword_file_matches, id_remap)
+    id_remap = merge_acronym_facets(rows, facets_by_id)
+    remap_keyword_metadata(keyword_hierarchy_links, id_remap)
+    remap_keyword_metadata(keyword_file_matches, id_remap)
     propagate_embedded_facet_memberships(rows, facets_by_id)
-    merge_duplicate_facets(rows, facets_by_id)
+    id_remap = merge_duplicate_facets(rows, facets_by_id, keyword_hierarchy_links)
+    remap_keyword_metadata(keyword_hierarchy_links, id_remap)
+    remap_keyword_metadata(keyword_file_matches, id_remap)
 
     facet_counts = {facet_id: 0 for facet_id in facets_by_id}
     for row in rows:
@@ -780,6 +1048,11 @@ def build_records(root, keyword_min_file_count, facet_redundancy_ratio, keyword_
             "count": facet_counts.get(facet_id, 0),
             "kind": "keyword" if facet_id.startswith("kw_") else "hierarchy",
             "parent_id": hierarchy_parent_by_id.get(facet_id),
+            "matched_hierarchy_ids": sorted(keyword_hierarchy_links.get(facet_id, ())),
+            "direct_file_row_ids": sorted(
+                keyword_file_matches.get(facet_id, ())
+                if facet_id in keyword_hierarchy_links else ()
+            ),
         }
         for facet_id, label in facets_by_id.items()
     ]
@@ -1548,6 +1821,11 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
   <script>
     const ROWS = __ROWS__;
     const FACETS = __FACETS__;
+    const FACETS_BY_ID = new Map(FACETS.map(facet => [facet.id, facet]));
+    const DIRECT_FILE_MATCH_ROWS_BY_KEYWORD = new Map(
+      FACETS.filter(facet => facet.kind === 'keyword')
+        .map(facet => [facet.id, new Set(facet.direct_file_row_ids || [])])
+    );
     const availableDates = __DATES__;
 
     const container = document.getElementById('container');
@@ -1789,7 +2067,6 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     const ROW_EXTENT_MAX_BOOST = 2;
     const ROW_FONT_SIZE = 10;
     const ROW_FONT_SIZE_HIGHLIGHTED = 12;
-    const MAX_VISIBLE_FILE_NODES = 150;
     let groupedRowsByNodeId = new Map();
     let hoveredGroupNodeId = null;
     const maxExtentValue = ROWS.reduce((maximum, row) => Math.max(maximum, row.extent_value || 0), 0);
@@ -1853,6 +2130,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         let smallestSupersetSize = Infinity;
         const parentIds = [];
         facets.forEach(parent => {
+          if (parent.kind !== child.kind) return;
           const parentFiles = filesByFacet.get(parent.id);
           if (!parentFiles || parentFiles.size <= childFiles.size) return;
           if (![...childFiles].every(rowId => parentFiles.has(rowId))) return;
@@ -1894,6 +2172,19 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       Array.from(HIERARCHY_ROOT_IDS).filter(rootId => (HIERARCHY_CHILDREN_BY_PARENT.get(rootId) || []).length > 0)
     );
     const expandedHierarchyRootIds = new Set();
+
+    function expandHierarchyFacet(facetId) {
+      if (!HIERARCHY_PARENTS_BY_CHILD.has(facetId)) return;
+
+      let rootId = facetId;
+      const visited = new Set();
+      while (PRIMARY_HIERARCHY_PARENT_BY_ID.has(rootId) && !visited.has(rootId)) {
+        visited.add(rootId);
+        rootId = PRIMARY_HIERARCHY_PARENT_BY_ID.get(rootId);
+      }
+
+      if (COLLAPSIBLE_HIERARCHY_ROOT_IDS.has(rootId)) expandedHierarchyRootIds.add(rootId);
+    }
 
     const FACET_PARENTS_BY_CHILD = new Map(FACETS.map(f => [f.id, []]));
     const FACET_CHILDREN_BY_PARENT = new Map(FACETS.map(f => [f.id, []]));
@@ -1972,12 +2263,29 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       }
 
       selectedFacetIds.add(facetId);
+      expandHierarchyFacet(facetId);
       if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) expandedTopLevelFacetIds.add(rootId);
+    }
+
+    function hasKeywordSpotlight() {
+      return Array.from(selectedFacetIds).some(
+        facetId => FACETS_BY_ID.get(facetId)?.kind === 'keyword'
+      );
+    }
+
+    function isHierarchyMatchedKeyword(facetId) {
+      const facet = FACETS_BY_ID.get(facetId);
+      return facet?.kind === 'keyword' && (facet.matched_hierarchy_ids || []).length > 0;
+    }
+
+    function hasDirectFileKeywordMatch(facetId, rowId) {
+      return DIRECT_FILE_MATCH_ROWS_BY_KEYWORD.get(facetId)?.has(rowId) || false;
     }
 
     function buildNetworkData(rows, matchingRows) {
       const visibleFacetIds = new Set();
       const edges = [];
+      const keywordSpotlighted = hasKeywordSpotlight();
       const selectedRow = ROWS.find(r => r.id === selectedRowId) || null;
       const hoveredRow = ROWS.find(r => r.id === hoveredRowId) || null;
 
@@ -1989,12 +2297,20 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       rows.forEach(row => {
         row.facets.forEach(fid => {
           if (isFacetBranchExpanded(fid)) visibleFacetIds.add(fid);
+          const facetKind = FACETS_BY_ID.get(fid)?.kind;
+          if (keywordSpotlighted && (facetKind === 'hierarchy' || facetKind === 'keyword')) {
+            visibleFacetIds.add(fid);
+          }
         });
       });
 
       const facetNodes = [];
       FACETS.forEach(f => {
-        if (isFacetNodeVisible(f.id) && (visibleFacetIds.has(f.id) || selectedFacetIds.has(f.id))) {
+        const supportsKeywordSpotlight = keywordSpotlighted && (
+          (f.kind === 'hierarchy' && visibleFacetIds.has(f.id)) ||
+          (f.kind === 'keyword' && visibleFacetIds.has(f.id))
+        );
+        if ((isFacetNodeVisible(f.id) || supportsKeywordSpotlight) && (visibleFacetIds.has(f.id) || selectedFacetIds.has(f.id))) {
           const isKeywordFacet = f.kind === 'keyword';
           const selected = selectedFacetIds.has(f.id);
           const size = facetNodeSize(f.count, selected);
@@ -2045,16 +2361,29 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       const rowFacetTargets = new Map();
       const groupsByConnection = new Map();
       rows.forEach(row => {
-        const rowFacetIds = new Set(row.facets);
-        const targets = row.facets.filter(fid => {
-          if (!isFacetNodeVisible(fid) || !visibleFacetSet.has(fid)) return false;
-          const hasVisibleMoreSpecificRowFacet = (FACET_CHILDREN_BY_PARENT.get(fid) || [])
-            .some(childId => rowFacetIds.has(childId) && isFacetNodeVisible(childId));
-          return !hasVisibleMoreSpecificRowFacet;
-        });
+        let targets;
+        if (keywordSpotlighted) {
+          const hierarchyFacets = row.facets.filter(fid => FACETS_BY_ID.get(fid)?.kind === 'hierarchy');
+          const immediateHierarchyFacet = hierarchyFacets[hierarchyFacets.length - 1];
+          const rowKeywordFacets = row.facets.filter(
+            fid => FACETS_BY_ID.get(fid)?.kind === 'keyword' &&
+              (!isHierarchyMatchedKeyword(fid) || hasDirectFileKeywordMatch(fid, row.id))
+          );
+          targets = [immediateHierarchyFacet, ...rowKeywordFacets]
+            .filter((fid, index, all) => fid && visibleFacetSet.has(fid) && all.indexOf(fid) === index);
+        } else {
+          const rowFacetIds = new Set(row.facets);
+          targets = row.facets.filter(fid => {
+            if (isHierarchyMatchedKeyword(fid) && !hasDirectFileKeywordMatch(fid, row.id)) return false;
+            if (!isFacetNodeVisible(fid) || !visibleFacetSet.has(fid)) return false;
+            const hasVisibleMoreSpecificRowFacet = (FACET_CHILDREN_BY_PARENT.get(fid) || [])
+              .some(childId => rowFacetIds.has(childId) && isFacetNodeVisible(childId));
+            return !hasVisibleMoreSpecificRowFacet;
+          });
+        }
         rowFacetTargets.set(row.id, targets);
 
-        if (rows.length > MAX_VISIBLE_FILE_NODES && targets.length) {
+        if (targets.length) {
           const connectionKey = JSON.stringify([...targets].sort());
           if (!groupsByConnection.has(connectionKey)) {
             groupsByConnection.set(connectionKey, { facetIds: [...targets].sort(), rows: [] });
@@ -2069,7 +2398,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       const fileNodes = [];
       let groupIndex = 0;
       groupsByConnection.forEach(group => {
-        if (group.rows.length < 2) return;
+        if (group.rows.length < 2 || group.facetIds.some(fid => selectedFacetIds.has(fid))) return;
         let groupId;
         do {
           groupId = `__rhizomatica_file_group_${groupIndex++}`;
@@ -2161,10 +2490,15 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         });
       });
 
-      FACET_CONTAINMENT_LINKS.forEach(link => {
+      const containmentLinks = keywordSpotlighted
+        ? HIERARCHICAL_FACETS
+          .map(facet => ({ from: facet.id, to: PRIMARY_HIERARCHY_PARENT_BY_ID.get(facet.id) }))
+          .filter(link => link.to)
+        : FACET_CONTAINMENT_LINKS;
+      containmentLinks.forEach(link => {
         if (!visibleFacetSet.has(link.from) || !visibleFacetSet.has(link.to)) return;
-        const child = FACETS.find(f => f.id === link.from);
-        const parent = FACETS.find(f => f.id === link.to);
+        const child = FACETS_BY_ID.get(link.from);
+        const parent = FACETS_BY_ID.get(link.to);
         if (!child || !parent) return;
 
         edges.push({
@@ -2174,7 +2508,25 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
           dashes: [8, 5],
           width: 2.2,
           color: { color: getTheme().containmentEdge, opacity: 0.8 },
-          title: `<b>Facet subset</b><br>Contained by: ${escapeHtml(parent.label)}<br>${child.count} files`
+          title: `<b>${keywordSpotlighted ? 'Hierarchy containment' : 'Facet subset'}</b><br>Contained by: ${escapeHtml(parent.label)}<br>${child.count} files`
+        });
+      });
+
+      FACETS.filter(facet => facet.kind === 'keyword').forEach(keywordFacet => {
+        (keywordFacet.matched_hierarchy_ids || []).forEach(hierarchyId => {
+          if (!visibleFacetSet.has(keywordFacet.id) || !visibleFacetSet.has(hierarchyId)) return;
+          const hierarchyFacet = FACETS_BY_ID.get(hierarchyId);
+          if (!hierarchyFacet) return;
+
+          edges.push({
+            from: keywordFacet.id,
+            to: hierarchyId,
+            arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+            dashes: [4, 4],
+            width: 2,
+            color: { color: getTheme().keywordFacetBorder, opacity: 0.85 },
+            title: `<b>Keyword match</b><br>${escapeHtml(keywordFacet.label)} appears in ${escapeHtml(hierarchyFacet.label)}`
+          });
         });
       });
 
@@ -2231,6 +2583,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
     function renderFacetList(rows) {
       const counts = buildFacetCounts(rows);
+      const keywordSpotlighted = hasKeywordSpotlight();
       const hasMatchingFiles = facet => selectedFacetIds.has(facet.id) || (counts.get(facet.id) || 0) > 0;
       const childrenByParent = HIERARCHY_CHILDREN_BY_PARENT;
       const rootFacets = [];
@@ -2274,12 +2627,16 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         `;
       }
 
-      const facetButton = facet => `
-        <button type="button" class="facet-pill ${facet.kind === 'keyword' ? 'keyword-facet' : ''} ${selectedFacetIds.has(facet.id) ? 'selected' : ''}" data-facet-id="${escapeHtml(facet.id)}">
-          <span class="facet-label">${escapeHtml(facet.label)}</span>
-          <span class="count">${counts.get(facet.id) || 0}</span>
-        </button>
-      `;
+      const facetButton = facet => {
+        const count = counts.get(facet.id) || 0;
+        const countLabel = keywordSpotlighted ? `${count} (of ${facet.count})` : count;
+        return `
+          <button type="button" class="facet-pill ${facet.kind === 'keyword' ? 'keyword-facet' : ''} ${selectedFacetIds.has(facet.id) ? 'selected' : ''}" data-facet-id="${escapeHtml(facet.id)}">
+            <span class="facet-label">${escapeHtml(facet.label)}</span>
+            <span class="count">${countLabel}</span>
+          </button>
+        `;
+      };
 
       hierarchyFacetList.innerHTML = rootFacets.map(facet => renderFacet(facet)).join('');
       const keywordFacets = FACETS
@@ -2410,6 +2767,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
           expandedTopLevelFacetIds.clear();
           groupedNode.facetIds.forEach(facetId => {
             selectedFacetIds.add(facetId);
+            expandHierarchyFacet(facetId);
             const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
             if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) expandedTopLevelFacetIds.add(rootId);
           });
