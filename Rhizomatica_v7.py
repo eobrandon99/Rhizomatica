@@ -14,12 +14,12 @@ Data model:
 - Every node that DOES have children becomes a facet, and all of its
   descendant files are tagged with it (and every facet above it).
 - Words and phrases in file titles, general notes, scope-and-content text,
-  and hierarchy facet titles become keyword facets (see keyword_min_file_ratio
-  in config.json). EAD <persname> entries also seed person-name matching.
+  and hierarchy facet titles become keyword facets. EAD <persname> entries
+  also seed person-name matching.
 
 Input:
 - Files named <prefix>-ead.xml in the input/ folder.
-- config.json (optional) in the same folder, for keyword_min_file_ratio.
+- config.json (optional) in the same folder, for facet_redundancy_ratio.
 
 Output:
 - Files named <prefix>-rhizome.html in the output/ folder.
@@ -43,7 +43,6 @@ CONFIG_FILE = Path(__file__).with_name("config.json")
 OUTPUT_DIR = Path(__file__).with_name("output")
 
 DEFAULT_CONFIG = {
-  "keyword_min_file_ratio": 0.1,
     "facet_redundancy_ratio": 0.7,
 }
 
@@ -56,8 +55,10 @@ STOPWORDS = frozenset(
     his her you your our we they he she i not no nor too very can will
     just should now into during about above below between after before
     over under again further once here there when where why how all any
-    both each few more most other some such only own same other include includes also see non consists consist related relates
+    both each few more most other some such only own same other include includes also see consists consist related relates
     material materials series sub-series sub additionally moreover beyond circa included many specifically specific et al
+    i ii iii iv v vi vii viii ix x xi xii xiii xiv xv xvi xvii xviii xix xx etc
+    vol
     """.split()
 )
 
@@ -77,6 +78,7 @@ GENERIC_WORDS = frozenset(
 
 C_LEVEL_RE = re.compile(r"^c\d*$")
 WORD_RE = re.compile(r"[a-zA-Z'’]+")
+KEYWORD_WORD_RE = re.compile(r"[a-zA-Z0-9'’]+(?:-[a-zA-Z0-9'’]+)*")
 SEGMENT_SPLIT_RE = re.compile(r"[,:;()\[\]\"/]+|\.\s+")
 # Dotted abbreviations like "U.S." or "U.S.A." have no space between the
 # periods, so they'd otherwise tokenize as separate single letters ("U",
@@ -89,6 +91,7 @@ AO_URI_RE = re.compile(r"/archival_objects/(\d+)")
 EXTENT_NUMBER_RE = re.compile(r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?")
 MAX_NGRAM = 4
 MAX_ACRONYM_EXPANSION_NGRAM = 8
+COLLECTION_TITLE_DESCRIPTORS = frozenset({"record", "paper", "collection"})
 
 
 def load_config():
@@ -316,7 +319,7 @@ def tokenize_title_segments(title):
     title = normalize_abbreviations(title)
     segments = []
     for chunk in SEGMENT_SPLIT_RE.split(title):
-        words = WORD_RE.findall(chunk)
+        words = KEYWORD_WORD_RE.findall(chunk)
         if words:
             segments.append(words)
     return segments
@@ -385,6 +388,9 @@ IRREGULAR_SINGULARS = {
 
 def normalize_keyword_word(word):
     """Normalize English possessives and common noun plurals to singular."""
+    if "-" in word:
+        return "-".join(normalize_keyword_word(part) for part in word.split("-"))
+
     base = word
     has_singular_possessive = base.lower().endswith(("'s", "’s"))
     if has_singular_possessive:
@@ -557,7 +563,7 @@ def match_person_names(source, aliases_by_first):
 
 
 def ngram_facet_id(chunk):
-    parts = [re.sub(r"[^a-z0-9]+", "", w) or "x" for w in chunk]
+    parts = [re.sub(r"[^a-z0-9-]+", "", w) or "x" for w in chunk]
     return "kw_" + "_".join(parts)
 
 
@@ -575,7 +581,8 @@ def merge_redundant_facets(final_chunks, redundancy_ratio):
     variant mention: its file count is under redundancy_ratio of that other
     facet's count. Its files are folded into the surviving facet rather than
     dropped, so e.g. "UM EXPRES" and "EXPRES Project" both collapse into the
-    dominant "EXPRES" facet instead of fragmenting it."""
+    dominant "EXPRES" facet instead of fragmenting it. Single-word facets
+    are not collapsed into longer phrases."""
     counts = {chunk: len(row_ids) for chunk, row_ids in final_chunks.items()}
     chunks = list(counts)
 
@@ -584,6 +591,8 @@ def merge_redundant_facets(final_chunks, redundancy_ratio):
         dominant = None
         for other in chunks:
             if other == chunk or counts[other] <= counts[chunk]:
+                continue
+            if len(chunk) == 1 and len(other) > 1:
                 continue
             if is_sub_ngram(chunk, other) or is_sub_ngram(other, chunk):
                 if dominant is None or counts[other] > counts[dominant]:
@@ -625,8 +634,8 @@ def extract_keyword_facets(
       word like "Meeting" or "Report" only becomes a facet as part of a
       qualifying phrase, never standing alone.
     - Among qualifying candidates, the longest phrase at each spot wins,
-      so a word consumed by a longer phrase doesn't also surface as its
-      own facet (see MAX_NGRAM).
+      when initially assigning rows (see MAX_NGRAM). Independently
+      qualifying single-word facets remain separate from longer phrases.
     """
     candidate_rows = defaultdict(set)
     candidate_label_counts = defaultdict(lambda: defaultdict(int))
@@ -643,9 +652,13 @@ def extract_keyword_facets(
         for length in range(1, len(normalized) + 1):
             for i in range(len(normalized) - length + 1):
                 collection_title_chunks.add(tuple(normalized[i:i + length]))
-        title_initials = facet_initials(" ".join(normalized))
-        if len(title_initials) >= 2:
-            collection_title_chunks.add((title_initials,))
+        title_name_words = list(normalized)
+        while title_name_words and title_name_words[-1] in COLLECTION_TITLE_DESCRIPTORS:
+            title_name_words.pop()
+        for title_form in (normalized, title_name_words):
+            title_initials = facet_initials(" ".join(title_form))
+            if len(title_initials) >= 2:
+                collection_title_chunks.add((title_initials,))
     collection_title_chunks.update(
         person_key
         for person_key, _ in match_person_names(
@@ -741,6 +754,7 @@ def extract_keyword_facets(
         if (
             len(row_ids) >= min_file_count
             and is_entity(chunk)
+            and sum(word.isdigit() for word in chunk) * 2 <= len(chunk)
             and chunk not in collection_title_chunks
         )
     }
@@ -809,6 +823,16 @@ def extract_keyword_facets(
         row_ids.difference_update(excluded_component_rows.get(chunk, set()))
 
     final_chunks = {chunk: row_ids for chunk, row_ids in facet_rows.items() if len(row_ids) >= min_file_count}
+    for chunk, row_ids in list(final_chunks.items()):
+        hierarchy_ids = {
+            hierarchy_id
+            for hierarchy_id, matched_row_ids in hierarchy_match_rows.get(chunk, {}).items()
+            if row_ids.intersection(matched_row_ids)
+        }
+        direct_file_row_ids = row_ids.intersection(file_match_rows.get(chunk, ()))
+        if len(hierarchy_ids) == 1 and not direct_file_row_ids:
+            del final_chunks[chunk]
+
     final_chunks, chunk_remap = merge_redundant_facets(final_chunks, redundancy_ratio)
 
     rows_by_id = {row["id"]: row for row in rows}
@@ -909,7 +933,7 @@ def normalize_label(label):
 
 def propagate_embedded_facet_memberships(rows, facets_by_id):
   words_by_facet = {
-    facet_id: tuple(WORD_RE.findall(normalize_label(label)))
+    facet_id: tuple(KEYWORD_WORD_RE.findall(normalize_label(label)))
     for facet_id, label in facets_by_id.items()
     if facet_id.startswith("kw_")
   }
@@ -983,9 +1007,8 @@ def merge_acronym_facets(rows, facets_by_id):
     return apply_facet_remap(rows, facets_by_id, id_remap)
 
 
-def merge_duplicate_facets(rows, facets_by_id, preserve_keyword_ids=()):
-    """Merge duplicate keyword memberships while preserving hierarchy nodes."""
-    preserve_keyword_ids = set(preserve_keyword_ids)
+def merge_duplicate_facets(rows, facets_by_id):
+    """Merge keyword facets with identical file memberships, not hierarchy nodes."""
     row_sets_by_facet = defaultdict(set)
     for row in rows:
         for facet_id in row["facets"]:
@@ -993,7 +1016,7 @@ def merge_duplicate_facets(rows, facets_by_id, preserve_keyword_ids=()):
 
     groups = defaultdict(list)
     for facet_id, row_ids in row_sets_by_facet.items():
-        if facet_id.startswith("kw_") and facet_id not in preserve_keyword_ids:
+        if facet_id.startswith("kw_"):
             groups[frozenset(row_ids)].append(facet_id)
 
     id_remap = {}
@@ -1008,7 +1031,7 @@ def merge_duplicate_facets(rows, facets_by_id, preserve_keyword_ids=()):
     return apply_facet_remap(rows, facets_by_id, id_remap)
 
 
-def build_records(root, keyword_min_file_count, facet_redundancy_ratio, keyword_min_file_ratio=DEFAULT_CONFIG["keyword_min_file_ratio"]):
+def build_records(root, facet_redundancy_ratio):
     archdesc = root.find("archdesc")
     collection_title = text_of(archdesc.find("did/unittitle")) if archdesc is not None else "Finding Aid Network"
     person_names = [
@@ -1041,11 +1064,8 @@ def build_records(root, keyword_min_file_count, facet_redundancy_ratio, keyword_
         if label and label != facet_id and rows_by_hierarchy_facet[facet_id]
     ]
 
-    if keyword_min_file_count is None:
-      keyword_min_file_count = max(1, math.ceil(len(rows) * keyword_min_file_ratio))
-
     keyword_facets, keyword_hierarchy_links, keyword_file_matches = extract_keyword_facets(
-        rows, keyword_min_file_count, facet_redundancy_ratio, collection_title,
+        rows, 1, facet_redundancy_ratio, collection_title,
         hierarchy_titles, person_names
     )
     facets_by_id.update(keyword_facets)
@@ -1057,7 +1077,7 @@ def build_records(root, keyword_min_file_count, facet_redundancy_ratio, keyword_
     remap_keyword_metadata(keyword_hierarchy_links, id_remap)
     remap_keyword_metadata(keyword_file_matches, id_remap)
     propagate_embedded_facet_memberships(rows, facets_by_id)
-    id_remap = merge_duplicate_facets(rows, facets_by_id, keyword_hierarchy_links)
+    id_remap = merge_duplicate_facets(rows, facets_by_id)
     remap_keyword_metadata(keyword_hierarchy_links, id_remap)
     remap_keyword_metadata(keyword_file_matches, id_remap)
 
@@ -1083,6 +1103,16 @@ def build_records(root, keyword_min_file_count, facet_redundancy_ratio, keyword_
     ]
 
     return collection_title, rows, facets
+
+
+def default_keyword_min_hits(facets, max_facets=30):
+    keyword_counts = sorted(
+        (facet["count"] for facet in facets if facet["kind"] == "keyword"),
+        reverse=True,
+    )
+    if len(keyword_counts) <= max_facets:
+        return 1
+    return keyword_counts[max_facets] + 1
 
 
 HTML_TEMPLATE = r'''<!DOCTYPE html>
@@ -1127,37 +1157,87 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       user-select: none;
       font-size: 13px;
     }
-    #themeToggleBox {
+    #settingsMenu {
       position: fixed;
       top: 12px;
       right: 16px;
       z-index: 1000;
+    }
+    #settingsButton {
       background: rgba(255,255,255,0.88);
-      padding: 6px 10px;
       border-radius: 8px;
-      backdrop-filter: blur(6px);
+      padding: 6px 10px;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
       font-size: 13px;
-      user-select: none;
+      backdrop-filter: blur(6px);
     }
-
-    #themeToggleBox label {
+    #settingsPanel {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      display: grid;
+      gap: 12px;
+      min-width: 220px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.96);
+      color: #222;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+      backdrop-filter: blur(6px);
+    }
+    #settingsPanel[hidden] {
+      display: none;
+    }
+    .settings-label {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin: 0;
+      font-size: 13px;
       cursor: pointer;
-      white-space: nowrap;
+    }
+    #keywordMinHits {
+      box-sizing: border-box;
+      width: 76px;
+      padding: 4px 6px;
+    }
+    #keywordMinHitsHelp {
+      margin: -6px 0 0;
+      color: #555;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    #keywordMinHitsError {
+      min-height: 1em;
+      margin: -8px 0 0;
+      color: #b42318;
+      font-size: 12px;
     }
 
-    #themeToggleBox input[type="checkbox"] {
-      margin: 0;
-    }
-
-    body[data-theme="dark"] #themeToggleBox {
+    body[data-theme="dark"] #settingsButton {
       background: rgba(30,30,30,0.88);
       color: #fff;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    }
+
+    body[data-theme="dark"] #settingsPanel {
+      background: rgba(17,24,39,0.97);
+      border-color: #475569;
+      color: #e5e7eb;
+    }
+
+    body[data-theme="dark"] #keywordMinHitsHelp {
+      color: #cbd5e1;
+    }
+
+    body[data-theme="dark"] #keywordMinHitsError {
+      color: #fca5a5;
+    }
+
+    body[data-theme="dark"] #keywordMinHits {
+      background: #0f172a;
+      border: 1px solid #475569;
+      color: #e5e7eb;
     }
     .facet-spotlight {
       display: inline-block;
@@ -1854,11 +1934,20 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 <body>
   <div id="controls">
     <div id="title">__TITLE__</div>
-    <div id="themeToggleBox">
-      <label for="themeToggle">
-        <input type="checkbox" id="themeToggle">
-        Dark mode
-      </label>
+    <div id="settingsMenu">
+      <button type="button" id="settingsButton" class="toolbar-btn" aria-expanded="false" aria-controls="settingsPanel">Settings</button>
+      <div id="settingsPanel" hidden>
+        <label class="settings-label" for="themeToggle">
+          <input type="checkbox" id="themeToggle">
+          Dark mode
+        </label>
+        <label class="settings-label" for="keywordMinHits">
+          Minimum keyword hits
+          <input type="number" id="keywordMinHits" min="1" step="1" required>
+        </label>
+        <p id="keywordMinHitsHelp">A keyword appears in at least this many files.</p>
+        <p id="keywordMinHitsError" role="status" aria-live="polite"></p>
+      </div>
     </div>
     <div id="toolbar">
     </div>
@@ -1926,11 +2015,8 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
   <script>
     const ROWS = __ROWS__;
     const FACETS = __FACETS__;
+    const DEFAULT_KEYWORD_MIN_HITS = __DEFAULT_KEYWORD_MIN_HITS__;
     const FACETS_BY_ID = new Map(FACETS.map(facet => [facet.id, facet]));
-    const DIRECT_FILE_MATCH_ROWS_BY_KEYWORD = new Map(
-      FACETS.filter(facet => facet.kind === 'keyword')
-        .map(facet => [facet.id, new Set(facet.direct_file_row_ids || [])])
-    );
     const availableDates = __DATES__;
 
     const container = document.getElementById('container');
@@ -1939,6 +2025,10 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     const timelineToggle = document.getElementById('timelineToggle');
     const clearFacets = document.getElementById('clearFacets');
     const themeToggle = document.getElementById('themeToggle');
+    const settingsButton = document.getElementById('settingsButton');
+    const settingsPanel = document.getElementById('settingsPanel');
+    const keywordMinHitsInput = document.getElementById('keywordMinHits');
+    const keywordMinHitsError = document.getElementById('keywordMinHitsError');
     const hierarchyFacetList = document.getElementById('hierarchyFacetList');
     const keywordFacetList = document.getElementById('keywordFacetList');
     const keywordFacetSort = document.getElementById('keywordFacetSort');
@@ -2005,6 +2095,23 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     let hoveredRowId = null;
     let rowHoverNetworkSelection = null;
     const THEME_KEY = 'rhizomatica-theme';
+    const KEYWORD_MIN_HITS_KEY = `rhizomatica-keyword-min-hits:${window.location.pathname}`;
+    let keywordMinHits = DEFAULT_KEYWORD_MIN_HITS;
+    try {
+      const savedKeywordMinHits = Number(localStorage.getItem(KEYWORD_MIN_HITS_KEY));
+      if (Number.isInteger(savedKeywordMinHits) && savedKeywordMinHits >= 1) {
+        keywordMinHits = savedKeywordMinHits;
+      }
+    } catch (e) {
+      /* ignore */
+    }
+    keywordMinHitsInput.value = keywordMinHits;
+
+    function getActiveFacets() {
+      return FACETS.filter(facet =>
+        facet.kind !== 'keyword' || facet.count >= keywordMinHits
+      );
+    }
     const THEME_PALETTES = {
       light: {
         rowBackground: '#4C78A8',
@@ -2233,6 +2340,12 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       const links = [];
 
       facets.forEach(child => {
+        if (child.kind === 'hierarchy') {
+          const parent = facets.find(f => f.id === child.parent_id && f.kind === 'hierarchy');
+          if (parent) links.push({ from: child.id, to: parent.id });
+          return;
+        }
+
         const childFiles = filesByFacet.get(child.id);
         if (!childFiles || childFiles.size === 0) return;
 
@@ -2333,9 +2446,11 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     }
 
     function getRowsInExpandedBranches(rows) {
+      const activeFacetIds = new Set(getActiveFacets().map(facet => facet.id));
       return rows.filter(row => {
-        if (!row.facets.length) return true;
-        return row.facets.some(facetId => {
+        const rowFacetIds = row.facets.filter(facetId => activeFacetIds.has(facetId));
+        if (!rowFacetIds.length) return true;
+        return rowFacetIds.some(facetId => {
           const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
           return !COLLAPSIBLE_ROOT_FACET_IDS.has(rootId) || expandedTopLevelFacetIds.has(rootId);
         });
@@ -2382,28 +2497,35 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       );
     }
 
-    function isHierarchyMatchedKeyword(facetId) {
-      const facet = FACETS_BY_ID.get(facetId);
-      return facet?.kind === 'keyword' && (facet.matched_hierarchy_ids || []).length > 0;
-    }
-
-    function hasDirectFileKeywordMatch(facetId, rowId) {
-      return DIRECT_FILE_MATCH_ROWS_BY_KEYWORD.get(facetId)?.has(rowId) || false;
-    }
-
     function buildNetworkData(rows, matchingRows) {
       const visibleFacetIds = new Set();
+      const activeFacetIds = new Set(getActiveFacets().map(facet => facet.id));
       const edges = [];
       const keywordSpotlighted = hasKeywordSpotlight();
       const selectedRow = ROWS.find(r => r.id === selectedRowId) || null;
       const hoveredRow = ROWS.find(r => r.id === hoveredRowId) || null;
+      const networkRowsById = new Map(
+        (keywordSpotlighted ? matchingRows : rows).map(row => [row.id, row])
+      );
+      if (!keywordSpotlighted) {
+        matchingRows.forEach(row => {
+          const hasVisibleKeywordFacet = row.facets.some(fid => {
+            const facet = FACETS_BY_ID.get(fid);
+            return facet?.kind === 'keyword' &&
+              activeFacetIds.has(fid) &&
+              isFacetNodeVisible(fid);
+          });
+          if (hasVisibleKeywordFacet) networkRowsById.set(row.id, row);
+        });
+      }
+      const networkRows = Array.from(networkRowsById.values());
 
       matchingRows.forEach(row => row.facets.forEach(facetId => {
         const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
         if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) visibleFacetIds.add(rootId);
       }));
 
-      rows.forEach(row => {
+      networkRows.forEach(row => {
         row.facets.forEach(fid => {
           if (isFacetBranchExpanded(fid)) visibleFacetIds.add(fid);
           const facetKind = FACETS_BY_ID.get(fid)?.kind;
@@ -2414,7 +2536,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       });
 
       const facetNodes = [];
-      FACETS.forEach(f => {
+      getActiveFacets().forEach(f => {
         const supportsKeywordSpotlight = keywordSpotlighted && (
           (f.kind === 'hierarchy' && visibleFacetIds.has(f.id)) ||
           (f.kind === 'keyword' && visibleFacetIds.has(f.id))
@@ -2469,24 +2591,22 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       const visibleFacetSet = new Set(facetNodes.map(n => n.id));
       const rowFacetTargets = new Map();
       const groupsByConnection = new Map();
-      rows.forEach(row => {
+      networkRows.forEach(row => {
         let targets;
         if (keywordSpotlighted) {
           const hierarchyFacets = row.facets.filter(fid => FACETS_BY_ID.get(fid)?.kind === 'hierarchy');
           const immediateHierarchyFacet = hierarchyFacets[hierarchyFacets.length - 1];
           const rowKeywordFacets = row.facets.filter(
-            fid => FACETS_BY_ID.get(fid)?.kind === 'keyword' &&
-              (!isHierarchyMatchedKeyword(fid) || hasDirectFileKeywordMatch(fid, row.id))
+            fid => FACETS_BY_ID.get(fid)?.kind === 'keyword'
           );
           targets = [immediateHierarchyFacet, ...rowKeywordFacets]
             .filter((fid, index, all) => fid && visibleFacetSet.has(fid) && all.indexOf(fid) === index);
         } else {
           const rowFacetIds = new Set(row.facets);
           targets = row.facets.filter(fid => {
-            if (isHierarchyMatchedKeyword(fid) && !hasDirectFileKeywordMatch(fid, row.id)) return false;
             if (!isFacetNodeVisible(fid) || !visibleFacetSet.has(fid)) return false;
             const hasVisibleMoreSpecificRowFacet = (FACET_CHILDREN_BY_PARENT.get(fid) || [])
-              .some(childId => rowFacetIds.has(childId) && isFacetNodeVisible(childId));
+              .some(childId => rowFacetIds.has(childId) && activeFacetIds.has(childId) && isFacetNodeVisible(childId));
             return !hasVisibleMoreSpecificRowFacet;
           });
         }
@@ -2542,7 +2662,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         });
       });
 
-      rows.forEach(row => {
+      networkRows.forEach(row => {
         if (groupedRowIds.has(row.id)) return;
         const highlighted = (selectedRow && selectedRow.id === row.id) || (hoveredRow && hoveredRow.id === row.id);
         fileNodes.push({
@@ -2586,7 +2706,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       });
 
       const nodes = fileNodes.concat(facetNodes);
-      rows.forEach(row => {
+      networkRows.forEach(row => {
         if (groupedRowIds.has(row.id)) return;
         (rowFacetTargets.get(row.id) || []).forEach(fid => {
           edges.push({
@@ -2621,7 +2741,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         });
       });
 
-      FACETS.filter(facet => facet.kind === 'keyword').forEach(keywordFacet => {
+      getActiveFacets().filter(facet => facet.kind === 'keyword').forEach(keywordFacet => {
         (keywordFacet.matched_hierarchy_ids || []).forEach(hierarchyId => {
           if (!visibleFacetSet.has(keywordFacet.id) || !visibleFacetSet.has(hierarchyId)) return;
           const hierarchyFacet = FACETS_BY_ID.get(hierarchyId);
@@ -2664,7 +2784,10 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         return;
       }
 
-      const relatedFacets = (row.facets || []).map(fid => ({ id: fid, label: facetLabel(fid) }));
+      const activeFacetIds = new Set(getActiveFacets().map(facet => facet.id));
+      const relatedFacets = (row.facets || [])
+        .filter(fid => activeFacetIds.has(fid))
+        .map(fid => ({ id: fid, label: facetLabel(fid) }));
 
       detailPanel.classList.remove('empty');
       detailPanel.innerHTML = `
@@ -2784,7 +2907,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       };
 
       hierarchyFacetList.innerHTML = rootFacets.map(facet => renderFacet(facet)).join('');
-      const keywordFacets = FACETS
+      const keywordFacets = getActiveFacets()
         .filter(facet => facet.kind === 'keyword' && hasMatchingFiles(facet))
         .sort((a, b) => {
           const alphabeticalOrder = a.label.localeCompare(b.label);
@@ -2879,8 +3002,8 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       const matchingRows = getVisibleRows();
       const visibleRows = getRowsInExpandedBranches(matchingRows);
 
-      if (selectedRowId && !visibleRows.some(r => r.id === selectedRowId)) selectedRowId = null;
-      if (hoveredRowId && !visibleRows.some(r => r.id === hoveredRowId)) hoveredRowId = null;
+      if (selectedRowId && !matchingRows.some(r => r.id === selectedRowId)) selectedRowId = null;
+      if (hoveredRowId && !matchingRows.some(r => r.id === hoveredRowId)) hoveredRowId = null;
 
       renderFacetList(matchingRows);
       renderRowList(visibleRows, matchingRows.length);
@@ -2924,7 +3047,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
           render();
           return;
         }
-        const isFacet = FACETS.some(f => f.id === clickedId);
+        const isFacet = getActiveFacets().some(f => f.id === clickedId);
         if (isFacet) {
           toggleFacetSelection(clickedId);
           selectedRowId = null;
@@ -2951,7 +3074,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
     network.on('hoverNode', function(params) {
       const hoveredId = params.node;
-      const isFacet = FACETS.some(f => f.id === hoveredId);
+      const isFacet = getActiveFacets().some(f => f.id === hoveredId);
       if (groupedRowsByNodeId.has(hoveredId)) {
         hoveredGroupNodeId = hoveredId;
         hoveredRowId = null;
@@ -2982,6 +3105,52 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         render();
       });
     }
+
+    settingsButton.addEventListener('click', () => {
+      const isExpanded = settingsButton.getAttribute('aria-expanded') === 'true';
+      settingsButton.setAttribute('aria-expanded', String(!isExpanded));
+      settingsPanel.hidden = isExpanded;
+    });
+
+    document.addEventListener('click', event => {
+      if (event.target instanceof Node && !settingsPanel.contains(event.target) && event.target !== settingsButton) {
+        settingsPanel.hidden = true;
+        settingsButton.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !settingsPanel.hidden) {
+        settingsPanel.hidden = true;
+        settingsButton.setAttribute('aria-expanded', 'false');
+        settingsButton.focus();
+      }
+    });
+
+    keywordMinHitsInput.addEventListener('change', () => {
+      const nextKeywordMinHits = Number(keywordMinHitsInput.value);
+      if (!Number.isSafeInteger(nextKeywordMinHits) || nextKeywordMinHits < 1) {
+        keywordMinHitsInput.setAttribute('aria-invalid', 'true');
+        keywordMinHitsError.textContent = 'Enter a whole number greater than 0.';
+        return;
+      }
+
+      keywordMinHits = nextKeywordMinHits;
+      keywordMinHitsInput.removeAttribute('aria-invalid');
+      keywordMinHitsError.textContent = '';
+      try {
+        localStorage.setItem(KEYWORD_MIN_HITS_KEY, String(keywordMinHits));
+      } catch (e) {
+        /* ignore */
+      }
+      selectedFacetIds.forEach(facetId => {
+        const facet = FACETS_BY_ID.get(facetId);
+        if (facet?.kind === 'keyword' && facet.count < keywordMinHits) {
+          selectedFacetIds.delete(facetId);
+        }
+      });
+      render();
+    });
 
     clearFacets.addEventListener('click', function() {
       selectedFacetIds.clear();
@@ -3031,11 +3200,14 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 '''
 
 
-def build_html(collection_title, rows, facets):
+def build_html(collection_title, rows, facets, default_min_keyword_hits=None):
+    if default_min_keyword_hits is None:
+        default_min_keyword_hits = default_keyword_min_hits(facets)
     dates = sorted({d for row in rows for d in [row['begin'], row['end']] if d})
     html = HTML_TEMPLATE.replace("__TITLE__", collection_title)
     html = html.replace("__ROWS__", json.dumps(rows, ensure_ascii=False))
     html = html.replace("__FACETS__", json.dumps(facets, ensure_ascii=False))
+    html = html.replace("__DEFAULT_KEYWORD_MIN_HITS__", str(default_min_keyword_hits))
     html = html.replace("__DATES__", json.dumps(dates, ensure_ascii=False))
     return html
 
@@ -3047,13 +3219,13 @@ def main(argv=None):
         "--keyword-min-count",
         type=int,
         default=None,
-      help="Use a fixed keyword facet minimum instead of the configured file-count ratio.",
+        help="Set the initial keyword facet minimum in hits (overrides the 50-facet default).",
     )
     parser.add_argument(
       "--keyword-min-ratio",
       type=float,
       default=None,
-      help="Override config.json's keyword_min_file_ratio for this run (0-1).",
+      help="Set the initial keyword hit minimum as a ratio of files for this run (0-1).",
     )
     parser.add_argument(
         "--redundancy-ratio",
@@ -3068,12 +3240,12 @@ def main(argv=None):
         raise FileNotFoundError(f"No input files matching *-ead.xml found in {INPUT_DIR}")
 
     config = load_config()
-    keyword_min_file_count = args.keyword_min_count
-    if keyword_min_file_count is None and args.keyword_min_ratio is None:
-      keyword_min_file_count = config.get("keyword_min_file_count")
-    keyword_min_file_ratio = args.keyword_min_ratio if args.keyword_min_ratio is not None else config["keyword_min_file_ratio"]
-    if not math.isfinite(keyword_min_file_ratio) or not 0 <= keyword_min_file_ratio <= 1:
-      parser.error("keyword_min_file_ratio must be between 0 and 1")
+    if args.keyword_min_count is not None and args.keyword_min_count < 1:
+        parser.error("--keyword-min-count must be at least 1")
+    if args.keyword_min_ratio is not None and (
+        not math.isfinite(args.keyword_min_ratio) or not 0 <= args.keyword_min_ratio <= 1
+    ):
+        parser.error("--keyword-min-ratio must be between 0 and 1")
     facet_redundancy_ratio = args.redundancy_ratio if args.redundancy_ratio is not None else config["facet_redundancy_ratio"]
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -3084,11 +3256,16 @@ def main(argv=None):
         try:
             tree = ET.parse(input_path)
             root = strip_namespaces(tree.getroot())
-            title, rows, facets = build_records(root, keyword_min_file_count, facet_redundancy_ratio, keyword_min_file_ratio)
+            title, rows, facets = build_records(root, facet_redundancy_ratio)
             if not rows:
                 raise ValueError("input produced no file-level rows to render")
 
-            html = build_html(title, rows, facets)
+            default_min_keyword_hits = default_keyword_min_hits(facets)
+            if args.keyword_min_count is not None:
+                default_min_keyword_hits = args.keyword_min_count
+            elif args.keyword_min_ratio is not None:
+                default_min_keyword_hits = max(1, math.ceil(len(rows) * args.keyword_min_ratio))
+            html = build_html(title, rows, facets, default_min_keyword_hits)
             output_path.write_text(html, encoding="utf-8")
         except (ET.ParseError, OSError, ValueError) as exc:
             failures.append(input_path.name)

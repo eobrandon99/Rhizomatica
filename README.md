@@ -57,7 +57,9 @@ The app builds a hierarchical model out of EAD components and creates facet grou
 
 ### Keyword extraction
 
-Recurring words and phrases are extracted from titles, notes, and scope/content text. These become keyword facets when they appear across enough files, allowing thematic connections to emerge without requiring manual cataloging.
+Recurring words, hyphenated terms, phrases, and numerals are extracted from titles, notes, and scope/content text. Candidates with more than half of their tokens consisting of numerals are excluded; the rest become keyword facets when they appear across enough files, allowing thematic connections to emerge without requiring manual cataloging.
+
+Single-word keyword facets are kept separate from longer phrases, even when they occur less often. Their memberships also include files tagged with a longer keyword phrase containing that word.
 
 ### Date-aware filtering
 
@@ -104,18 +106,17 @@ The default behavior is controlled by [config.json](./config.json):
 
 ```json
 {
-  "keyword_min_file_ratio": 0.02,
   "facet_redundancy_ratio": 0.0
 }
 ```
 
-These settings affect how aggressively keyword facets are generated and how redundant facet labels are treated.
+`facet_redundancy_ratio` controls how redundant facet labels are treated. The former `keyword_min_file_ratio` setting is deprecated and ignored. Each generated rhizome now defaults to the minimum hit count that returns no more than 50 keyword facets; users can change that minimum, along with dark mode, from the page's **Settings** menu.
 
 The script supports the following command-line overrides:
 
 - `--open`: opens each generated HTML page in the default browser
-- `--keyword-min-count`: sets a fixed minimum number of files needed for a keyword facet
-- `--keyword-min-ratio`: overrides the ratio-based keyword threshold for a run
+- `--keyword-min-count`: sets the initial minimum number of file hits needed for a keyword facet
+- `--keyword-min-ratio`: sets the initial keyword hit minimum as a ratio of files for a run
 - `--redundancy-ratio`: overrides redundancy handling for facets
 
 ## Usage
@@ -143,13 +144,13 @@ python Rhizomatica_v7.py --open
 
 This will generate the HTML pages and open each one in the system browser.
 
-### Override keyword sensitivity
+### Override the initial keyword sensitivity
 
 ```bash
 python Rhizomatica_v7.py --keyword-min-ratio 0.05
 ```
 
-This makes the app require recurring terms to appear in a larger proportion of records before becoming keyword facets.
+This sets the initial keyword hit minimum to 5% of each rhizome's files. Users can further adjust it in that page's Settings menu.
 
 ### Override redundancy behavior
 

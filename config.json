@@ -1,4 +1,3 @@
 {
-  "keyword_min_file_ratio": 0.02,
-  "facet_redundancy_ratio": 0.5
+  "facet_redundancy_ratio": 0.7
 }
