@@ -57,7 +57,7 @@ STOPWORDS = frozenset(
     just should now into during about above below between after before
     over under again further once here there when where why how all any
     both each few more most other some such only own same other include includes also see non consists consist related relates
-    material materials series sub-series sub additionally moreover beyond circa included many specifically specific
+    material materials series sub-series sub additionally moreover beyond circa included many specifically specific et al
     """.split()
 )
 
@@ -71,7 +71,7 @@ STOPWORDS = frozenset(
 # how common its individual words are.
 GENERIC_WORDS = frozenset(
     """
-    inc inc. file files digital physical Physical Digital material materials series sub-series sub 
+    inc inc. file files digital physical Physical Digital material materials series sub-series sub part parts
     """.split()
 )
 
@@ -84,6 +84,7 @@ SEGMENT_SPLIT_RE = re.compile(r"[,:;()\[\]\"/]+|\.\s+")
 # "US" / "USA" before tokenizing so they're recognized as one acronym --
 # and so they match up with "US"/"United States" elsewhere in the title.
 ABBREVIATION_RE = re.compile(r"\b(?:[A-Za-z]\.){2,}(?![A-Za-z])")
+PARENTHETICAL_ACRONYM_RE = re.compile(r"\(([A-Z][A-Z.]{1,})\)")
 AO_URI_RE = re.compile(r"/archival_objects/(\d+)")
 EXTENT_NUMBER_RE = re.compile(r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?")
 MAX_NGRAM = 4
@@ -324,6 +325,22 @@ def tokenize_title_segments(title):
 def tokenize_row_segments(row):
     for field in ("title", "general_note", "scope_content"):
         yield from tokenize_title_segments(row.get(field) or "")
+
+
+def parenthetical_acronym_expansions(text):
+    for match in PARENTHETICAL_ACRONYM_RE.finditer(text):
+        segments = tokenize_title_segments(text[:match.start()])
+        if not segments:
+            continue
+        words = segments[-1]
+        if not 2 <= len(words) <= MAX_ACRONYM_EXPANSION_NGRAM:
+            continue
+        expansion = tuple(
+            normalize_keyword_word(word).lower() for word in words
+        )
+        acronym = normalize_abbreviations(match.group(1)).lower()
+        if acronym.isalpha() and len(acronym) >= 2 and all(expansion):
+            yield acronym, expansion
 
 
 IRREGULAR_SINGULARS = {
@@ -657,6 +674,14 @@ def extract_keyword_facets(
         person_source_matches.append({person_key for person_key, _ in person_matches})
         for person_key, surface_label in person_matches:
             add_candidate(person_key, source_row_ids, surface_label)
+
+        for field in ("title", "general_note", "scope_content"):
+            for acronym, expansion in parenthetical_acronym_expansions(
+                source.get(field) or ""
+            ):
+                extended_expansion_rows[acronym][expansion].update(
+                    source_row_ids
+                )
 
         for words in tokenize_row_segments(source):
             normalized_words = [
@@ -1280,6 +1305,9 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       border-bottom: 1px solid #e0e0e0;
     }
     .facet-section-title {
+      display: flex;
+      align-items: center;
+      gap: 5px;
       min-width: 0;
       margin: 0;
       font-size: 11px;
@@ -1288,22 +1316,93 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       letter-spacing: 0.04em;
       color: #555;
     }
-    .facet-sort-select {
+    .facet-section-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.6em;
+      padding: 1px 5px;
+      border-radius: 999px;
+      background: #e9edf2;
+      color: #555;
+      font-size: 10px;
+      letter-spacing: 0;
+    }
+    .facet-sort-control {
+      display: flex;
       flex: 0 0 auto;
-      max-width: 58%;
-      padding: 3px 4px;
-      border: 1px solid #cfcfcf;
-      border-radius: 4px;
-      background: #fff;
-      color: #444;
-      font: inherit;
+      align-items: center;
+      gap: 4px;
       font-size: 10px;
       text-transform: none;
+      white-space: nowrap;
     }
-    body[data-theme="dark"] .facet-sort-select {
-      border-color: #475569;
-      background: #1e293b;
+    .facet-sort-option {
+      color: #777;
+      transition: color 0.15s ease;
+    }
+    .facet-sort-option.active {
+      color: #333;
+      font-weight: 700;
+    }
+    .facet-sort-switch {
+      position: relative;
+      display: inline-flex;
+      flex: 0 0 auto;
+      width: 28px;
+      height: 16px;
+      cursor: pointer;
+    }
+    .facet-sort-switch input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: 0;
+      opacity: 0;
+    }
+    .facet-sort-switch-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: #cbd2da;
+      transition: background 0.15s ease;
+    }
+    .facet-sort-switch-track::before {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #fff;
+      content: "";
+      transition: transform 0.15s ease;
+    }
+    .facet-sort-switch input:checked + .facet-sort-switch-track {
+      background: #7952a3;
+    }
+    .facet-sort-switch input:checked + .facet-sort-switch-track::before {
+      transform: translateX(12px);
+    }
+    .facet-sort-switch input:focus-visible + .facet-sort-switch-track {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }
+    body[data-theme="dark"] .facet-section-count {
+      background: #334155;
       color: #e2e8f0;
+    }
+    body[data-theme="dark"] .facet-sort-option {
+      color: #94a3b8;
+    }
+    body[data-theme="dark"] .facet-sort-option.active {
+      color: #f1f5f9;
+    }
+    body[data-theme="dark"] .facet-sort-switch-track {
+      background: #475569;
+    }
+    body[data-theme="dark"] .facet-sort-switch input:checked + .facet-sort-switch-track {
+      background: #9b76c2;
     }
     .facet-section-list {
       display: flex;
@@ -1769,7 +1868,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     <aside id="facetSidebar">
       <div class="panel-heading">
         <div id="facetHeader">Facet spotlight</div>
-        <button id="clearFacets" class="toolbar-btn" disabled>Clear selection</button>
+        <button id="clearFacets" class="toolbar-btn" disabled>Reset</button>
       </div>
       <div id="facetSections">
         <section class="facet-section" aria-labelledby="hierarchyFacetHeader">
@@ -1780,11 +1879,17 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         </section>
         <section class="facet-section" aria-labelledby="keywordFacetHeader">
           <div class="facet-section-header">
-            <h3 id="keywordFacetHeader" class="facet-section-title">Keyword facets</h3>
-            <select id="keywordFacetSort" class="facet-sort-select" aria-label="Sort keyword facets">
-              <option value="alphabetical">Alphabetical</option>
-              <option value="connections">Most connections</option>
-            </select>
+            <h3 id="keywordFacetHeader" class="facet-section-title">
+              Keyword facets <span id="keywordFacetCount" class="facet-section-count" aria-live="polite">0</span>
+            </h3>
+            <div class="facet-sort-control">
+              <span id="keywordSortAlphabetical" class="facet-sort-option active">A-Z</span>
+              <label class="facet-sort-switch">
+                <input type="checkbox" id="keywordFacetSort" role="switch" aria-label="Sort keyword facets by number of connections">
+                <span class="facet-sort-switch-track" aria-hidden="true"></span>
+              </label>
+              <span id="keywordSortConnections" class="facet-sort-option">Hi-Lo</span>
+            </div>
           </div>
           <div id="keywordFacetList" class="facet-section-list"></div>
         </section>
@@ -1837,6 +1942,9 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     const hierarchyFacetList = document.getElementById('hierarchyFacetList');
     const keywordFacetList = document.getElementById('keywordFacetList');
     const keywordFacetSort = document.getElementById('keywordFacetSort');
+    const keywordFacetCount = document.getElementById('keywordFacetCount');
+    const keywordSortAlphabetical = document.getElementById('keywordSortAlphabetical');
+    const keywordSortConnections = document.getElementById('keywordSortConnections');
     const rowList = document.getElementById('rowList');
     const rowCount = document.getElementById('rowCount');
     const emptyState = document.getElementById('emptyState');
@@ -1895,6 +2003,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     let selectedFacetIds = new Set();
     let selectedRowId = null;
     let hoveredRowId = null;
+    let rowHoverNetworkSelection = null;
     const THEME_KEY = 'rhizomatica-theme';
     const THEME_PALETTES = {
       light: {
@@ -2566,7 +2675,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         ${row.general_note ? `<div class="detail-row"><span class="detail-label">General note:</span> <span class="detail-value">${escapeHtml(row.general_note)}</span></div>` : ''}
         ${row.scope_content ? `<div class="detail-row"><span class="detail-label">Scope and content:</span> <span class="detail-value">${escapeHtml(row.scope_content)}</span></div>` : ''}
         <div class="detail-related">
-          <div class="detail-related-title">Immediately related facets</div>
+          <div class="detail-related-title">Related facets</div>
           ${relatedFacets.length ? `<div class="detail-facet-list">${relatedFacets.map(f => `<button type="button" class="detail-facet-chip ${selectedFacetIds.has(f.id) ? 'selected' : ''}" data-related-facet="${escapeHtml(f.id)}">${escapeHtml(f.label)}</button>`).join('')}</div>` : '<div class="detail-row"><span class="detail-value">No related facets.</span></div>'}
         </div>
       `;
@@ -2579,6 +2688,42 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
           render();
         });
       });
+    }
+
+    function networkNodeIdForRow(rowId) {
+      for (const [groupId, group] of groupedRowsByNodeId) {
+        if (group.rows.some(row => row.id === rowId)) return groupId;
+      }
+      return rowId;
+    }
+
+    function spotlightNetworkRow(rowId) {
+      if (rowHoverNetworkSelection === null) {
+        rowHoverNetworkSelection = network.getSelectedNodes();
+      }
+      network.selectNodes([networkNodeIdForRow(rowId)]);
+    }
+
+    function clearNetworkRowSpotlight() {
+      if (rowHoverNetworkSelection === null) return;
+      network.selectNodes(rowHoverNetworkSelection);
+      rowHoverNetworkSelection = null;
+    }
+
+    function selectSpotlightRow(rowId, focus = false) {
+      clearNetworkRowSpotlight();
+      hoveredGroupNodeId = null;
+      selectedRowId = rowId;
+      hoveredRowId = rowId;
+
+      const nodeId = networkNodeIdForRow(rowId);
+      network.selectNodes([nodeId]);
+      if (focus) network.focus(nodeId, { scale: 1.2, animation: true });
+
+      rowList.querySelectorAll('[data-row-id]').forEach(btn => {
+        btn.classList.toggle('selected', btn.dataset.rowId === rowId);
+      });
+      renderDetailPanel();
     }
 
     function renderFacetList(rows) {
@@ -2643,11 +2788,14 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         .filter(facet => facet.kind === 'keyword' && hasMatchingFiles(facet))
         .sort((a, b) => {
           const alphabeticalOrder = a.label.localeCompare(b.label);
-          if (keywordFacetSort.value === 'connections') {
+          if (keywordFacetSort.checked) {
             return (counts.get(b.id) || 0) - (counts.get(a.id) || 0) || alphabeticalOrder;
           }
           return alphabeticalOrder;
         });
+      keywordFacetCount.textContent = keywordFacets.length;
+      keywordSortAlphabetical.classList.toggle('active', !keywordFacetSort.checked);
+      keywordSortConnections.classList.toggle('active', keywordFacetSort.checked);
       keywordFacetList.innerHTML = keywordFacets.length
         ? keywordFacets.map(facet => facetButton(facet)).join('')
         : '<div class="detail-panel empty">No keyword facets match the current spotlight.</div>';
@@ -2707,6 +2855,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         btn.addEventListener('mouseenter', () => {
           hoveredGroupNodeId = null;
           hoveredRowId = rowId;
+          spotlightNetworkRow(rowId);
           renderDetailPanel();
         });
         btn.addEventListener('mouseleave', () => {
@@ -2714,13 +2863,10 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
             hoveredRowId = null;
             renderDetailPanel();
           }
+          clearNetworkRowSpotlight();
         });
         btn.addEventListener('click', () => {
-          hoveredGroupNodeId = null;
-          selectedRowId = rowId;
-          hoveredRowId = rowId;
-          network.focus(selectedRowId, { scale: 1.2, animation: true });
-          render();
+          selectSpotlightRow(rowId, true);
         });
       });
     }
@@ -2741,6 +2887,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
       const data = buildNetworkData(visibleRows, matchingRows);
       if (!groupedRowsByNodeId.has(hoveredGroupNodeId)) hoveredGroupNodeId = null;
+      clearNetworkRowSpotlight();
       network.setData({
         nodes: new vis.DataSet(data.nodes),
         edges: new vis.DataSet(data.edges)
@@ -2787,10 +2934,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
           return;
         }
 
-        hoveredGroupNodeId = null;
-        selectedRowId = clickedId;
-        hoveredRowId = clickedId;
-        render();
+        selectSpotlightRow(clickedId);
         return;
       }
 
