@@ -22,6 +22,7 @@ class KeywordRedundancyTests(unittest.TestCase):
                     "Diamond Multimedia Document System",
                     "Diamond Multimedia Document System",
                     "Diamond",
+                    "Diamond",
                 )
             )
         ]

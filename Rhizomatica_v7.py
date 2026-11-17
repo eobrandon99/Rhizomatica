@@ -637,6 +637,7 @@ def extract_keyword_facets(
       when initially assigning rows (see MAX_NGRAM). Independently
       qualifying single-word facets remain separate from longer phrases.
     """
+    min_file_count = max(2, min_file_count)
     candidate_rows = defaultdict(set)
     candidate_label_counts = defaultdict(lambda: defaultdict(int))
     candidate_label_spellings = {}
@@ -1654,6 +1655,13 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       flex-wrap: wrap;
       gap: 6px;
     }
+    .detail-hierarchy-path {
+      align-items: center;
+    }
+    .detail-hierarchy-separator {
+      color: #666;
+      font-weight: 700;
+    }
     .detail-facet-chip {
       appearance: none;
       border: 1px solid #d0d7e2;
@@ -1826,6 +1834,9 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     }
     body[data-theme="dark"] .detail-panel.empty {
       background: transparent;
+      color: #94a3b8;
+    }
+    body[data-theme="dark"] .detail-hierarchy-separator {
       color: #94a3b8;
     }
     body[data-theme="dark"] .detail-facet-chip {
@@ -2395,8 +2406,8 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     );
     const expandedHierarchyRootIds = new Set();
 
-    function expandHierarchyFacet(facetId) {
-      if (!HIERARCHY_PARENTS_BY_CHILD.has(facetId)) return;
+    function getHierarchyRootId(facetId) {
+      if (!HIERARCHY_PARENTS_BY_CHILD.has(facetId)) return null;
 
       let rootId = facetId;
       const visited = new Set();
@@ -2405,6 +2416,11 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         rootId = PRIMARY_HIERARCHY_PARENT_BY_ID.get(rootId);
       }
 
+      return rootId;
+    }
+
+    function expandHierarchyFacet(facetId) {
+      const rootId = getHierarchyRootId(facetId);
       if (COLLAPSIBLE_HIERARCHY_ROOT_IDS.has(rootId)) expandedHierarchyRootIds.add(rootId);
     }
 
@@ -2475,6 +2491,9 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     function toggleFacetSelection(facetId) {
       const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
       if (selectedFacetIds.has(facetId)) {
+        const hierarchyRootId = getHierarchyRootId(facetId);
+        if (hierarchyRootId) expandedHierarchyRootIds.delete(hierarchyRootId);
+
         if (facetId === rootId && COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) {
           setFacetBranchExpanded(rootId, false);
         } else {
@@ -2763,11 +2782,11 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     }
 
     function getCurrentDetailRow() {
-      return ROWS.find(r => r.id === hoveredRowId) || ROWS.find(r => r.id === selectedRowId) || null;
+      return ROWS.find(r => r.id === selectedRowId) || ROWS.find(r => r.id === hoveredRowId) || null;
     }
 
     function renderDetailPanel() {
-      const groupedNode = groupedRowsByNodeId.get(hoveredGroupNodeId);
+      const groupedNode = selectedRowId ? null : groupedRowsByNodeId.get(hoveredGroupNodeId);
       if (groupedNode) {
         detailPanel.classList.remove('empty');
         detailPanel.innerHTML = `
@@ -2784,9 +2803,14 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         return;
       }
 
-      const activeFacetIds = new Set(getActiveFacets().map(facet => facet.id));
-      const relatedFacets = (row.facets || [])
-        .filter(fid => activeFacetIds.has(fid))
+      const relatedHierarchy = (row.facets || [])
+        .filter(fid => FACETS_BY_ID.get(fid)?.kind === 'hierarchy')
+        .map(fid => ({ id: fid, label: facetLabel(fid) }));
+      const relatedKeywords = (row.facets || [])
+        .filter(fid => {
+          const facet = FACETS_BY_ID.get(fid);
+          return facet?.kind === 'keyword' && facet.count >= keywordMinHits;
+        })
         .map(fid => ({ id: fid, label: facetLabel(fid) }));
 
       detailPanel.classList.remove('empty');
@@ -2798,8 +2822,10 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         ${row.general_note ? `<div class="detail-row"><span class="detail-label">General note:</span> <span class="detail-value">${escapeHtml(row.general_note)}</span></div>` : ''}
         ${row.scope_content ? `<div class="detail-row"><span class="detail-label">Scope and content:</span> <span class="detail-value">${escapeHtml(row.scope_content)}</span></div>` : ''}
         <div class="detail-related">
-          <div class="detail-related-title">Related facets</div>
-          ${relatedFacets.length ? `<div class="detail-facet-list">${relatedFacets.map(f => `<button type="button" class="detail-facet-chip ${selectedFacetIds.has(f.id) ? 'selected' : ''}" data-related-facet="${escapeHtml(f.id)}">${escapeHtml(f.label)}</button>`).join('')}</div>` : '<div class="detail-row"><span class="detail-value">No related facets.</span></div>'}
+          <div class="detail-related-title">Hierarchy</div>
+          ${relatedHierarchy.length ? `<div class="detail-facet-list detail-hierarchy-path">${relatedHierarchy.map((f, index) => `${index ? '<span class="detail-hierarchy-separator" aria-hidden="true">&gt;</span>' : ''}<button type="button" class="detail-facet-chip ${selectedFacetIds.has(f.id) ? 'selected' : ''}" data-related-facet="${escapeHtml(f.id)}">${escapeHtml(f.label)}</button>`).join('')}</div>` : '<div class="detail-row"><span class="detail-value">No hierarchy assigned.</span></div>'}
+          <div class="detail-related-title">Keyword facets</div>
+          ${relatedKeywords.length ? `<div class="detail-facet-list">${relatedKeywords.map(f => `<button type="button" class="detail-facet-chip ${selectedFacetIds.has(f.id) ? 'selected' : ''}" data-related-facet="${escapeHtml(f.id)}">${escapeHtml(f.label)}</button>`).join('')}</div>` : '<div class="detail-row"><span class="detail-value">No keyword facets.</span></div>'}
         </div>
       `;
 
@@ -2981,13 +3007,6 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
           spotlightNetworkRow(rowId);
           renderDetailPanel();
         });
-        btn.addEventListener('mouseleave', () => {
-          if (hoveredRowId === rowId && selectedRowId !== rowId) {
-            hoveredRowId = null;
-            renderDetailPanel();
-          }
-          clearNetworkRowSpotlight();
-        });
         btn.addEventListener('click', () => {
           selectSpotlightRow(rowId, true);
         });
@@ -3035,6 +3054,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
           const groupedNode = groupedRowsByNodeId.get(clickedId);
           selectedFacetIds.clear();
           expandedTopLevelFacetIds.clear();
+          expandedHierarchyRootIds.clear();
           groupedNode.facetIds.forEach(facetId => {
             selectedFacetIds.add(facetId);
             expandHierarchyFacet(facetId);
@@ -3062,9 +3082,10 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       }
 
       if (params.nodes.length === 0 && params.edges.length === 0) {
-        if (!selectedFacetIds.size) return;
+        if (!selectedFacetIds.size && !expandedTopLevelFacetIds.size && !expandedHierarchyRootIds.size) return;
         selectedFacetIds.clear();
         expandedTopLevelFacetIds.clear();
+        expandedHierarchyRootIds.clear();
         selectedRowId = null;
         hoveredRowId = null;
         hoveredGroupNodeId = null;
@@ -3155,6 +3176,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     clearFacets.addEventListener('click', function() {
       selectedFacetIds.clear();
       expandedTopLevelFacetIds.clear();
+      expandedHierarchyRootIds.clear();
       selectedRowId = null;
       hoveredRowId = null;
       hoveredGroupNodeId = null;

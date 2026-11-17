@@ -35,7 +35,7 @@ class HierarchyKeywordTests(unittest.TestCase):
         )
 
         self.assertNotIn("Central Office Files", keyword_facets.values())
-        self.assertIn("Office", keyword_facets.values())
+        self.assertNotIn("Office", keyword_facets.values())
 
 
 if __name__ == "__main__":
