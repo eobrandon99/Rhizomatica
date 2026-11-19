@@ -484,6 +484,32 @@
       border-color: #4b2677;
       color: #fff;
     }
+    .keyword-facet-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .keyword-facet-row .facet-pill {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .keyword-facet-row .facet-pill.inactive {
+      opacity: 0.6;
+    }
+    .facet-pill:disabled {
+      cursor: not-allowed;
+    }
+    .facet-active-toggle {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      cursor: pointer;
+    }
+    .facet-active-toggle input {
+      margin: 0;
+      accent-color: #7952a3;
+    }
     .facet-pill .count {
       flex: 0 0 auto;
       color: #666;
@@ -585,6 +611,44 @@
     .sidebar-item.selected {
       background: #fff2b3;
       border-color: #ffb300;
+    }
+    .related-match-group {
+      margin-bottom: 8px;
+      border: 1px solid #e4e4e4;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .related-match-group > summary {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      list-style-position: inside;
+    }
+    .related-match-group > summary:hover {
+      background: #f5f7fa;
+    }
+    .related-match-count {
+      flex: 0 0 auto;
+      color: #666;
+      font-weight: 600;
+    }
+    .related-match-items {
+      padding: 0 8px 8px;
+    }
+    body[data-theme="dark"] .related-match-group {
+      background: #111827;
+      border-color: #334155;
+    }
+    body[data-theme="dark"] .related-match-group > summary:hover {
+      background: #1e293b;
+    }
+    body[data-theme="dark"] .related-match-count {
+      color: #cbd5e1;
     }
     .row-id {
       display: block;
@@ -989,20 +1053,42 @@
     let rowHoverNetworkSelection = null;
     const THEME_KEY = 'rhizomatica-theme';
     const KEYWORD_MIN_HITS_KEY = `rhizomatica-keyword-min-hits:${window.location.pathname}`;
+    const KEYWORD_INACTIVE_FACETS_KEY = `rhizomatica-keyword-inactive-facets:${window.location.pathname}`;
     let keywordMinHits = DEFAULT_KEYWORD_MIN_HITS;
+    let inactiveKeywordFacetIds = new Set();
     try {
       const savedKeywordMinHits = Number(localStorage.getItem(KEYWORD_MIN_HITS_KEY));
       if (Number.isInteger(savedKeywordMinHits) && savedKeywordMinHits >= 1) {
         keywordMinHits = savedKeywordMinHits;
       }
     } catch (e) {
-      /* ignore */
+      console.warn('Unable to load the saved keyword minimum.', e);
+    }
+    try {
+      const savedInactiveFacetIds = JSON.parse(localStorage.getItem(KEYWORD_INACTIVE_FACETS_KEY) || '[]');
+      if (Array.isArray(savedInactiveFacetIds)) {
+        inactiveKeywordFacetIds = new Set(
+          savedInactiveFacetIds.filter(facetId =>
+            typeof facetId === 'string' &&
+            FACETS_BY_ID.get(facetId)?.kind === 'keyword'
+          )
+        );
+      }
+    } catch (e) {
+      console.warn('Unable to load saved keyword facet states.', e);
     }
     keywordMinHitsInput.value = keywordMinHits;
 
+    function getKeywordFacetsAboveThreshold() {
+      return FACETS.filter(facet =>
+        facet.kind === 'keyword' && facet.count >= keywordMinHits
+      );
+    }
+
     function getActiveFacets() {
       return FACETS.filter(facet =>
-        facet.kind !== 'keyword' || facet.count >= keywordMinHits
+        facet.kind !== 'keyword' ||
+        (facet.count >= keywordMinHits && !inactiveKeywordFacetIds.has(facet.id))
       );
     }
     const THEME_PALETTES = {
@@ -1278,32 +1364,45 @@
       const [parentId] = parentIds;
       if (parentId) PRIMARY_HIERARCHY_PARENT_BY_ID.set(childId, parentId);
     });
-    const HIERARCHY_ROOT_IDS = new Set(
-      HIERARCHICAL_FACETS
-        .filter(f => !PRIMARY_HIERARCHY_PARENT_BY_ID.has(f.id))
-        .map(f => f.id)
-    );
-    const COLLAPSIBLE_HIERARCHY_ROOT_IDS = new Set(
-      Array.from(HIERARCHY_ROOT_IDS).filter(rootId => (HIERARCHY_CHILDREN_BY_PARENT.get(rootId) || []).length > 0)
-    );
-    const expandedHierarchyRootIds = new Set();
+    const expandedHierarchyFacetIds = new Set();
 
-    function getHierarchyRootId(facetId) {
-      if (!HIERARCHY_PARENTS_BY_CHILD.has(facetId)) return null;
+    function getHierarchyPath(facetId) {
+      if (!HIERARCHY_PARENTS_BY_CHILD.has(facetId)) return [];
 
-      let rootId = facetId;
-      const visited = new Set();
-      while (PRIMARY_HIERARCHY_PARENT_BY_ID.has(rootId) && !visited.has(rootId)) {
-        visited.add(rootId);
-        rootId = PRIMARY_HIERARCHY_PARENT_BY_ID.get(rootId);
+      const path = [facetId];
+      const visited = new Set(path);
+      let currentId = facetId;
+      while (PRIMARY_HIERARCHY_PARENT_BY_ID.has(currentId)) {
+        currentId = PRIMARY_HIERARCHY_PARENT_BY_ID.get(currentId);
+        if (visited.has(currentId)) break;
+        visited.add(currentId);
+        path.push(currentId);
       }
 
-      return rootId;
+      return path.reverse();
     }
 
     function expandHierarchyFacet(facetId) {
-      const rootId = getHierarchyRootId(facetId);
-      if (COLLAPSIBLE_HIERARCHY_ROOT_IDS.has(rootId)) expandedHierarchyRootIds.add(rootId);
+      getHierarchyPath(facetId).forEach(pathFacetId => {
+        if ((HIERARCHY_CHILDREN_BY_PARENT.get(pathFacetId) || []).length) {
+          expandedHierarchyFacetIds.add(pathFacetId);
+        }
+      });
+    }
+
+    function collapseHierarchyFacet(facetId) {
+      const pathFacetIds = getHierarchyPath(facetId);
+      const remainingSpotlightPathIds = new Set();
+      selectedFacetIds.forEach(selectedId => {
+        if (FACETS_BY_ID.get(selectedId)?.kind !== 'hierarchy') return;
+        getHierarchyPath(selectedId).forEach(pathFacetId => remainingSpotlightPathIds.add(pathFacetId));
+      });
+
+      pathFacetIds.forEach(pathFacetId => {
+        if (!remainingSpotlightPathIds.has(pathFacetId)) {
+          expandedHierarchyFacetIds.delete(pathFacetId);
+        }
+      });
     }
 
     const FACET_PARENTS_BY_CHILD = new Map(FACETS.map(f => [f.id, []]));
@@ -1373,9 +1472,6 @@
     function toggleFacetSelection(facetId) {
       const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
       if (selectedFacetIds.has(facetId)) {
-        const hierarchyRootId = getHierarchyRootId(facetId);
-        if (hierarchyRootId) expandedHierarchyRootIds.delete(hierarchyRootId);
-
         if (facetId === rootId && COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) {
           setFacetBranchExpanded(rootId, false);
         } else {
@@ -1384,6 +1480,7 @@
             expandedTopLevelFacetIds.delete(rootId);
           }
         }
+        collapseHierarchyFacet(facetId);
         return;
       }
 
@@ -1395,6 +1492,12 @@
     function hasKeywordSpotlight() {
       return Array.from(selectedFacetIds).some(
         facetId => FACETS_BY_ID.get(facetId)?.kind === 'keyword'
+      );
+    }
+
+    function hasHierarchySpotlight() {
+      return Array.from(selectedFacetIds).some(
+        facetId => FACETS_BY_ID.get(facetId)?.kind === 'hierarchy'
       );
     }
 
@@ -1688,11 +1791,13 @@
       const relatedHierarchy = (row.facets || [])
         .filter(fid => FACETS_BY_ID.get(fid)?.kind === 'hierarchy')
         .map(fid => ({ id: fid, label: facetLabel(fid) }));
+      const activeKeywordFacetIds = new Set(
+        getActiveFacets()
+          .filter(facet => facet.kind === 'keyword')
+          .map(facet => facet.id)
+      );
       const relatedKeywords = (row.facets || [])
-        .filter(fid => {
-          const facet = FACETS_BY_ID.get(fid);
-          return facet?.kind === 'keyword' && facet.count >= keywordMinHits;
-        })
+        .filter(fid => activeKeywordFacetIds.has(fid))
         .map(fid => ({ id: fid, label: facetLabel(fid) }));
 
       detailPanel.classList.remove('empty');
@@ -1768,15 +1873,13 @@
         if (!PRIMARY_HIERARCHY_PARENT_BY_ID.has(facet.id) && hasMatchingFiles(facet)) rootFacets.push(facet);
       });
 
-      function renderFacet(facet, topLevelRootId = null) {
+      function renderFacet(facet) {
         const selected = selectedFacetIds.has(facet.id);
         const children = (childrenByParent.get(facet.id) || [])
           .map(facetId => FACETS.find(candidate => candidate.id === facetId))
           .filter(child => child && hasMatchingFiles(child));
-        const isTopLevel = topLevelRootId === null;
-        const rootId = isTopLevel ? facet.id : topLevelRootId;
-        const canCollapse = isTopLevel && COLLAPSIBLE_HIERARCHY_ROOT_IDS.has(rootId);
-        const isExpanded = expandedHierarchyRootIds.has(rootId);
+        const canCollapse = children.length > 0;
+        const isExpanded = expandedHierarchyFacetIds.has(facet.id);
         const alternateParents = (HIERARCHY_PARENTS_BY_CHILD.get(facet.id) || [])
           .filter(parentId => parentId !== PRIMARY_HIERARCHY_PARENT_BY_ID.get(facet.id))
           .map(facetLabel);
@@ -1796,9 +1899,9 @@
                 <span class="facet-label">${escapeHtml(facet.label)}</span>
                 <span class="count">${counts.get(facet.id) || 0}</span>
               </button>
-              ${canCollapse ? `<button type="button" class="facet-collapse-toggle" data-collapse-root="${rootId}" aria-label="${isExpanded ? 'Collapse' : 'Expand'} ${escapeHtml(facet.label)}" aria-expanded="${isExpanded}" title="${isExpanded ? 'Collapse' : 'Expand'} subsidiary facets"><span class="facet-collapse-chevron" aria-hidden="true"></span></button>` : ''}
+              ${canCollapse ? `<button type="button" class="facet-collapse-toggle" data-collapse-facet="${escapeHtml(facet.id)}" aria-label="${isExpanded ? 'Collapse' : 'Expand'} ${escapeHtml(facet.label)}" aria-expanded="${isExpanded}" title="${isExpanded ? 'Collapse' : 'Expand'} subsidiary facets"><span class="facet-collapse-chevron" aria-hidden="true"></span></button>` : ''}
             </div>
-            ${children.length && (!canCollapse || isExpanded) ? `<div class="facet-children">${children.map(child => renderFacet(child, rootId)).join('')}</div>` : ''}
+            ${canCollapse && isExpanded ? `<div class="facet-children">${children.map(child => renderFacet(child)).join('')}</div>` : ''}
           </div>
         `;
       }
@@ -1806,17 +1909,23 @@
       const facetButton = facet => {
         const count = counts.get(facet.id) || 0;
         const countLabel = keywordSpotlighted ? `${count} (of ${facet.count})` : count;
+        const active = !inactiveKeywordFacetIds.has(facet.id);
         return `
-          <button type="button" class="facet-pill ${facet.kind === 'keyword' ? 'keyword-facet' : ''} ${selectedFacetIds.has(facet.id) ? 'selected' : ''}" data-facet-id="${escapeHtml(facet.id)}">
-            <span class="facet-label">${escapeHtml(facet.label)}</span>
-            <span class="count">${countLabel}</span>
-          </button>
+          <div class="keyword-facet-row">
+            <button type="button" class="facet-pill keyword-facet ${active ? '' : 'inactive'} ${selectedFacetIds.has(facet.id) ? 'selected' : ''}" data-facet-id="${escapeHtml(facet.id)}" ${active ? '' : 'disabled'}>
+              <span class="facet-label">${escapeHtml(facet.label)}</span>
+              <span class="count">${countLabel}</span>
+            </button>
+            <label class="facet-active-toggle" title="Include this keyword in the network and file spotlights">
+              <input type="checkbox" role="switch" data-keyword-active-id="${escapeHtml(facet.id)}" aria-label="Show ${escapeHtml(facet.label)} in the network and file spotlights" ${active ? 'checked' : ''}>
+            </label>
+          </div>
         `;
       };
 
       hierarchyFacetList.innerHTML = rootFacets.map(facet => renderFacet(facet)).join('');
-      const keywordFacets = getActiveFacets()
-        .filter(facet => facet.kind === 'keyword' && hasMatchingFiles(facet))
+      const keywordFacets = getKeywordFacetsAboveThreshold()
+        .filter(facet => hasMatchingFiles(facet))
         .sort((a, b) => {
           const alphabeticalOrder = a.label.localeCompare(b.label);
           if (keywordFacetSort.checked) {
@@ -1843,15 +1952,36 @@
         });
       });
 
-      hierarchyFacetList.querySelectorAll('[data-collapse-root]').forEach(btn => {
+      hierarchyFacetList.querySelectorAll('[data-collapse-facet]').forEach(btn => {
         btn.addEventListener('click', () => {
-          const rootId = btn.dataset.collapseRoot;
-          if (expandedHierarchyRootIds.has(rootId)) {
-            expandedHierarchyRootIds.delete(rootId);
+          const facetId = btn.dataset.collapseFacet;
+          if (expandedHierarchyFacetIds.has(facetId)) {
+            expandedHierarchyFacetIds.delete(facetId);
           } else {
-            expandedHierarchyRootIds.add(rootId);
+            expandedHierarchyFacetIds.add(facetId);
           }
           renderFacetList(getVisibleRows());
+        });
+      });
+
+      keywordFacetList.querySelectorAll('[data-keyword-active-id]').forEach(input => {
+        input.addEventListener('change', () => {
+          const facetId = input.dataset.keywordActiveId;
+          if (input.checked) {
+            inactiveKeywordFacetIds.delete(facetId);
+          } else {
+            inactiveKeywordFacetIds.add(facetId);
+            selectedFacetIds.delete(facetId);
+          }
+          try {
+            localStorage.setItem(
+              KEYWORD_INACTIVE_FACETS_KEY,
+              JSON.stringify(Array.from(inactiveKeywordFacetIds))
+            );
+          } catch (e) {
+            console.warn('Unable to save keyword facet states.', e);
+          }
+          render();
         });
       });
 
@@ -1868,7 +1998,7 @@
         ? 'Matching files are hidden under collapsed facets.'
         : 'No rows match the current selection.';
 
-      rowList.innerHTML = rows.map(row => {
+      const renderRow = row => {
         const selected = row.id === selectedRowId;
         const matched = row.facets.filter(fid => selectedFacetIds.has(fid)).join(', ');
         return `
@@ -1879,7 +2009,103 @@
             ${matched ? `<div class="row-match">Matches: ${escapeHtml(matched)}</div>` : ''}
           </button>
         `;
-      }).join('');
+      };
+
+      if (hasKeywordSpotlight() && rows.length) {
+        const selectedKeywordFacets = Array.from(selectedFacetIds)
+          .map(facetId => FACETS_BY_ID.get(facetId))
+          .filter(facet => facet?.kind === 'keyword');
+        const fileLevelRowIds = new Set(
+          selectedKeywordFacets.flatMap(facet => facet.direct_file_row_ids || [])
+        );
+        selectedKeywordFacets.forEach(facet => {
+          if ((facet.matched_hierarchy_ids || []).length) return;
+          rows.forEach(row => {
+            if (row.facets.includes(facet.id)) fileLevelRowIds.add(row.id);
+          });
+        });
+
+        const hierarchyMatchesByRowId = new Map();
+        selectedKeywordFacets.forEach(facet => {
+          (facet.matched_hierarchy_ids || []).forEach(hierarchyId => {
+            rows.forEach(row => {
+              if (
+                !fileLevelRowIds.has(row.id) &&
+                row.facets.includes(facet.id) &&
+                row.facets.includes(hierarchyId)
+              ) {
+                if (!hierarchyMatchesByRowId.has(row.id)) {
+                  hierarchyMatchesByRowId.set(row.id, new Set());
+                }
+                hierarchyMatchesByRowId.get(row.id).add(hierarchyId);
+              }
+            });
+          });
+        });
+
+        const hierarchyRows = new Map();
+        const fileLevelRows = [];
+        rows.forEach(row => {
+          const hierarchyIds = Array.from(hierarchyMatchesByRowId.get(row.id) || []);
+          if (!hierarchyIds.length) {
+            fileLevelRows.push(row);
+            return;
+          }
+
+          hierarchyIds.sort((a, b) => getHierarchyPath(b).length - getHierarchyPath(a).length);
+          const hierarchyId = hierarchyIds[0];
+          if (!hierarchyRows.has(hierarchyId)) hierarchyRows.set(hierarchyId, []);
+          hierarchyRows.get(hierarchyId).push(row);
+        });
+
+        const hierarchyGroups = Array.from(hierarchyRows, ([hierarchyId, groupRows]) => ({
+          hierarchyId,
+          rows: groupRows,
+          path: getHierarchyPath(hierarchyId).map(facetLabel).join(' > ')
+        })).sort((a, b) => a.path.localeCompare(b.path));
+        rowList.innerHTML = `
+          <details class="related-match-group" open>
+            <summary><span>File-level matches</span><span class="related-match-count">${fileLevelRows.length}</span></summary>
+            <div class="related-match-items">${fileLevelRows.length
+              ? fileLevelRows.map(renderRow).join('')
+              : '<div class="detail-panel empty">No file-level matches.</div>'}</div>
+          </details>
+          ${hierarchyGroups.map(group => `
+            <details class="related-match-group">
+              <summary><span>${escapeHtml(group.path)}</span><span class="related-match-count">${group.rows.length}</span></summary>
+              <div class="related-match-items">${group.rows.map(renderRow).join('')}</div>
+            </details>
+          `).join('')}
+        `;
+      } else if (hasHierarchySpotlight() && rows.length) {
+        const selectedHierarchyFacets = Array.from(selectedFacetIds)
+          .map(facetId => FACETS_BY_ID.get(facetId))
+          .filter(facet => facet?.kind === 'hierarchy');
+        const hierarchyRows = new Map();
+        rows.forEach(row => {
+          const matchingHierarchyFacets = selectedHierarchyFacets
+            .filter(facet => row.facets.includes(facet.id))
+            .sort((a, b) => getHierarchyPath(b.id).length - getHierarchyPath(a.id).length);
+          const hierarchyFacet = matchingHierarchyFacets[0];
+          if (!hierarchyFacet) return;
+          if (!hierarchyRows.has(hierarchyFacet.id)) hierarchyRows.set(hierarchyFacet.id, []);
+          hierarchyRows.get(hierarchyFacet.id).push(row);
+        });
+
+        const hierarchyGroups = Array.from(hierarchyRows, ([hierarchyId, groupRows]) => ({
+          hierarchyId,
+          rows: groupRows,
+          path: getHierarchyPath(hierarchyId).map(facetLabel).join(' > ')
+        })).sort((a, b) => a.path.localeCompare(b.path));
+        rowList.innerHTML = hierarchyGroups.map(group => `
+          <details class="related-match-group" open>
+            <summary><span>${escapeHtml(group.path)}</span><span class="related-match-count">${group.rows.length}</span></summary>
+            <div class="related-match-items">${group.rows.map(renderRow).join('')}</div>
+          </details>
+        `).join('');
+      } else {
+        rowList.innerHTML = rows.map(renderRow).join('');
+      }
 
       rowList.querySelectorAll('[data-row-id]').forEach(btn => {
         const rowId = btn.dataset.rowId;
@@ -1907,7 +2133,7 @@
       if (hoveredRowId && !matchingRows.some(r => r.id === hoveredRowId)) hoveredRowId = null;
 
       renderFacetList(matchingRows);
-      renderRowList(visibleRows, matchingRows.length);
+      renderRowList(hasKeywordSpotlight() ? matchingRows : visibleRows, matchingRows.length);
 
       const data = buildNetworkData(visibleRows, matchingRows);
       if (!groupedRowsByNodeId.has(hoveredGroupNodeId)) hoveredGroupNodeId = null;
@@ -1936,7 +2162,7 @@
           const groupedNode = groupedRowsByNodeId.get(clickedId);
           selectedFacetIds.clear();
           expandedTopLevelFacetIds.clear();
-          expandedHierarchyRootIds.clear();
+          expandedHierarchyFacetIds.clear();
           groupedNode.facetIds.forEach(facetId => {
             selectedFacetIds.add(facetId);
             expandHierarchyFacet(facetId);
@@ -1964,10 +2190,10 @@
       }
 
       if (params.nodes.length === 0 && params.edges.length === 0) {
-        if (!selectedFacetIds.size && !expandedTopLevelFacetIds.size && !expandedHierarchyRootIds.size) return;
+        if (!selectedFacetIds.size && !expandedTopLevelFacetIds.size && !expandedHierarchyFacetIds.size) return;
         selectedFacetIds.clear();
         expandedTopLevelFacetIds.clear();
-        expandedHierarchyRootIds.clear();
+        expandedHierarchyFacetIds.clear();
         selectedRowId = null;
         hoveredRowId = null;
         hoveredGroupNodeId = null;
@@ -2058,7 +2284,7 @@
     clearFacets.addEventListener('click', function() {
       selectedFacetIds.clear();
       expandedTopLevelFacetIds.clear();
-      expandedHierarchyRootIds.clear();
+      expandedHierarchyFacetIds.clear();
       selectedRowId = null;
       hoveredRowId = null;
       hoveredGroupNodeId = null;

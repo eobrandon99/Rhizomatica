@@ -1,0 +1,2329 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Harm Buning papers</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css">
+  <style>
+    html, body {
+      height: 100%;
+    }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #fff;
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #controls {
+      padding: 10px 14px;
+      border-bottom: 1px solid #ddd;
+      background: #f7f7f7;
+      flex: 0 0 auto;
+    }
+    #title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #222;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      user-select: none;
+      font-size: 13px;
+    }
+    #settingsMenu {
+      position: fixed;
+      top: 12px;
+      right: 16px;
+      z-index: 1000;
+    }
+    #settingsButton {
+      background: rgba(255,255,255,0.88);
+      border-radius: 8px;
+      padding: 6px 10px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      font-size: 13px;
+      backdrop-filter: blur(6px);
+    }
+    #settingsPanel {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      display: grid;
+      gap: 12px;
+      min-width: 220px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.96);
+      color: #222;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+      backdrop-filter: blur(6px);
+    }
+    #settingsPanel[hidden] {
+      display: none;
+    }
+    .settings-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    #keywordMinHits {
+      box-sizing: border-box;
+      width: 76px;
+      padding: 4px 6px;
+    }
+    #keywordMinHitsHelp {
+      margin: -6px 0 0;
+      color: #555;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    #keywordMinHitsError {
+      min-height: 1em;
+      margin: -8px 0 0;
+      color: #b42318;
+      font-size: 12px;
+    }
+
+    body[data-theme="dark"] #settingsButton {
+      background: rgba(30,30,30,0.88);
+      color: #fff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    }
+
+    body[data-theme="dark"] #settingsPanel {
+      background: rgba(17,24,39,0.97);
+      border-color: #475569;
+      color: #e5e7eb;
+    }
+
+    body[data-theme="dark"] #keywordMinHitsHelp {
+      color: #cbd5e1;
+    }
+
+    body[data-theme="dark"] #keywordMinHitsError {
+      color: #fca5a5;
+    }
+
+    body[data-theme="dark"] #keywordMinHits {
+      background: #0f172a;
+      border: 1px solid #475569;
+      color: #e5e7eb;
+    }
+    .facet-spotlight {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: #FFF2B3;
+      border: 1px solid #FFB300;
+      font-weight: 700;
+    }
+    #toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 8px 0 6px 0;
+    }
+    .toolbar-btn {
+      border: 1px solid #bbb;
+      background: #fff;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .toolbar-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    #rangeText {
+      margin-top: 6px;
+      font-size: 13px;
+      line-height: 1.35;
+      color: #333;
+    }
+    #page {
+      display: grid;
+      grid-template-columns: minmax(210px, 0.78fr) minmax(0, 2.2fr) minmax(260px, 0.95fr);
+      grid-template-rows: minmax(130px, 150px) minmax(0, 1fr);
+      grid-template-areas:
+        "facets dates related"
+        "facets network related";
+      gap: 10px;
+      width: 100%;
+      flex: 1 1 auto;
+      min-height: 0;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    #facetSidebar, #dateSidebar, #rowSidebar, #detailSidebar {
+      background: #fafafa;
+      padding: 12px;
+      box-sizing: border-box;
+      overflow: auto;
+      min-width: 0;
+      min-height: 0;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+    }
+    #facetSidebar {
+      grid-area: facets;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #dateSidebar {
+      grid-area: dates;
+      height: 100%;
+    }
+    #rowSidebar {
+      flex: 1 1 0;
+      min-height: 120px;
+    }
+    #rightSidebar {
+      grid-area: related;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    #detailSidebar {
+      display: flex;
+      flex-direction: column;
+      flex: 0 1 auto;
+      gap: 6px;
+      min-height: 150px;
+      max-height: 58%;
+      min-width: 0;
+      overflow: hidden;
+    }
+    #container {
+      grid-area: network;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+    }
+    #facetHeader, #rowHeader, #detailHeader, #timelineHeader {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 8px 0;
+      color: #333;
+    }
+    .panel-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .panel-heading #facetHeader {
+      margin: 0;
+    }
+    .panel-heading .toolbar-btn {
+      flex: 0 0 auto;
+      width: auto !important;
+    }
+    #facetSections {
+      display: flex;
+      flex: 1 1 0;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+    }
+    .facet-section {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+    }
+    .facet-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      flex: 0 0 auto;
+      margin: 0;
+      padding: 7px 8px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .facet-section-title {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+      margin: 0;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #555;
+    }
+    .facet-section-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.6em;
+      padding: 1px 5px;
+      border-radius: 999px;
+      background: #e9edf2;
+      color: #555;
+      font-size: 10px;
+      letter-spacing: 0;
+    }
+    .facet-sort-control {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      text-transform: none;
+      white-space: nowrap;
+    }
+    .facet-sort-option {
+      color: #777;
+      transition: color 0.15s ease;
+    }
+    .facet-sort-option.active {
+      color: #333;
+      font-weight: 700;
+    }
+    .facet-sort-switch {
+      position: relative;
+      display: inline-flex;
+      flex: 0 0 auto;
+      width: 28px;
+      height: 16px;
+      cursor: pointer;
+    }
+    .facet-sort-switch input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: 0;
+      opacity: 0;
+    }
+    .facet-sort-switch-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: #cbd2da;
+      transition: background 0.15s ease;
+    }
+    .facet-sort-switch-track::before {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #fff;
+      content: "";
+      transition: transform 0.15s ease;
+    }
+    .facet-sort-switch input:checked + .facet-sort-switch-track {
+      background: #7952a3;
+    }
+    .facet-sort-switch input:checked + .facet-sort-switch-track::before {
+      transform: translateX(12px);
+    }
+    .facet-sort-switch input:focus-visible + .facet-sort-switch-track {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }
+    body[data-theme="dark"] .facet-section-count {
+      background: #334155;
+      color: #e2e8f0;
+    }
+    body[data-theme="dark"] .facet-sort-option {
+      color: #94a3b8;
+    }
+    body[data-theme="dark"] .facet-sort-option.active {
+      color: #f1f5f9;
+    }
+    body[data-theme="dark"] .facet-sort-switch-track {
+      background: #475569;
+    }
+    body[data-theme="dark"] .facet-sort-switch input:checked + .facet-sort-switch-track {
+      background: #9b76c2;
+    }
+    .facet-section-list {
+      display: flex;
+      flex: 1 1 0;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+      overflow: auto;
+      padding: 8px;
+    }
+    .facet-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+    .facet-header-row {
+      display: flex;
+      align-items: stretch;
+      gap: 4px;
+      min-width: 0;
+    }
+    .facet-header-row .facet-pill {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .facet-collapse-toggle {
+      display: grid;
+      flex: 0 0 34px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid #cfcfcf;
+      border-radius: 8px;
+      background: #fff;
+      color: #444;
+      cursor: pointer;
+    }
+    .facet-collapse-toggle:hover {
+      background: #f2f4f6;
+      border-color: #8a929b;
+    }
+    .facet-collapse-chevron {
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(-45deg);
+      transition: transform 0.15s ease;
+    }
+    .facet-collapse-toggle[aria-expanded="true"] .facet-collapse-chevron {
+      transform: rotate(45deg);
+    }
+    .facet-children {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+      margin-left: 12px;
+      padding-left: 10px;
+      border-left: 1px solid #d6dbe1;
+    }
+    #facetSidebar .tool-section + .tool-section {
+      margin-top: 2px;
+    }
+    #facetSidebar .tool-section {
+      margin: 0;
+    }
+    #timelineBlock {
+      margin-top: 0 !important;
+    }
+    .facet-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #cfcfcf;
+      background: #fff;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+      text-align: left;
+    }
+    .facet-label {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .facet-pill.has-subsidiaries .facet-label {
+      font-weight: 700;
+    }
+    .facet-pill:hover {
+      background: #fff8e8;
+      border-color: #ffb300;
+      transform: translateY(-1px);
+    }
+    .facet-pill.selected {
+      background: #fff2b3;
+      border-color: #ffb300;
+      font-weight: 700;
+    }
+    .facet-pill.keyword-facet {
+      background: #dccbef;
+      border-color: #7952a3;
+      color: #30194b;
+    }
+    .facet-pill.keyword-facet:hover {
+      background: #cdb5e6;
+      border-color: #6b3fa0;
+    }
+    .facet-pill.keyword-facet.selected {
+      background: #6b3fa0;
+      border-color: #4b2677;
+      color: #fff;
+    }
+    .keyword-facet-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .keyword-facet-row .facet-pill {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .keyword-facet-row .facet-pill.inactive {
+      opacity: 0.6;
+    }
+    .facet-pill:disabled {
+      cursor: not-allowed;
+    }
+    .facet-active-toggle {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      cursor: pointer;
+    }
+    .facet-active-toggle input {
+      margin: 0;
+      accent-color: #7952a3;
+    }
+    .facet-pill .count {
+      flex: 0 0 auto;
+      color: #666;
+      font-weight: 600;
+    }
+    .detail-panel {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      border: 0;
+      background: transparent;
+      border-radius: 0;
+      padding: 0;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #222;
+      box-shadow: none;
+      margin: 0;
+    }
+    .detail-panel.empty {
+      color: #666;
+      background: transparent;
+      font-style: italic;
+    }
+    .detail-row {
+      margin-bottom: 6px;
+    }
+    .detail-label {
+      font-weight: 700;
+      color: #333;
+    }
+    .detail-value {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .detail-related {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #e7e7e7;
+    }
+    .detail-related-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #444;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .detail-facet-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .detail-hierarchy-path {
+      align-items: center;
+    }
+    .detail-hierarchy-separator {
+      color: #666;
+      font-weight: 700;
+    }
+    .detail-facet-chip {
+      appearance: none;
+      border: 1px solid #d0d7e2;
+      background: #f7f9fc;
+      color: #17324d;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .detail-facet-chip:hover {
+      background: #e9f2ff;
+      border-color: #9dc2ff;
+    }
+    .detail-facet-chip.selected {
+      background: #FFE082;
+      border-color: #FF8C00;
+      color: #7a4a00;
+      font-weight: 700;
+    }
+    .sidebar-item {
+      width: 100%;
+      text-align: left;
+      background: #fff;
+      border: 1px solid #e4e4e4;
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+    }
+    .sidebar-item:hover {
+      background: #fff8e8;
+      border-color: #ffb300;
+      transform: translateX(2px);
+    }
+    .sidebar-item.selected {
+      background: #fff2b3;
+      border-color: #ffb300;
+    }
+    .related-match-group {
+      margin-bottom: 8px;
+      border: 1px solid #e4e4e4;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .related-match-group > summary {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      list-style-position: inside;
+    }
+    .related-match-group > summary:hover {
+      background: #f5f7fa;
+    }
+    .related-match-count {
+      flex: 0 0 auto;
+      color: #666;
+      font-weight: 600;
+    }
+    .related-match-items {
+      padding: 0 8px 8px;
+    }
+    body[data-theme="dark"] .related-match-group {
+      background: #111827;
+      border-color: #334155;
+    }
+    body[data-theme="dark"] .related-match-group > summary:hover {
+      background: #1e293b;
+    }
+    body[data-theme="dark"] .related-match-count {
+      color: #cbd5e1;
+    }
+    .row-id {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 2px;
+      color: #111;
+    }
+    .row-date {
+      font-size: 12px;
+      color: #333;
+    }
+    .row-box {
+      font-size: 12px;
+      color: #666;
+      margin-top: 2px;
+    }
+    .row-match {
+      font-size: 12px;
+      color: #666;
+      margin-top: 3px;
+    }
+    #emptyState {
+      font-size: 13px;
+      color: #666;
+      padding: 10px 0;
+    }
+    #copyright {
+      position: fixed;
+      bottom: 10px;
+      right: 12px;
+      font-size: 12px;
+      color: #666;
+      background: rgba(255,255,255,0.8);
+      padding: 4px 8px;
+      border-radius: 6px;
+      backdrop-filter: blur(2px);
+      z-index: 9999;
+    }
+    .noUi-target { height: 5px; }
+    .noUi-connect { background: #4C78A8; }
+    .noUi-horizontal .noUi-handle {
+      width: 12px;
+      height: 12px;
+      right: -6px;
+      top: -4px;
+      border-radius: 50%;
+    }
+    .noUi-handle:before,
+    .noUi-handle:after { display: none; }
+    body[data-theme="dark"] {
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    body[data-theme="dark"] #controls {
+      background: #111827;
+      border-bottom-color: #334155;
+    }
+    body[data-theme="dark"] #title,
+    body[data-theme="dark"] #facetHeader,
+    body[data-theme="dark"] #rowHeader,
+    body[data-theme="dark"] #detailHeader,
+    body[data-theme="dark"] #timelineHeader,
+    body[data-theme="dark"] .detail-label,
+    body[data-theme="dark"] .row-id,
+    body[data-theme="dark"] .detail-related-title {
+      color: #f8fafc;
+    }
+    body[data-theme="dark"] #rangeText,
+    body[data-theme="dark"] #rowCount,
+    body[data-theme="dark"] .row-date,
+    body[data-theme="dark"] .row-box,
+    body[data-theme="dark"] .row-match {
+      color: #cbd5e1;
+    }
+    body[data-theme="dark"] #facetSidebar,
+    body[data-theme="dark"] #dateSidebar,
+    body[data-theme="dark"] #rowSidebar,
+    body[data-theme="dark"] #detailSidebar {
+      background: #0b1220;
+      border-color: #334155;
+    }
+    body[data-theme="dark"] .facet-pill,
+    body[data-theme="dark"] .sidebar-item,
+    body[data-theme="dark"] .facet-collapse-toggle {
+      background: #111827;
+      border-color: #334155;
+      color: #e5e7eb;
+    }
+    body[data-theme="dark"] .facet-pill:hover,
+    body[data-theme="dark"] .sidebar-item:hover,
+    body[data-theme="dark"] .facet-collapse-toggle:hover {
+      background: #1e293b;
+      border-color: #64748b;
+    }
+    body[data-theme="dark"] .facet-pill.selected,
+    body[data-theme="dark"] .sidebar-item.selected {
+      background: #334155;
+      border-color: #60a5fa;
+      color: #f8fafc;
+    }
+    body[data-theme="dark"] .facet-pill.keyword-facet {
+      background: #3b2b50;
+      border-color: #a884d2;
+      color: #f2e8ff;
+    }
+    body[data-theme="dark"] .facet-pill.keyword-facet:hover {
+      background: #4a3563;
+      border-color: #c5a8ec;
+    }
+    body[data-theme="dark"] .facet-pill.keyword-facet.selected {
+      background: #684395;
+      border-color: #d5b8f4;
+      color: #fff;
+    }
+    body[data-theme="dark"] .facet-pill .count {
+      color: #94a3b8;
+    }
+    body[data-theme="dark"] .facet-children {
+      border-color: #475569;
+    }
+    body[data-theme="dark"] .facet-section {
+      border-color: #334155;
+    }
+    body[data-theme="dark"] .facet-section-header {
+      border-bottom-color: #334155;
+    }
+    body[data-theme="dark"] .facet-section-title {
+      color: #cbd5e1;
+    }
+    body[data-theme="dark"] .detail-panel.empty {
+      background: transparent;
+      color: #94a3b8;
+    }
+    body[data-theme="dark"] .detail-hierarchy-separator {
+      color: #94a3b8;
+    }
+    body[data-theme="dark"] .detail-facet-chip {
+      background: #1e293b;
+      border-color: #475569;
+      color: #e2e8f0;
+    }
+    body[data-theme="dark"] .detail-facet-chip:hover {
+      background: #334155;
+      border-color: #60a5fa;
+    }
+    body[data-theme="dark"] .detail-facet-chip.selected {
+      background: #92400e;
+      border-color: #f59e0b;
+      color: #fef3c7;
+    }
+    body[data-theme="dark"] .facet-spotlight {
+      background: #92400e;
+      border-color: #f59e0b;
+      color: #fef3c7;
+    }
+    body[data-theme="dark"] .toolbar-btn {
+      background: #111827;
+      border-color: #475569;
+      color: #e5e7eb;
+    }
+    body[data-theme="dark"] .toolbar-btn:disabled {
+      opacity: 0.5;
+    }
+    body[data-theme="dark"] #copyright {
+      background: rgba(15, 23, 42, 0.88);
+      color: #cbd5e1;
+    }
+    body[data-theme="dark"] .noUi-target {
+      background: #334155;
+      border-color: #475569;
+    }
+    body[data-theme="dark"] .noUi-connect {
+      background: #60a5fa;
+    }
+    body[data-theme="dark"] .noUi-horizontal .noUi-handle {
+      background: #e2e8f0;
+      border-color: #cbd5e1;
+      box-shadow: none;
+    }
+    body[data-theme="dark"] .noUi-handle:before,
+    body[data-theme="dark"] .noUi-handle:after {
+      background: #64748b;
+    }
+    body[data-theme="dark"] .detail-label,
+    body[data-theme="dark"] .detail-value {
+      color: #e5e7eb;
+    }
+    body[data-theme="dark"] .detail-value {
+      white-space: pre-wrap;
+    }
+    @media (max-width: 950px) {
+      #page {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: minmax(130px, 150px) minmax(0, 1fr) minmax(240px, 34vh);
+        grid-template-areas:
+          "facets dates"
+          "facets network"
+          "related related";
+        overflow: auto;
+      }
+      #rightSidebar {
+        flex-direction: row;
+      }
+      #rowSidebar {
+        min-height: 0;
+      }
+      #detailSidebar {
+        flex: 0 0 38%;
+        max-height: none;
+        min-height: 0;
+      }
+    }
+    @media (max-width: 700px) {
+      #page {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(190px, 38vh) minmax(145px, auto) minmax(380px, 60vh) minmax(430px, 65vh);
+        grid-template-areas:
+          "facets"
+          "dates"
+          "network"
+          "related";
+      }
+      #facetSidebar {
+        max-height: 58vh;
+      }
+      #rightSidebar {
+        flex-direction: column;
+      }
+      #rowSidebar {
+        min-height: 180px;
+      }
+      #detailSidebar {
+        flex: 0 1 auto;
+        min-height: 160px;
+        max-height: 48%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <div id="title">Harm Buning papers</div>
+    <div id="settingsMenu">
+      <button type="button" id="settingsButton" class="toolbar-btn" aria-expanded="false" aria-controls="settingsPanel">Settings</button>
+      <div id="settingsPanel" hidden>
+        <label class="settings-label" for="themeToggle">
+          <input type="checkbox" id="themeToggle">
+          Dark mode
+        </label>
+        <label class="settings-label" for="keywordMinHits">
+          Minimum keyword hits
+          <input type="number" id="keywordMinHits" min="1" step="1" required>
+        </label>
+        <p id="keywordMinHitsHelp">A keyword appears in at least this many files.</p>
+        <p id="keywordMinHitsError" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+    <div id="toolbar">
+    </div>
+  </div>
+
+  <div id="page">
+    <aside id="facetSidebar">
+      <div class="panel-heading">
+        <div id="facetHeader">Facet spotlight</div>
+        <button id="clearFacets" class="toolbar-btn" disabled>Reset</button>
+      </div>
+      <div id="facetSections">
+        <section class="facet-section" aria-labelledby="hierarchyFacetHeader">
+          <div class="facet-section-header">
+            <h3 id="hierarchyFacetHeader" class="facet-section-title">Finding aid hierarchy</h3>
+          </div>
+          <div id="hierarchyFacetList" class="facet-section-list"></div>
+        </section>
+        <section class="facet-section" aria-labelledby="keywordFacetHeader">
+          <div class="facet-section-header">
+            <h3 id="keywordFacetHeader" class="facet-section-title">
+              Keyword facets <span id="keywordFacetCount" class="facet-section-count" aria-live="polite">0</span>
+            </h3>
+            <div class="facet-sort-control">
+              <span id="keywordSortAlphabetical" class="facet-sort-option active">A-Z</span>
+              <label class="facet-sort-switch">
+                <input type="checkbox" id="keywordFacetSort" role="switch" aria-label="Sort keyword facets by number of connections">
+                <span class="facet-sort-switch-track" aria-hidden="true"></span>
+              </label>
+              <span id="keywordSortConnections" class="facet-sort-option">Hi-Lo</span>
+            </div>
+          </div>
+          <div id="keywordFacetList" class="facet-section-list"></div>
+        </section>
+      </div>
+    </aside>
+
+    <section id="dateSidebar" aria-labelledby="timelineHeader">
+      <div id="timelineHeader">Date filtering</div>
+      <div class="toggle-row" style="margin-top: 0;">
+        <input type="checkbox" id="timelineToggle">
+        <label for="timelineToggle">Enable timeline filter</label>
+      </div>
+      <div id="sliderWrap"><div id="slider"></div></div>
+      <div id="rangeText">Timeline disabled - showing everything, including records without dates.</div>
+    </section>
+
+    <div id="container"></div>
+
+    <aside id="rightSidebar">
+      <section id="rowSidebar">
+        <div id="rowHeader">Related files</div>
+        <div id="rowCount"></div>
+        <div id="rowList"></div>
+        <div id="emptyState" style="display:none;">No rows match the current selection.</div>
+      </section>
+
+      <section id="detailSidebar">
+        <div id="detailHeader">File spotlight</div>
+        <div id="detailPanel" class="detail-panel empty">Hover or click a file node or row to preview details.</div>
+      </section>
+    </aside>
+  </div>
+
+  <script>
+    const ROWS = [{"id": "short_courses", "title": "Short courses", "display_date": "1964-1967", "date_expr": "1964-1967", "begin": "1964-01-01", "end": "1967-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_manned_spacecraft_center", "kw_short_course", "kw_manned_spacecraft_center", "kw_nasa"]}, {"id": "short_course", "title": "Short course", "display_date": "1970", "date_expr": "1970", "begin": "1970-01-01", "end": "1970-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_manned_spacecraft_center", "kw_short_course", "kw_manned_spacecraft_center", "kw_nasa"]}, {"id": "preliminary_and_final_gemini_gt_4_flight_plans", "title": "Preliminary and final Gemini GT-4 flight plans", "display_date": "1963-1965", "date_expr": "1963-1965", "begin": "1963-01-01", "end": "1965-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_manned_spacecraft_center", "kw_gemini", "kw_manned_spacecraft_center", "kw_nasa"]}, {"id": "group_achievement_awards", "title": "Group Achievement Awards", "display_date": "1969", "date_expr": "1969", "begin": "1969-01-01", "end": "1969-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_manned_spacecraft_center", "kw_group", "kw_award", "kw_manned_spacecraft_center", "kw_nasa"]}, {"id": "employment_records", "title": "Employment records", "display_date": "1969", "date_expr": "1969", "begin": "1969-01-01", "end": "1969-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_manned_spacecraft_center", "kw_manned_spacecraft_center", "kw_nasa"]}, {"id": "astronaut_biographies", "title": "Astronaut biographies", "display_date": "1968", "date_expr": "1968", "begin": "1968-01-01", "end": "1968-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_manned_spacecraft_center", "kw_astronaut", "kw_manned_spacecraft_center", "kw_nasa"]}, {"id": "gemini_gt_3_and_gt_4_orbit_charts", "title": "Gemini GT-3 and GT-4 orbit charts", "display_date": "1964-1965", "date_expr": "1964-1965", "begin": "1964-01-01", "end": "1965-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_manned_spacecraft_center", "kw_gemini", "kw_orbit", "kw_manned_spacecraft_center", "kw_nasa"]}, {"id": "manned_spacecraft_center_publications", "title": "Manned Spacecraft Center publications", "display_date": "1962-1966", "date_expr": "1962-1966", "begin": "1962-01-01", "end": "1966-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_manned_spacecraft_center", "kw_manned_spacecraft_center", "kw_publication", "kw_nasa"]}, {"id": "grim_dean_f_stafford_thomas_p_schirra_walter_m_report_on_gimini_6_rendezvous", "title": "Grim, Dean F., Stafford, Thomas P., Schirra, Walter M. \"Report on Gimini 6 Rendezvous\"", "display_date": "1966", "date_expr": "1966", "begin": "1966-01-01", "end": "1966-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_manned_spacecraft_center", "kw_manned_spacecraft_center", "kw_report", "kw_thoma_p", "kw_nasa"]}, {"id": "gemini_gt_1_mission_meeting_agenda", "title": "Gemini GT-1 mission meeting agenda", "display_date": "1964", "date_expr": "1964", "begin": "1964-01-01", "end": "1964-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_manned_spacecraft_center", "kw_gemini", "kw_manned_spacecraft_center", "kw_mission", "kw_nasa"]}, {"id": "personnel_badges", "title": "Personnel badges", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "(From Apollo and Gemini missions, et al.)", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_realia", "kw_mission", "kw_nasa"]}, {"id": "mission_patches_and_stickers", "title": "Mission patches and stickers", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "(From Apollo and Gemini missions, et al.)", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_realia", "kw_mission", "kw_sticker", "kw_nasa"]}, {"id": "postcards", "title": "Postcards", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_realia", "kw_nasa"]}, {"id": "apollo_17_mission_analyzer", "title": "Apollo 17 Mission Analyzer", "display_date": "1972", "date_expr": "1972", "begin": "1972-01-01", "end": "1972-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_realia", "kw_mission", "kw_apollo", "kw_nasa"]}, {"id": "bumper_stickers", "title": "Bumper stickers", "display_date": "1971, undated", "date_expr": "1971, undated", "begin": "1971-01-01", "end": "1971-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_realia", "kw_sticker", "kw_nasa"]}, {"id": "press_kit_for_launch_of_sts_3_space_shuttle", "title": "Press kit for launch of STS-3 space shuttle", "display_date": "1982", "date_expr": "1982", "begin": "1982-01-01", "end": "1982-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_general", "kw_press", "kw_space_shuttle", "kw_nasa", "kw_general", "kw_space"]}, {"id": "gemini_and_apollo_mission_press_and_brochures", "title": "Gemini and Apollo mission press and brochures", "display_date": "1963-1969", "date_expr": "1963-1969", "begin": "1963-01-01", "end": "1969-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_general", "kw_gemini", "kw_mission", "kw_apollo", "kw_press", "kw_brochure", "kw_nasa", "kw_general"]}, {"id": "space_systems_brochures_and_booklets", "title": "Space systems brochures and booklets", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_nasa", "series_general", "kw_space", "kw_brochure_and_booklet", "kw_nasa", "kw_general", "kw_brochure"]}, {"id": "nasa_publications", "title": "NASA publications", "display_date": "1962-2000", "date_expr": "1962-2000", "begin": "1962-01-01", "end": "2000-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "(Brochures and booklets published by NASA relating to various astronauts, missions, and organizational history)", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 expandable folders, 1 folder"], "facets": ["series_nasa", "series_general", "kw_astronaut", "kw_publication", "kw_mission", "kw_brochure_and_booklet", "kw_nasa", "kw_various", "kw_general", "kw_brochure"]}, {"id": "project_vortex_patches_photographs_press", "title": "Project VORTEX patches, photographs, press", "display_date": "1998-1999", "date_expr": "1998-1999", "begin": "1998-01-01", "end": "1999-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_university_of_michigan", "kw_press", "kw_photograph", "kw_project", "kw_university_of_michigan", "kw_michigan"]}, {"id": "aerospace_engineering_542_course_notes", "title": "Aerospace Engineering 542 course notes", "display_date": "Fall 1984", "date_expr": "Fall 1984", "begin": "1984-01-01", "end": "1984-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_university_of_michigan", "kw_aerospace_engineering", "kw_note", "kw_university_of_michigan", "kw_engineering", "kw_michigan"]}, {"id": "astronaut_visits_to_u_m", "title": "Astronaut visits to U-M", "display_date": "1971-1973", "date_expr": "1971-1973", "begin": "1971-01-01", "end": "1973-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "(Includes photographs, correspondence, itineraries, and press releases regarding the visits and awarding of honorary degrees to Jack Lousma and astronauts on Apollo 15)", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_university_of_michigan", "kw_astronaut", "kw_apollo", "kw_press", "kw_photograph", "kw_honorary", "kw_correspondence", "kw_u-m", "kw_jack", "kw_university_of_michigan", "kw_michigan"]}, {"id": "department_of_aerospace_engineering_photographs_historical_accounts_other_historical_materials", "title": "Department of Aerospace Engineering photographs, historical accounts, other historical materials", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 2.0, "extents": ["2 folders"], "facets": ["series_university_of_michigan", "kw_photograph", "kw_university_of_michigan", "kw_michigan"]}, {"id": "thurnau_professorship_correspondence_photographs_clippings_retirement_certificate", "title": "Thurnau Professorship correspondence, photographs, clippings, retirement certificate", "display_date": "1988-1992", "date_expr": "1988-1992", "begin": "1988-01-01", "end": "1992-12-31", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_university_of_michigan", "kw_photograph", "kw_correspondence", "kw_clipping", "kw_retirement", "kw_professorship", "kw_university_of_michigan", "kw_michigan"]}, {"id": "aero_380_seminar_speakers", "title": "Aero 380 seminar speakers", "display_date": "1981-1998", "date_expr": "1981-1998", "begin": "1981-01-01", "end": "1998-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_university_of_michigan", "kw_speaker", "kw_university_of_michigan", "kw_michigan"]}, {"id": "aero_483_design_project_summaries", "title": "Aero 483 design project summaries", "display_date": "1965-1993", "date_expr": "1965-1993", "begin": "1965-01-01", "end": "1993-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_university_of_michigan", "kw_project", "kw_aero_483", "kw_design", "kw_university_of_michigan", "kw_michigan"]}, {"id": "4_final_reports_from_aero_483", "title": "4 final reports from Aero 483", "display_date": "1978-1985", "date_expr": "1978-1985", "begin": "1978-01-01", "end": "1985-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "(Final reports for projects OASIS (1978), COBRA (1982), Pegasus (1984), and LUSTAR (1985).)", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 expandable folders"], "facets": ["series_university_of_michigan", "kw_project", "kw_aero_483", "kw_final_report", "kw_university_of_michigan", "kw_michigan"]}, {"id": "u_m_aerospace_engineering_flag", "title": "U-M Aerospace Engineering flag", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_university_of_michigan", "kw_aerospace_engineering", "kw_u-m", "kw_university_of_michigan", "kw_engineering", "kw_michigan"]}, {"id": "freshman_hanbook", "title": "Freshman Hanbook", "display_date": "1929", "date_expr": "1929", "begin": "1929-01-01", "end": "1929-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_university_of_michigan", "kw_university_of_michigan", "kw_michigan"]}, {"id": "harm_buning_endowment_fund_kickoff_dinner", "title": "Harm Buning endowment fund kickoff dinner", "display_date": "June 29, 2007", "date_expr": "June 29, 2007", "begin": "2007-06-29", "end": "2007-06-29", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_professional", "kw_harm_leopold_buning", "kw_professional"]}, {"id": "correspondence_and_notes_on_public_speaking_engagements", "title": "Correspondence and notes on public speaking engagements", "display_date": "1967-1969", "date_expr": "1967-1969", "begin": "1967-01-01", "end": "1969-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_professional", "kw_note", "kw_correspondence", "kw_speaking", "kw_professional"]}, {"id": "correspondence_with_astronauts", "title": "Correspondence with astronauts", "display_date": "1962-1971", "date_expr": "1962-1971", "begin": "1962-01-01", "end": "1971-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "(Correspondents include David R. Scott, Alfred M. Worden, James B. Irwin, Michael Collins, Thomas P. Stafford, Jack R. Lousma, Karl G. Henize, David R. Scott, Estelle Jackson, George E. Thompson, John W. Young, Donald K. Slayton, Edward H. White, James A. McDivitt. Includes photographs, clippings, a mission patch, and signed mission patch swatches.)", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_professional", "kw_astronaut", "kw_thoma_p", "kw_mission", "kw_photograph", "kw_correspondence", "kw_jack", "kw_clipping", "kw_edward", "kw_irwin", "kw_signed", "kw_jame", "kw_white", "kw_professional"]}, {"id": "professional_and_honorary_societies", "title": "Professional and honorary societies", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_professional", "kw_honorary", "kw_professional"]}, {"id": "francois_xavier_bagnoud_aerospace_prize_and_airshow_invitation_and_brochures", "title": "Francois-Xavier Bagnoud Aerospace Prize and Airshow invitation and brochures", "display_date": "1997", "date_expr": "1997", "begin": "1997-01-01", "end": "1997-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_professional", "kw_brochure", "kw_professional", "kw_invitation"]}, {"id": "tu_delft_visiting_professorship", "title": "TU Delft visiting professorship", "display_date": "1986-1988", "date_expr": "1986-1988", "begin": "1986-01-01", "end": "1988-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "(Correspondence and photograph)", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_professional", "kw_photograph", "kw_correspondence", "kw_professorship", "kw_professional", "kw_tu_delft"]}, {"id": "invitations_greeting_cards_correspondence_from_astronauts", "title": "Invitations, greeting cards, correspondence from astronauts", "display_date": "1964-1991", "date_expr": "1964-1991", "begin": "1964-01-01", "end": "1991-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "(Includes correspondence with Niel Armstrong)", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_professional", "kw_astronaut", "kw_correspondence", "kw_professional", "kw_invitation", "kw_card"]}, {"id": "interview_by_christopher_morgan", "title": "Interview by Christopher Morgan", "display_date": "July 20, 1981", "date_expr": "July 20, 1981", "begin": "1981-07-20", "end": "1981-07-20", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_professional", "kw_professional"]}, {"id": "clippings", "title": "Clippings", "display_date": "1966-1999", "date_expr": "1966-1999", "begin": "1966-01-01", "end": "1999-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_professional", "kw_clipping", "kw_professional"]}, {"id": "professional_correspondence", "title": "Professional correspondence", "display_date": "1978-1993", "date_expr": "1978-1993", "begin": "1978-01-01", "end": "1993-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_professional", "kw_correspondence", "kw_professional"]}, {"id": "80th_birthday_correspondence", "title": "80th birthday correspondence", "display_date": "2002", "date_expr": "2002", "begin": "2002-01-01", "end": "2002-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_professional", "kw_correspondence", "kw_professional"]}, {"id": "retirement_memory_book", "title": "Retirement memory book", "display_date": "1992", "date_expr": "1992", "begin": "1992-01-01", "end": "1992-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "(Includes correspondence from former students of Harm Buning)", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_professional", "kw_correspondence", "kw_retirement", "kw_harm_leopold_buning", "kw_professional"]}, {"id": "project_aeneas_report_and_group_photograph", "title": "Project AENEAS report and group photograph", "display_date": "1988", "date_expr": "1988", "begin": "1988-01-01", "end": "1988-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "(Final report from sabbatical semester at TU Delft. Includes group photograph and card signed by the design team.)", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_professional", "kw_group", "kw_report", "kw_photograph", "kw_project", "kw_design", "kw_final_report", "kw_signed", "kw_professional", "kw_tu_delft", "kw_card"]}, {"id": "michigan_aviation_hall_of_fame_medal", "title": "Michigan Aviation Hall of Fame medal", "display_date": "2020", "date_expr": "2020", "begin": "2020-01-01", "end": "2020-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "(Harm Buning received this award posthumously.)", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_professional", "kw_award", "kw_harm_leopold_buning", "kw_professional", "kw_michigan"]}, {"id": "signed_photographs_of_astronauts", "title": "Signed photographs of astronauts", "display_date": "1984-1990", "date_expr": "1984-1990", "begin": "1984-01-01", "end": "1990-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "(Includes photographs of astronauts Charles Bolden, Gus Grissom, and James A. McDivitt.)", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_photographs_and_prints", "kw_astronaut", "kw_photograph", "kw_signed", "kw_jame"]}, {"id": "gemini_gt_4_photographs", "title": "Gemini GT-4 photographs", "display_date": "1965", "date_expr": "1965", "begin": "1965-01-01", "end": "1965-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_photographs_and_prints", "kw_gemini", "kw_photograph"]}, {"id": "7_space_shuttle_prints", "title": "7 space shuttle prints", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_photographs_and_prints", "kw_space_shuttle", "kw_space"]}, {"id": "nasa_mission_photographs", "title": "NASA mission photographs", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "(Includes photographs from Apollo and Gemini missions and others)", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 expandable folders"], "facets": ["series_photographs_and_prints", "kw_mission", "kw_nasa", "kw_photograph"]}, {"id": "university_of_michigan_slides", "title": "University of Michigan slides", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "(In two cartons. Labelled \"Dick French / MA9 display\" and \"Dep't slides / Dick French / first orbit simulation\".)", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_photographs_and_prints", "kw_orbit", "kw_slide", "kw_university_of_michigan", "kw_michigan"]}, {"id": "nasa_slides", "title": "NASA slides", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "(Includes photographs of various NASA missions, including Gemini, Challenger, Voyager, Apollo, Mercury, Saturn, and various space shuttle missions.)", "scope_content": "", "physical_desc": "", "extent_value": 2.0, "extents": ["2 folders"], "facets": ["series_photographs_and_prints", "kw_gemini", "kw_mission", "kw_apollo", "kw_space_shuttle", "kw_nasa", "kw_various", "kw_photograph", "kw_slide", "kw_space"]}, {"id": "harm_buning_speaking", "title": "Harm Buning speaking", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_photographs_and_prints", "kw_harm_leopold_buning", "kw_speaking"]}, {"id": "ed_white_at_50th_anniversary_of_u_m_department_of_aerospace_engineering", "title": "Ed White at 50th Anniversary of U-M Department of Aerospace Engineering", "display_date": "1964", "date_expr": "1964", "begin": "1964-01-01", "end": "1964-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 reel-to-reel audiotapes"], "facets": ["series_audiovisual", "kw_engineering", "kw_u-m_department_of_aerospace", "kw_u-m", "kw_white"]}, {"id": "michigan_in_orbit_space_program_alumni_talk", "title": "\"Michigan in Orbit\" Space Program alumni talk", "display_date": "March 1967", "date_expr": "March 1967", "begin": "1967-03-01", "end": "1967-03-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "(Event took place shortly after the Apollo 1 fire, and 2 years after the 50th anniversary of the U-M Department of Aerospace Engineering. Speakers include General Edward Higgins White (Ed White's father), and Joe Shear. Moderated by professor Wilbur Nelson.)", "scope_content": "", "physical_desc": "", "extent_value": 2.0, "extents": ["2 reel-to-reel audiotapes"], "facets": ["series_audiovisual", "kw_orbit", "kw_apollo", "kw_space", "kw_speaker", "kw_edward", "kw_white", "kw_michigan", "kw_engineering", "kw_u-m_department_of_aerospace", "kw_general", "kw_u-m"]}, {"id": "apollo_15_astronaut_visit", "title": "Apollo 15 astronaut visit", "display_date": "October 1, 1971", "date_expr": "October 1, 1971", "begin": "1971-10-01", "end": "1971-10-01", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "(Speakers include astronauts Scott, Morden, and Irwin.)", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 reel-to-reel audiotapes"], "facets": ["series_audiovisual", "kw_astronaut", "kw_apollo", "kw_speaker", "kw_irwin"]}];
+    const FACETS = [{"id": "series_nasa", "label": "NASA", "count": 19, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_manned_spacecraft_center", "label": "Manned Spacecraft Center", "count": 10, "kind": "hierarchy", "parent_id": "series_nasa", "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_realia", "label": "Realia", "count": 5, "kind": "hierarchy", "parent_id": "series_nasa", "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_general", "label": "General", "count": 4, "kind": "hierarchy", "parent_id": "series_nasa", "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_university_of_michigan", "label": "University of Michigan", "count": 10, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_professional", "label": "Professional", "count": 14, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_photographs_and_prints", "label": "Photographs and prints", "count": 7, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_audiovisual", "label": "Audiovisual", "count": 3, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_short_course", "label": "Short courses", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_gemini", "label": "Gemini", "count": 6, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_group", "label": "Group", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_award", "label": "Awards", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_astronaut", "label": "astronauts", "count": 7, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_orbit", "label": "orbit", "count": 3, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_manned_spacecraft_center", "label": "Manned Spacecraft Center", "count": 10, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": ["series_manned_spacecraft_center"], "direct_file_row_ids": ["manned_spacecraft_center_publications"]}, {"id": "kw_publication", "label": "publications", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_report", "label": "Report", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_thoma_p", "label": "Thomas P", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_mission", "label": "mission", "count": 9, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_sticker", "label": "stickers", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_apollo", "label": "Apollo", "count": 6, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_press", "label": "Press", "count": 4, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_space_shuttle", "label": "space shuttle", "count": 3, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_brochure", "label": "brochures", "count": 4, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_space", "label": "space", "count": 5, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_brochure_and_booklet", "label": "brochures and booklets", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_nasa", "label": "NASA", "count": 21, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": ["series_nasa"], "direct_file_row_ids": ["nasa_mission_photographs", "nasa_publications", "nasa_slides"]}, {"id": "kw_various", "label": "various", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_photograph", "label": "photographs", "count": 11, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_project", "label": "Project", "count": 4, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_aerospace_engineering", "label": "Aerospace Engineering", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_note", "label": "notes", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_honorary", "label": "honorary", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_correspondence", "label": "correspondence", "count": 9, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_u-m", "label": "U-M", "count": 4, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_jack", "label": "Jack", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_clipping", "label": "clippings", "count": 3, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_retirement", "label": "retirement", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_professorship", "label": "Professorship", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_speaker", "label": "speakers", "count": 3, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_aero_483", "label": "Aero 483", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_design", "label": "design", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_final_report", "label": "final reports", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_harm_leopold_buning", "label": "Harm Buning", "count": 4, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_speaking", "label": "speaking", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_edward", "label": "Edward", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_signed", "label": "signed", "count": 3, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_jame", "label": "James", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_white", "label": "White", "count": 3, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_irwin", "label": "Irwin", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_professional", "label": "Professional", "count": 14, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": ["series_professional"], "direct_file_row_ids": ["professional_and_honorary_societies", "professional_correspondence"]}, {"id": "kw_invitation", "label": "invitation", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_tu_delft", "label": "TU Delft", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_card", "label": "cards", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_michigan", "label": "Michigan", "count": 13, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_slide", "label": "slides", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_university_of_michigan", "label": "University of Michigan", "count": 11, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": ["series_university_of_michigan"], "direct_file_row_ids": ["university_of_michigan_slides"]}, {"id": "kw_engineering", "label": "Engineering", "count": 4, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_u-m_department_of_aerospace", "label": "U-M Department of Aerospace", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_general", "label": "General", "count": 5, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": ["series_general"], "direct_file_row_ids": ["michigan_in_orbit_space_program_alumni_talk"]}];
+    const DEFAULT_KEYWORD_MIN_HITS = 3;
+    const FACETS_BY_ID = new Map(FACETS.map(facet => [facet.id, facet]));
+    const availableDates = ["1929-01-01", "1929-12-31", "1962-01-01", "1963-01-01", "1964-01-01", "1964-12-31", "1965-01-01", "1965-12-31", "1966-01-01", "1966-12-31", "1967-01-01", "1967-03-01", "1967-03-31", "1967-12-31", "1968-01-01", "1968-12-31", "1969-01-01", "1969-12-31", "1970-01-01", "1970-12-31", "1971-01-01", "1971-10-01", "1971-12-31", "1972-01-01", "1972-12-31", "1973-12-31", "1978-01-01", "1981-01-01", "1981-07-20", "1982-01-01", "1982-12-31", "1984-01-01", "1984-12-31", "1985-12-31", "1986-01-01", "1988-01-01", "1988-12-31", "1990-12-31", "1991-12-31", "1992-01-01", "1992-12-31", "1993-12-31", "1997-01-01", "1997-12-31", "1998-01-01", "1998-12-31", "1999-12-31", "2000-12-31", "2002-01-01", "2002-12-31", "2007-06-29", "2020-01-01", "2020-12-31"];
+
+    const container = document.getElementById('container');
+    const slider = document.getElementById('slider');
+    const rangeText = document.getElementById('rangeText');
+    const timelineToggle = document.getElementById('timelineToggle');
+    const clearFacets = document.getElementById('clearFacets');
+    const themeToggle = document.getElementById('themeToggle');
+    const settingsButton = document.getElementById('settingsButton');
+    const settingsPanel = document.getElementById('settingsPanel');
+    const keywordMinHitsInput = document.getElementById('keywordMinHits');
+    const keywordMinHitsError = document.getElementById('keywordMinHitsError');
+    const hierarchyFacetList = document.getElementById('hierarchyFacetList');
+    const keywordFacetList = document.getElementById('keywordFacetList');
+    const keywordFacetSort = document.getElementById('keywordFacetSort');
+    const keywordFacetCount = document.getElementById('keywordFacetCount');
+    const keywordSortAlphabetical = document.getElementById('keywordSortAlphabetical');
+    const keywordSortConnections = document.getElementById('keywordSortConnections');
+    const rowList = document.getElementById('rowList');
+    const rowCount = document.getElementById('rowCount');
+    const emptyState = document.getElementById('emptyState');
+    const detailPanel = document.getElementById('detailPanel');
+
+    const options = {
+      interaction: { hover: true },
+      nodes: { shape: 'dot', size: 14 },
+      edges: {
+        smooth: true,
+        color: { color: '#999' },
+        length: 110,
+        width: 1.2
+      },
+      physics: {
+        enabled: true,
+        solver: 'forceAtlas2Based',
+        forceAtlas2Based: {
+          gravitationalConstant: -100,
+          centralGravity: 0.01,
+          springLength: 80,
+          springConstant: 0.06,
+          damping: 0.85,
+          avoidOverlap: 1
+        },
+        stabilization: { iterations: 300, fit: true },
+        maxVelocity: 12,
+        minVelocity: 0.35,
+        timestep: 0.35
+      },
+      groups: {
+        row: {
+          color: {
+            background: '#4C78A8',
+            border: '#4C78A8',
+            highlight: { background: '#B7D8FF', border: '#2F6FDB' },
+            hover: { background: '#6B95C8', border: '#4C78A8' }
+          },
+          font: { color: '#111111' },
+          size: 18
+        },
+        facet: {
+          color: {
+            background: '#F58518',
+            border: '#C96F10',
+            highlight: '#FF9F1C',
+            hover: '#FF9F1C'
+          },
+          font: { color: '#000000' }
+        }
+      }
+    };
+
+    const network = new vis.Network(container, { nodes: [], edges: [] }, options);
+
+    let selectedFacetIds = new Set();
+    let selectedRowId = null;
+    let hoveredRowId = null;
+    let rowHoverNetworkSelection = null;
+    const THEME_KEY = 'rhizomatica-theme';
+    const KEYWORD_MIN_HITS_KEY = `rhizomatica-keyword-min-hits:${window.location.pathname}`;
+    const KEYWORD_INACTIVE_FACETS_KEY = `rhizomatica-keyword-inactive-facets:${window.location.pathname}`;
+    let keywordMinHits = DEFAULT_KEYWORD_MIN_HITS;
+    let inactiveKeywordFacetIds = new Set();
+    try {
+      const savedKeywordMinHits = Number(localStorage.getItem(KEYWORD_MIN_HITS_KEY));
+      if (Number.isInteger(savedKeywordMinHits) && savedKeywordMinHits >= 1) {
+        keywordMinHits = savedKeywordMinHits;
+      }
+    } catch (e) {
+      console.warn('Unable to load the saved keyword minimum.', e);
+    }
+    try {
+      const savedInactiveFacetIds = JSON.parse(localStorage.getItem(KEYWORD_INACTIVE_FACETS_KEY) || '[]');
+      if (Array.isArray(savedInactiveFacetIds)) {
+        inactiveKeywordFacetIds = new Set(
+          savedInactiveFacetIds.filter(facetId =>
+            typeof facetId === 'string' &&
+            FACETS_BY_ID.get(facetId)?.kind === 'keyword'
+          )
+        );
+      }
+    } catch (e) {
+      console.warn('Unable to load saved keyword facet states.', e);
+    }
+    keywordMinHitsInput.value = keywordMinHits;
+
+    function getKeywordFacetsAboveThreshold() {
+      return FACETS.filter(facet =>
+        facet.kind === 'keyword' && facet.count >= keywordMinHits
+      );
+    }
+
+    function getActiveFacets() {
+      return FACETS.filter(facet =>
+        facet.kind !== 'keyword' ||
+        (facet.count >= keywordMinHits && !inactiveKeywordFacetIds.has(facet.id))
+      );
+    }
+    const THEME_PALETTES = {
+      light: {
+        rowBackground: '#4C78A8',
+        rowBorder: '#4C78A8',
+        rowHoverBackground: '#6B95C8',
+        rowSelectedBackground: '#6B95C8',
+        rowSelectedBorder: '#2F6FDB',
+        facetBackground: '#F58518',
+        facetBorder: '#C96F10',
+        facetHoverBackground: '#FF9F1C',
+        facetSelectedBackground: '#FFE082',
+        facetSelectedBorder: '#FF8C00',
+        keywordFacetBackground: '#D8C4ED',
+        keywordFacetBorder: '#7446A8',
+        keywordFacetHoverBackground: '#C5A9E2',
+        keywordFacetSelectedBackground: '#7446A8',
+        keywordFacetSelectedBorder: '#512F7D',
+        keywordFacetLabel: '#321A4A',
+        keywordFacetSelectedLabel: '#FFFFFF',
+        keywordFacetHighlight: 'rgba(116, 70, 168, 0.42)',
+        rowLabel: '#111111',
+        facetLabel: '#000000',
+        edge: '#999',
+        edgeSelected: '#FFB300',
+        containmentEdge: '#52616B',
+        detailHighlight: 'rgba(47, 111, 219, 0.28)',
+        facetHighlight: 'rgba(255, 140, 0, 0.45)'
+      },
+      dark: {
+        rowBackground: '#60A5FA',
+        rowBorder: '#3B82F6',
+        rowHoverBackground: '#93C5FD',
+        rowSelectedBackground: '#2563EB',
+        rowSelectedBorder: '#93C5FD',
+        facetBackground: '#F59E0B',
+        facetBorder: '#D97706',
+        facetHoverBackground: '#FBBF24',
+        facetSelectedBackground: '#92400E',
+        facetSelectedBorder: '#FCD34D',
+        keywordFacetBackground: '#4A3563',
+        keywordFacetBorder: '#B99ADD',
+        keywordFacetHoverBackground: '#5A4177',
+        keywordFacetSelectedBackground: '#7653A6',
+        keywordFacetSelectedBorder: '#DCC7F2',
+        keywordFacetLabel: '#F4EAFE',
+        keywordFacetSelectedLabel: '#FFFFFF',
+        keywordFacetHighlight: 'rgba(185, 154, 221, 0.45)',
+        rowLabel: '#F8FAFC',
+        facetLabel: '#F8FAFC',
+        edge: '#64748B',
+        edgeSelected: '#F59E0B',
+        containmentEdge: '#FACC15',
+        detailHighlight: 'rgba(96, 165, 250, 0.32)',
+        facetHighlight: 'rgba(251, 191, 36, 0.40)'
+      }
+    };
+    let theme = 'light';
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, ch => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      })[ch]);
+    }
+
+    function getTheme() {
+      return THEME_PALETTES[theme] || THEME_PALETTES.light;
+    }
+
+    function applyTheme(nextTheme, persist = true) {
+      theme = nextTheme === 'dark' ? 'dark' : 'light';
+      document.body.dataset.theme = theme;
+      if (themeToggle) themeToggle.checked = theme === 'dark';
+      if (persist) {
+        try {
+          localStorage.setItem(THEME_KEY, theme);
+        } catch (e) {
+          /* ignore */
+        }
+      }
+    }
+
+    try {
+      const savedTheme = localStorage.getItem(THEME_KEY);
+      if (savedTheme) {
+        theme = savedTheme;
+      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        theme = 'dark';
+      }
+    } catch (e) {
+      /* ignore */
+    }
+    applyTheme(theme, false);
+
+    if (availableDates.length >= 2) {
+      noUiSlider.create(slider, {
+        start: [0, availableDates.length - 1],
+        connect: true,
+        step: 1,
+        range: { min: 0, max: availableDates.length - 1 }
+      });
+    } else {
+      slider.style.display = 'none';
+      timelineToggle.checked = false;
+      timelineToggle.disabled = true;
+      rangeText.textContent = 'No usable dates found - timeline filter disabled.';
+    }
+
+    function currentRange() {
+      if (!slider.noUiSlider) return { startDate: null, endDate: null };
+      const values = slider.noUiSlider.get().map(v => parseInt(v, 10));
+      return {
+        startDate: availableDates[values[0]],
+        endDate: availableDates[values[1]]
+      };
+    }
+
+    function rowMatchesTimeline(row, timelineOn, startDate, endDate) {
+      if (!timelineOn) return true;
+      if (!row.begin && !row.end) return false;
+      return row.begin <= endDate && row.end >= startDate;
+    }
+
+    function rowMatchesFacets(row) {
+      if (!selectedFacetIds.size) return true;
+      for (const fid of selectedFacetIds) {
+        if (!row.facets.includes(fid)) return false;
+      }
+      return true;
+    }
+
+    function getVisibleRows() {
+      const timelineOn = timelineToggle.checked && !!slider.noUiSlider;
+      const { startDate, endDate } = currentRange();
+      return ROWS.filter(row => rowMatchesTimeline(row, timelineOn, startDate, endDate) && rowMatchesFacets(row));
+    }
+
+    function getTimelineRows() {
+      const timelineOn = timelineToggle.checked && !!slider.noUiSlider;
+      const { startDate, endDate } = currentRange();
+      return ROWS.filter(row => rowMatchesTimeline(row, timelineOn, startDate, endDate));
+    }
+
+    function buildFacetCounts(rows) {
+      const counts = new Map();
+      FACETS.forEach(f => counts.set(f.id, 0));
+      rows.forEach(row => {
+        row.facets.forEach(fid => {
+          if (counts.has(fid)) counts.set(fid, counts.get(fid) + 1);
+        });
+      });
+      return counts;
+    }
+
+    function rowLabel(row) {
+      const lines = [row.title || row.id];
+      if (row.display_date) lines.push(row.display_date);
+      return lines.join('\n');
+    }
+
+    // File nodes stay fixed and small; facet nodes have a floor well above
+    // ROW_SIZE_HIGHLIGHTED so a facet is always bigger than any file node,
+    // and grow from there with how many files are tagged to them.
+    const ROW_SIZE = 9;
+    const ROW_SIZE_HIGHLIGHTED = 13;
+    const ROW_EXTENT_MAX_BOOST = 2;
+    const ROW_FONT_SIZE = 10;
+    const ROW_FONT_SIZE_HIGHLIGHTED = 12;
+    let groupedRowsByNodeId = new Map();
+    let hoveredGroupNodeId = null;
+    const maxExtentValue = ROWS.reduce((maximum, row) => Math.max(maximum, row.extent_value || 0), 0);
+
+    function rowNodeSize(row, highlighted) {
+      const base = highlighted ? ROW_SIZE_HIGHLIGHTED : ROW_SIZE;
+      if (!row.extent_value || maxExtentValue <= 0) return base;
+      const extentGrowth = ROW_EXTENT_MAX_BOOST * Math.log1p(row.extent_value) / Math.log1p(maxExtentValue);
+      return base + extentGrowth;
+    }
+
+    // The smallest-count facet always renders at FACET_MIN_SIZE and the
+    // largest-count facet always renders at FACET_MAX_SIZE -- counts in
+    // between are stretched across that full range (eased with
+    // FACET_GROWTH_EXPONENT < 1 so growth is steep early then levels off).
+    // Sizing this way means nothing saturates at the cap early and bumping
+    // FACET_MAX_SIZE always visibly grows the biggest facets.
+    const FACET_MIN_SIZE = 15;
+    const FACET_MAX_SIZE = 150;
+    const FACET_GROWTH_EXPONENT = 0.6;
+    const FACET_SELECTED_BOOST = 14;
+    const FACET_MIN_FONT_SIZE = 13;
+    const FACET_MAX_FONT_SIZE = 40;
+
+    const facetCountRange = FACETS.reduce(
+      (range, f) => ({ min: Math.min(range.min, f.count), max: Math.max(range.max, f.count) }),
+      { min: Infinity, max: -Infinity }
+    );
+    if (!Number.isFinite(facetCountRange.min)) {
+      facetCountRange.min = 0;
+      facetCountRange.max = 1;
+    }
+
+    function facetNodeSize(count, selected) {
+      const span = facetCountRange.max - facetCountRange.min;
+      const t = span > 0 ? (count - facetCountRange.min) / span : 1;
+      const eased = Math.pow(Math.max(t, 0), FACET_GROWTH_EXPONENT);
+      const base = FACET_MIN_SIZE + eased * (FACET_MAX_SIZE - FACET_MIN_SIZE);
+      const boosted = selected ? base + FACET_SELECTED_BOOST : base;
+      return Math.max(FACET_MIN_SIZE, Math.min(boosted, FACET_MAX_SIZE + FACET_SELECTED_BOOST));
+    }
+
+    function facetFontSize(size) {
+      return Math.round(Math.max(FACET_MIN_FONT_SIZE, Math.min(size * 0.26, FACET_MAX_FONT_SIZE)));
+    }
+
+    function facetLabel(fid) {
+      const facet = FACETS.find(f => f.id === fid);
+      return facet ? facet.label : fid;
+    }
+
+    function buildFacetContainmentLinks(facets = FACETS) {
+      const filesByFacet = new Map(facets.map(f => [f.id, new Set()]));
+      ROWS.forEach(row => row.facets.forEach(fid => filesByFacet.get(fid)?.add(row.id)));
+      const links = [];
+
+      facets.forEach(child => {
+        if (child.kind === 'hierarchy') {
+          const parent = facets.find(f => f.id === child.parent_id && f.kind === 'hierarchy');
+          if (parent) links.push({ from: child.id, to: parent.id });
+          return;
+        }
+
+        const childFiles = filesByFacet.get(child.id);
+        if (!childFiles || childFiles.size === 0) return;
+
+        let smallestSupersetSize = Infinity;
+        const parentIds = [];
+        facets.forEach(parent => {
+          if (parent.kind !== child.kind) return;
+          const parentFiles = filesByFacet.get(parent.id);
+          if (!parentFiles || parentFiles.size <= childFiles.size) return;
+          if (![...childFiles].every(rowId => parentFiles.has(rowId))) return;
+
+          if (parentFiles.size < smallestSupersetSize) {
+            smallestSupersetSize = parentFiles.size;
+            parentIds.length = 0;
+          }
+          if (parentFiles.size === smallestSupersetSize) parentIds.push(parent.id);
+        });
+
+        parentIds.forEach(parentId => links.push({ from: child.id, to: parentId }));
+      });
+
+      return links;
+    }
+
+    const FACET_CONTAINMENT_LINKS = buildFacetContainmentLinks();
+    const HIERARCHICAL_FACETS = FACETS.filter(f => f.kind === 'hierarchy');
+    const HIERARCHY_PARENTS_BY_CHILD = new Map(HIERARCHICAL_FACETS.map(f => [f.id, []]));
+    const HIERARCHY_CHILDREN_BY_PARENT = new Map(HIERARCHICAL_FACETS.map(f => [f.id, []]));
+    HIERARCHICAL_FACETS.forEach(facet => {
+      const parentId = facet.parent_id;
+      if (!parentId || !HIERARCHY_PARENTS_BY_CHILD.has(parentId)) return;
+      HIERARCHY_PARENTS_BY_CHILD.get(facet.id).push(parentId);
+      HIERARCHY_CHILDREN_BY_PARENT.get(parentId).push(facet.id);
+    });
+    const PRIMARY_HIERARCHY_PARENT_BY_ID = new Map();
+    HIERARCHY_PARENTS_BY_CHILD.forEach((parentIds, childId) => {
+      const [parentId] = parentIds;
+      if (parentId) PRIMARY_HIERARCHY_PARENT_BY_ID.set(childId, parentId);
+    });
+    const expandedHierarchyFacetIds = new Set();
+
+    function getHierarchyPath(facetId) {
+      if (!HIERARCHY_PARENTS_BY_CHILD.has(facetId)) return [];
+
+      const path = [facetId];
+      const visited = new Set(path);
+      let currentId = facetId;
+      while (PRIMARY_HIERARCHY_PARENT_BY_ID.has(currentId)) {
+        currentId = PRIMARY_HIERARCHY_PARENT_BY_ID.get(currentId);
+        if (visited.has(currentId)) break;
+        visited.add(currentId);
+        path.push(currentId);
+      }
+
+      return path.reverse();
+    }
+
+    function expandHierarchyFacet(facetId) {
+      getHierarchyPath(facetId).forEach(pathFacetId => {
+        if ((HIERARCHY_CHILDREN_BY_PARENT.get(pathFacetId) || []).length) {
+          expandedHierarchyFacetIds.add(pathFacetId);
+        }
+      });
+    }
+
+    function collapseHierarchyFacet(facetId) {
+      const pathFacetIds = getHierarchyPath(facetId);
+      const remainingSpotlightPathIds = new Set();
+      selectedFacetIds.forEach(selectedId => {
+        if (FACETS_BY_ID.get(selectedId)?.kind !== 'hierarchy') return;
+        getHierarchyPath(selectedId).forEach(pathFacetId => remainingSpotlightPathIds.add(pathFacetId));
+      });
+
+      pathFacetIds.forEach(pathFacetId => {
+        if (!remainingSpotlightPathIds.has(pathFacetId)) {
+          expandedHierarchyFacetIds.delete(pathFacetId);
+        }
+      });
+    }
+
+    const FACET_PARENTS_BY_CHILD = new Map(FACETS.map(f => [f.id, []]));
+    const FACET_CHILDREN_BY_PARENT = new Map(FACETS.map(f => [f.id, []]));
+    FACET_CONTAINMENT_LINKS.forEach(link => FACET_PARENTS_BY_CHILD.get(link.from)?.push(link.to));
+    FACET_CONTAINMENT_LINKS.forEach(link => FACET_CHILDREN_BY_PARENT.get(link.to)?.push(link.from));
+    const PRIMARY_FACET_PARENT_BY_ID = new Map();
+    FACET_PARENTS_BY_CHILD.forEach((parentIds, childId) => {
+      const [primaryParentId] = parentIds.sort((a, b) => facetLabel(a).localeCompare(facetLabel(b)) || a.localeCompare(b));
+      if (primaryParentId) PRIMARY_FACET_PARENT_BY_ID.set(childId, primaryParentId);
+    });
+
+    function getTopLevelFacetId(facetId) {
+      let topLevelId = facetId;
+      const visited = new Set();
+      while (PRIMARY_FACET_PARENT_BY_ID.has(topLevelId) && !visited.has(topLevelId)) {
+        visited.add(topLevelId);
+        topLevelId = PRIMARY_FACET_PARENT_BY_ID.get(topLevelId);
+      }
+      return topLevelId;
+    }
+
+    const TOP_LEVEL_FACET_ID_BY_ID = new Map(FACETS.map(f => [f.id, getTopLevelFacetId(f.id)]));
+    const COLLAPSIBLE_ROOT_FACET_IDS = new Set(
+      FACETS
+        .filter(f => TOP_LEVEL_FACET_ID_BY_ID.get(f.id) === f.id && (FACET_CHILDREN_BY_PARENT.get(f.id) || []).length > 0)
+        .map(f => f.id)
+    );
+    const expandedTopLevelFacetIds = new Set();
+
+    function isFacetBranchExpanded(facetId) {
+      const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+      return !COLLAPSIBLE_ROOT_FACET_IDS.has(rootId) || expandedTopLevelFacetIds.has(rootId);
+    }
+
+    function isFacetNodeVisible(facetId) {
+      return TOP_LEVEL_FACET_ID_BY_ID.get(facetId) === facetId || isFacetBranchExpanded(facetId);
+    }
+
+    function getRowsInExpandedBranches(rows) {
+      const activeFacetIds = new Set(getActiveFacets().map(facet => facet.id));
+      return rows.filter(row => {
+        const rowFacetIds = row.facets.filter(facetId => activeFacetIds.has(facetId));
+        if (!rowFacetIds.length) return true;
+        return rowFacetIds.some(facetId => {
+          const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+          return !COLLAPSIBLE_ROOT_FACET_IDS.has(rootId) || expandedTopLevelFacetIds.has(rootId);
+        });
+      });
+    }
+
+    function setFacetBranchExpanded(rootId, expanded) {
+      if (!COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) return;
+
+      if (expanded) {
+        expandedTopLevelFacetIds.add(rootId);
+        selectedFacetIds.add(rootId);
+        return;
+      }
+
+      expandedTopLevelFacetIds.delete(rootId);
+      for (const facetId of selectedFacetIds) {
+        if (TOP_LEVEL_FACET_ID_BY_ID.get(facetId) === rootId) selectedFacetIds.delete(facetId);
+      }
+    }
+
+    function toggleFacetSelection(facetId) {
+      const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+      if (selectedFacetIds.has(facetId)) {
+        if (facetId === rootId && COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) {
+          setFacetBranchExpanded(rootId, false);
+        } else {
+          selectedFacetIds.delete(facetId);
+          if (!Array.from(selectedFacetIds).some(id => TOP_LEVEL_FACET_ID_BY_ID.get(id) === rootId)) {
+            expandedTopLevelFacetIds.delete(rootId);
+          }
+        }
+        collapseHierarchyFacet(facetId);
+        return;
+      }
+
+      selectedFacetIds.add(facetId);
+      expandHierarchyFacet(facetId);
+      if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) expandedTopLevelFacetIds.add(rootId);
+    }
+
+    function hasKeywordSpotlight() {
+      return Array.from(selectedFacetIds).some(
+        facetId => FACETS_BY_ID.get(facetId)?.kind === 'keyword'
+      );
+    }
+
+    function hasHierarchySpotlight() {
+      return Array.from(selectedFacetIds).some(
+        facetId => FACETS_BY_ID.get(facetId)?.kind === 'hierarchy'
+      );
+    }
+
+    function buildNetworkData(rows, matchingRows) {
+      const visibleFacetIds = new Set();
+      const activeFacetIds = new Set(getActiveFacets().map(facet => facet.id));
+      const edges = [];
+      const keywordSpotlighted = hasKeywordSpotlight();
+      const selectedRow = ROWS.find(r => r.id === selectedRowId) || null;
+      const hoveredRow = ROWS.find(r => r.id === hoveredRowId) || null;
+      const networkRowsById = new Map(
+        (keywordSpotlighted ? matchingRows : rows).map(row => [row.id, row])
+      );
+      if (!keywordSpotlighted) {
+        matchingRows.forEach(row => {
+          const hasVisibleKeywordFacet = row.facets.some(fid => {
+            const facet = FACETS_BY_ID.get(fid);
+            return facet?.kind === 'keyword' &&
+              activeFacetIds.has(fid) &&
+              isFacetNodeVisible(fid);
+          });
+          if (hasVisibleKeywordFacet) networkRowsById.set(row.id, row);
+        });
+      }
+      const networkRows = Array.from(networkRowsById.values());
+
+      matchingRows.forEach(row => row.facets.forEach(facetId => {
+        const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+        if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) visibleFacetIds.add(rootId);
+      }));
+
+      networkRows.forEach(row => {
+        row.facets.forEach(fid => {
+          if (isFacetBranchExpanded(fid)) visibleFacetIds.add(fid);
+          const facetKind = FACETS_BY_ID.get(fid)?.kind;
+          if (keywordSpotlighted && (facetKind === 'hierarchy' || facetKind === 'keyword')) {
+            visibleFacetIds.add(fid);
+          }
+        });
+      });
+
+      const facetNodes = [];
+      getActiveFacets().forEach(f => {
+        const supportsKeywordSpotlight = keywordSpotlighted && (
+          (f.kind === 'hierarchy' && visibleFacetIds.has(f.id)) ||
+          (f.kind === 'keyword' && visibleFacetIds.has(f.id))
+        );
+        if ((isFacetNodeVisible(f.id) || supportsKeywordSpotlight) && (visibleFacetIds.has(f.id) || selectedFacetIds.has(f.id))) {
+          const isKeywordFacet = f.kind === 'keyword';
+          const selected = selectedFacetIds.has(f.id);
+          const size = facetNodeSize(f.count, selected);
+          const background = isKeywordFacet ? getTheme().keywordFacetBackground : getTheme().facetBackground;
+          const border = isKeywordFacet ? getTheme().keywordFacetBorder : getTheme().facetBorder;
+          const hoverBackground = isKeywordFacet ? getTheme().keywordFacetHoverBackground : getTheme().facetHoverBackground;
+          const selectedBackground = isKeywordFacet ? getTheme().keywordFacetSelectedBackground : getTheme().facetSelectedBackground;
+          const selectedBorder = isKeywordFacet ? getTheme().keywordFacetSelectedBorder : getTheme().facetSelectedBorder;
+          facetNodes.push({
+            id: f.id,
+            label: f.label,
+            group: 'facet',
+            title: `${escapeHtml(f.label)}<br>${f.count} row${f.count === 1 ? '' : 's'}`,
+            size,
+            font: {
+              color: isKeywordFacet
+                ? (selected ? getTheme().keywordFacetSelectedLabel : getTheme().keywordFacetLabel)
+                : getTheme().facetLabel,
+              size: facetFontSize(size),
+              bold: selected
+            },
+            color: selected
+              ? {
+                  background: selectedBackground,
+                  border: selectedBorder,
+                  highlight: { background: selectedBackground, border: selectedBorder },
+                  hover: { background: selectedBackground, border: selectedBorder }
+                }
+              : {
+                  background,
+                  border,
+                  highlight: { background: hoverBackground, border },
+                  hover: { background: hoverBackground, border }
+                },
+            borderWidth: selected ? 3 : 1.5,
+            shadow: selected ? {
+              enabled: true,
+              color: isKeywordFacet ? getTheme().keywordFacetHighlight : getTheme().facetHighlight,
+              size: 12,
+              x: 0,
+              y: 0
+            } : false
+          });
+        }
+      });
+
+      const visibleFacetSet = new Set(facetNodes.map(n => n.id));
+      const rowFacetTargets = new Map();
+      const groupsByConnection = new Map();
+      networkRows.forEach(row => {
+        let targets;
+        if (keywordSpotlighted) {
+          const hierarchyFacets = row.facets.filter(fid => FACETS_BY_ID.get(fid)?.kind === 'hierarchy');
+          const immediateHierarchyFacet = hierarchyFacets[hierarchyFacets.length - 1];
+          const rowKeywordFacets = row.facets.filter(
+            fid => FACETS_BY_ID.get(fid)?.kind === 'keyword'
+          );
+          targets = [immediateHierarchyFacet, ...rowKeywordFacets]
+            .filter((fid, index, all) => fid && visibleFacetSet.has(fid) && all.indexOf(fid) === index);
+        } else {
+          const rowFacetIds = new Set(row.facets);
+          targets = row.facets.filter(fid => {
+            if (!isFacetNodeVisible(fid) || !visibleFacetSet.has(fid)) return false;
+            const hasVisibleMoreSpecificRowFacet = (FACET_CHILDREN_BY_PARENT.get(fid) || [])
+              .some(childId => rowFacetIds.has(childId) && activeFacetIds.has(childId) && isFacetNodeVisible(childId));
+            return !hasVisibleMoreSpecificRowFacet;
+          });
+        }
+        rowFacetTargets.set(row.id, targets);
+
+        if (targets.length) {
+          const connectionKey = JSON.stringify([...targets].sort());
+          if (!groupsByConnection.has(connectionKey)) {
+            groupsByConnection.set(connectionKey, { facetIds: [...targets].sort(), rows: [] });
+          }
+          groupsByConnection.get(connectionKey).rows.push(row);
+        }
+      });
+
+      groupedRowsByNodeId = new Map();
+      const groupedRowIds = new Set();
+      const rowIds = new Set(ROWS.map(row => row.id));
+      const fileNodes = [];
+      let groupIndex = 0;
+      groupsByConnection.forEach(group => {
+        if (group.rows.length < 2 || group.facetIds.some(fid => selectedFacetIds.has(fid))) return;
+        let groupId;
+        do {
+          groupId = `__rhizomatica_file_group_${groupIndex++}`;
+        } while (rowIds.has(groupId));
+
+        groupedRowsByNodeId.set(groupId, group);
+        group.rows.forEach(row => groupedRowIds.add(row.id));
+        fileNodes.push({
+          id: groupId,
+          label: `${group.rows.length} files within`,
+          group: 'row',
+          size: ROW_SIZE * Math.sqrt(group.rows.length),
+          font: { color: getTheme().rowLabel, size: ROW_FONT_SIZE, bold: true },
+          borderWidth: 1.5,
+          color: {
+            background: getTheme().rowBackground,
+            border: getTheme().rowBorder,
+            highlight: { background: getTheme().rowHoverBackground, border: getTheme().rowBorder },
+            hover: { background: getTheme().rowHoverBackground, border: getTheme().rowBorder }
+          },
+          title: `<b>${group.rows.length} files within</b><br>Connected facets: ${group.facetIds.map(facetLabel).map(escapeHtml).join(', ')}`
+        });
+
+        group.facetIds.forEach(fid => {
+          edges.push({
+            from: groupId,
+            to: fid,
+            width: selectedFacetIds.has(fid) ? 3 : 1.2,
+            color: selectedFacetIds.has(fid) ? { color: getTheme().edgeSelected } : { color: getTheme().edge },
+            title: `Connected facet: ${fid}`
+          });
+        });
+      });
+
+      networkRows.forEach(row => {
+        if (groupedRowIds.has(row.id)) return;
+        const highlighted = (selectedRow && selectedRow.id === row.id) || (hoveredRow && hoveredRow.id === row.id);
+        fileNodes.push({
+          id: row.id,
+          label: rowLabel(row),
+          group: 'row',
+          size: rowNodeSize(row, highlighted),
+          font: {
+            color: getTheme().rowLabel,
+            size: highlighted ? ROW_FONT_SIZE_HIGHLIGHTED : ROW_FONT_SIZE,
+            bold: highlighted
+          },
+          borderWidth: highlighted ? 3 : 1.5,
+          color: highlighted
+            ? {
+                background: getTheme().rowSelectedBackground,
+                border: getTheme().rowSelectedBorder,
+                highlight: { background: getTheme().rowSelectedBackground, border: getTheme().rowSelectedBorder },
+                hover: { background: getTheme().rowHoverBackground, border: getTheme().rowSelectedBorder }
+              }
+            : {
+                background: getTheme().rowBackground,
+                border: getTheme().rowBorder,
+                highlight: { background: getTheme().rowHoverBackground, border: getTheme().rowSelectedBorder },
+                hover: { background: getTheme().rowHoverBackground, border: getTheme().rowBorder }
+              },
+          shadow: highlighted ? {
+            enabled: true,
+            color: getTheme().detailHighlight,
+            size: 10,
+            x: 0,
+            y: 0
+          } : false,
+          title: [
+            `<b>Item name:</b> ${escapeHtml(row.title || row.id)}`,
+            row.display_date ? `<b>Dates:</b> ${escapeHtml(row.display_date)}` : '<b>Dates:</b> undated',
+            row.scope_content ? `<b>Scope content:</b> ${escapeHtml(row.scope_content)}` : '',
+            row.physical_desc ? `<b>Physical desc:</b> ${escapeHtml(row.physical_desc)}` : ''
+          ].filter(Boolean).join('<br>')
+        });
+      });
+
+      const nodes = fileNodes.concat(facetNodes);
+      networkRows.forEach(row => {
+        if (groupedRowIds.has(row.id)) return;
+        (rowFacetTargets.get(row.id) || []).forEach(fid => {
+          edges.push({
+            from: row.id,
+            to: fid,
+            width: selectedFacetIds.has(fid) ? 3 : 1.2,
+            color: selectedFacetIds.has(fid) ? { color: getTheme().edgeSelected } : { color: getTheme().edge },
+            title: `Connected facet: ${fid}`
+          });
+        });
+      });
+
+      const containmentLinks = keywordSpotlighted
+        ? HIERARCHICAL_FACETS
+          .map(facet => ({ from: facet.id, to: PRIMARY_HIERARCHY_PARENT_BY_ID.get(facet.id) }))
+          .filter(link => link.to)
+        : FACET_CONTAINMENT_LINKS;
+      containmentLinks.forEach(link => {
+        if (!visibleFacetSet.has(link.from) || !visibleFacetSet.has(link.to)) return;
+        const child = FACETS_BY_ID.get(link.from);
+        const parent = FACETS_BY_ID.get(link.to);
+        if (!child || !parent) return;
+
+        edges.push({
+          from: link.from,
+          to: link.to,
+          arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+          dashes: [8, 5],
+          width: 2.2,
+          color: { color: getTheme().containmentEdge, opacity: 0.8 },
+          title: `<b>${keywordSpotlighted ? 'Hierarchy containment' : 'Facet subset'}</b><br>Contained by: ${escapeHtml(parent.label)}<br>${child.count} files`
+        });
+      });
+
+      getActiveFacets().filter(facet => facet.kind === 'keyword').forEach(keywordFacet => {
+        (keywordFacet.matched_hierarchy_ids || []).forEach(hierarchyId => {
+          if (!visibleFacetSet.has(keywordFacet.id) || !visibleFacetSet.has(hierarchyId)) return;
+          const hierarchyFacet = FACETS_BY_ID.get(hierarchyId);
+          if (!hierarchyFacet) return;
+
+          edges.push({
+            from: keywordFacet.id,
+            to: hierarchyId,
+            arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+            dashes: [4, 4],
+            width: 2,
+            color: { color: getTheme().keywordFacetBorder, opacity: 0.85 },
+            title: `<b>Keyword match</b><br>${escapeHtml(keywordFacet.label)} appears in ${escapeHtml(hierarchyFacet.label)}`
+          });
+        });
+      });
+
+      return { nodes, edges };
+    }
+
+    function getCurrentDetailRow() {
+      return ROWS.find(r => r.id === selectedRowId) || ROWS.find(r => r.id === hoveredRowId) || null;
+    }
+
+    function renderDetailPanel() {
+      const groupedNode = selectedRowId ? null : groupedRowsByNodeId.get(hoveredGroupNodeId);
+      if (groupedNode) {
+        detailPanel.classList.remove('empty');
+        detailPanel.innerHTML = `
+          <div class="detail-row"><span class="detail-label">Files within:</span> <span class="detail-value">${groupedNode.rows.length}</span></div>
+          <div class="detail-row"><span class="detail-label">Connected facets:</span> <span class="detail-value">${groupedNode.facetIds.map(facetLabel).map(escapeHtml).join(', ')}</span></div>
+        `;
+        return;
+      }
+
+      const row = getCurrentDetailRow();
+      if (!row) {
+        detailPanel.classList.add('empty');
+        detailPanel.innerHTML = 'Hover or click a file node or row to preview details.';
+        return;
+      }
+
+      const relatedHierarchy = (row.facets || [])
+        .filter(fid => FACETS_BY_ID.get(fid)?.kind === 'hierarchy')
+        .map(fid => ({ id: fid, label: facetLabel(fid) }));
+      const activeKeywordFacetIds = new Set(
+        getActiveFacets()
+          .filter(facet => facet.kind === 'keyword')
+          .map(facet => facet.id)
+      );
+      const relatedKeywords = (row.facets || [])
+        .filter(fid => activeKeywordFacetIds.has(fid))
+        .map(fid => ({ id: fid, label: facetLabel(fid) }));
+
+      detailPanel.classList.remove('empty');
+      detailPanel.innerHTML = `
+        <div class="detail-row"><span class="detail-label">Item name:</span> <span class="detail-value">${escapeHtml(row.title || row.id)}</span></div>
+        <div class="detail-row"><span class="detail-label">Dates:</span> <span class="detail-value">${escapeHtml(row.display_date || 'undated')}</span></div>
+        <div class="detail-row"><span class="detail-label">Container instance:</span> <span class="detail-value">${escapeHtml(row.container_instance || '—')}</span></div>
+        ${(row.extents || []).length ? `<div class="detail-row"><span class="detail-label">Extents:</span> <span class="detail-value">${escapeHtml(row.extents.join('; '))}</span></div>` : ''}
+        ${row.general_note ? `<div class="detail-row"><span class="detail-label">General note:</span> <span class="detail-value">${escapeHtml(row.general_note)}</span></div>` : ''}
+        ${row.scope_content ? `<div class="detail-row"><span class="detail-label">Scope and content:</span> <span class="detail-value">${escapeHtml(row.scope_content)}</span></div>` : ''}
+        <div class="detail-related">
+          <div class="detail-related-title">Hierarchy</div>
+          ${relatedHierarchy.length ? `<div class="detail-facet-list detail-hierarchy-path">${relatedHierarchy.map((f, index) => `${index ? '<span class="detail-hierarchy-separator" aria-hidden="true">&gt;</span>' : ''}<button type="button" class="detail-facet-chip ${selectedFacetIds.has(f.id) ? 'selected' : ''}" data-related-facet="${escapeHtml(f.id)}">${escapeHtml(f.label)}</button>`).join('')}</div>` : '<div class="detail-row"><span class="detail-value">No hierarchy assigned.</span></div>'}
+          <div class="detail-related-title">Keyword facets</div>
+          ${relatedKeywords.length ? `<div class="detail-facet-list">${relatedKeywords.map(f => `<button type="button" class="detail-facet-chip ${selectedFacetIds.has(f.id) ? 'selected' : ''}" data-related-facet="${escapeHtml(f.id)}">${escapeHtml(f.label)}</button>`).join('')}</div>` : '<div class="detail-row"><span class="detail-value">No keyword facets.</span></div>'}
+        </div>
+      `;
+
+      detailPanel.querySelectorAll('[data-related-facet]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const fid = btn.dataset.relatedFacet;
+          hoveredGroupNodeId = null;
+          toggleFacetSelection(fid);
+          render();
+        });
+      });
+    }
+
+    function networkNodeIdForRow(rowId) {
+      for (const [groupId, group] of groupedRowsByNodeId) {
+        if (group.rows.some(row => row.id === rowId)) return groupId;
+      }
+      return rowId;
+    }
+
+    function spotlightNetworkRow(rowId) {
+      if (rowHoverNetworkSelection === null) {
+        rowHoverNetworkSelection = network.getSelectedNodes();
+      }
+      network.selectNodes([networkNodeIdForRow(rowId)]);
+    }
+
+    function clearNetworkRowSpotlight() {
+      if (rowHoverNetworkSelection === null) return;
+      network.selectNodes(rowHoverNetworkSelection);
+      rowHoverNetworkSelection = null;
+    }
+
+    function selectSpotlightRow(rowId, focus = false) {
+      clearNetworkRowSpotlight();
+      hoveredGroupNodeId = null;
+      selectedRowId = rowId;
+      hoveredRowId = rowId;
+
+      const nodeId = networkNodeIdForRow(rowId);
+      network.selectNodes([nodeId]);
+      if (focus) network.focus(nodeId, { scale: 1.2, animation: true });
+
+      rowList.querySelectorAll('[data-row-id]').forEach(btn => {
+        btn.classList.toggle('selected', btn.dataset.rowId === rowId);
+      });
+      renderDetailPanel();
+    }
+
+    function renderFacetList(rows) {
+      const counts = buildFacetCounts(rows);
+      const keywordSpotlighted = hasKeywordSpotlight();
+      const hasMatchingFiles = facet => selectedFacetIds.has(facet.id) || (counts.get(facet.id) || 0) > 0;
+      const childrenByParent = HIERARCHY_CHILDREN_BY_PARENT;
+      const rootFacets = [];
+
+      HIERARCHICAL_FACETS.forEach(facet => {
+        if (!PRIMARY_HIERARCHY_PARENT_BY_ID.has(facet.id) && hasMatchingFiles(facet)) rootFacets.push(facet);
+      });
+
+      function renderFacet(facet) {
+        const selected = selectedFacetIds.has(facet.id);
+        const children = (childrenByParent.get(facet.id) || [])
+          .map(facetId => FACETS.find(candidate => candidate.id === facetId))
+          .filter(child => child && hasMatchingFiles(child));
+        const canCollapse = children.length > 0;
+        const isExpanded = expandedHierarchyFacetIds.has(facet.id);
+        const alternateParents = (HIERARCHY_PARENTS_BY_CHILD.get(facet.id) || [])
+          .filter(parentId => parentId !== PRIMARY_HIERARCHY_PARENT_BY_ID.get(facet.id))
+          .map(facetLabel);
+        const primaryParentId = PRIMARY_HIERARCHY_PARENT_BY_ID.get(facet.id);
+        const tooltip = primaryParentId
+          ? `Contained by ${facetLabel(primaryParentId)}${alternateParents.length ? `; also contained by ${alternateParents.join(', ')}` : ''}`
+          : '';
+        const classes = ['facet-pill'];
+        if (facet.kind === 'keyword') classes.push('keyword-facet');
+        if (selected) classes.push('selected');
+        if (children.length) classes.push('has-subsidiaries');
+
+        return `
+          <div class="facet-group">
+            <div class="facet-header-row">
+              <button type="button" class="${classes.join(' ')}" data-facet-id="${facet.id}"${tooltip ? ` title="${escapeHtml(tooltip)}"` : ''}>
+                <span class="facet-label">${escapeHtml(facet.label)}</span>
+                <span class="count">${counts.get(facet.id) || 0}</span>
+              </button>
+              ${canCollapse ? `<button type="button" class="facet-collapse-toggle" data-collapse-facet="${escapeHtml(facet.id)}" aria-label="${isExpanded ? 'Collapse' : 'Expand'} ${escapeHtml(facet.label)}" aria-expanded="${isExpanded}" title="${isExpanded ? 'Collapse' : 'Expand'} subsidiary facets"><span class="facet-collapse-chevron" aria-hidden="true"></span></button>` : ''}
+            </div>
+            ${canCollapse && isExpanded ? `<div class="facet-children">${children.map(child => renderFacet(child)).join('')}</div>` : ''}
+          </div>
+        `;
+      }
+
+      const facetButton = facet => {
+        const count = counts.get(facet.id) || 0;
+        const countLabel = keywordSpotlighted ? `${count} (of ${facet.count})` : count;
+        const active = !inactiveKeywordFacetIds.has(facet.id);
+        return `
+          <div class="keyword-facet-row">
+            <button type="button" class="facet-pill keyword-facet ${active ? '' : 'inactive'} ${selectedFacetIds.has(facet.id) ? 'selected' : ''}" data-facet-id="${escapeHtml(facet.id)}" ${active ? '' : 'disabled'}>
+              <span class="facet-label">${escapeHtml(facet.label)}</span>
+              <span class="count">${countLabel}</span>
+            </button>
+            <label class="facet-active-toggle" title="Include this keyword in the network and file spotlights">
+              <input type="checkbox" role="switch" data-keyword-active-id="${escapeHtml(facet.id)}" aria-label="Show ${escapeHtml(facet.label)} in the network and file spotlights" ${active ? 'checked' : ''}>
+            </label>
+          </div>
+        `;
+      };
+
+      hierarchyFacetList.innerHTML = rootFacets.map(facet => renderFacet(facet)).join('');
+      const keywordFacets = getKeywordFacetsAboveThreshold()
+        .filter(facet => hasMatchingFiles(facet))
+        .sort((a, b) => {
+          const alphabeticalOrder = a.label.localeCompare(b.label);
+          if (keywordFacetSort.checked) {
+            return (counts.get(b.id) || 0) - (counts.get(a.id) || 0) || alphabeticalOrder;
+          }
+          return alphabeticalOrder;
+        });
+      keywordFacetCount.textContent = keywordFacets.length;
+      keywordSortAlphabetical.classList.toggle('active', !keywordFacetSort.checked);
+      keywordSortConnections.classList.toggle('active', keywordFacetSort.checked);
+      keywordFacetList.innerHTML = keywordFacets.length
+        ? keywordFacets.map(facet => facetButton(facet)).join('')
+        : '<div class="detail-panel empty">No keyword facets match the current spotlight.</div>';
+
+      [hierarchyFacetList, keywordFacetList].forEach(list => {
+        list.querySelectorAll('[data-facet-id]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const fid = btn.dataset.facetId;
+            toggleFacetSelection(fid);
+            selectedRowId = null;
+            hoveredRowId = null;
+            render();
+          });
+        });
+      });
+
+      hierarchyFacetList.querySelectorAll('[data-collapse-facet]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const facetId = btn.dataset.collapseFacet;
+          if (expandedHierarchyFacetIds.has(facetId)) {
+            expandedHierarchyFacetIds.delete(facetId);
+          } else {
+            expandedHierarchyFacetIds.add(facetId);
+          }
+          renderFacetList(getVisibleRows());
+        });
+      });
+
+      keywordFacetList.querySelectorAll('[data-keyword-active-id]').forEach(input => {
+        input.addEventListener('change', () => {
+          const facetId = input.dataset.keywordActiveId;
+          if (input.checked) {
+            inactiveKeywordFacetIds.delete(facetId);
+          } else {
+            inactiveKeywordFacetIds.add(facetId);
+            selectedFacetIds.delete(facetId);
+          }
+          try {
+            localStorage.setItem(
+              KEYWORD_INACTIVE_FACETS_KEY,
+              JSON.stringify(Array.from(inactiveKeywordFacetIds))
+            );
+          } catch (e) {
+            console.warn('Unable to save keyword facet states.', e);
+          }
+          render();
+        });
+      });
+
+      clearFacets.disabled = selectedFacetIds.size === 0;
+    }
+
+    function renderRowList(rows, matchingRowCount = rows.length) {
+      const hiddenRowCount = matchingRowCount - rows.length;
+      rowCount.textContent = hiddenRowCount > 0
+        ? `${rows.length} shown, ${hiddenRowCount} hidden in collapsed facets`
+        : `${rows.length} matching row${rows.length === 1 ? '' : 's'}`;
+      emptyState.style.display = rows.length ? 'none' : 'block';
+      emptyState.textContent = matchingRowCount
+        ? 'Matching files are hidden under collapsed facets.'
+        : 'No rows match the current selection.';
+
+      const renderRow = row => {
+        const selected = row.id === selectedRowId;
+        const matched = row.facets.filter(fid => selectedFacetIds.has(fid)).join(', ');
+        return `
+          <button type="button" class="sidebar-item ${selected ? 'selected' : ''}" data-row-id="${row.id}">
+            <span class="row-id">${escapeHtml(row.title || row.id)}</span>
+            <div class="row-date">${escapeHtml(row.display_date || 'undated')}</div>
+            ${row.box ? `<div class="row-box">${escapeHtml(row.box)}</div>` : ''}
+            ${matched ? `<div class="row-match">Matches: ${escapeHtml(matched)}</div>` : ''}
+          </button>
+        `;
+      };
+
+      if (hasKeywordSpotlight() && rows.length) {
+        const selectedKeywordFacets = Array.from(selectedFacetIds)
+          .map(facetId => FACETS_BY_ID.get(facetId))
+          .filter(facet => facet?.kind === 'keyword');
+        const fileLevelRowIds = new Set(
+          selectedKeywordFacets.flatMap(facet => facet.direct_file_row_ids || [])
+        );
+        selectedKeywordFacets.forEach(facet => {
+          if ((facet.matched_hierarchy_ids || []).length) return;
+          rows.forEach(row => {
+            if (row.facets.includes(facet.id)) fileLevelRowIds.add(row.id);
+          });
+        });
+
+        const hierarchyMatchesByRowId = new Map();
+        selectedKeywordFacets.forEach(facet => {
+          (facet.matched_hierarchy_ids || []).forEach(hierarchyId => {
+            rows.forEach(row => {
+              if (
+                !fileLevelRowIds.has(row.id) &&
+                row.facets.includes(facet.id) &&
+                row.facets.includes(hierarchyId)
+              ) {
+                if (!hierarchyMatchesByRowId.has(row.id)) {
+                  hierarchyMatchesByRowId.set(row.id, new Set());
+                }
+                hierarchyMatchesByRowId.get(row.id).add(hierarchyId);
+              }
+            });
+          });
+        });
+
+        const hierarchyRows = new Map();
+        const fileLevelRows = [];
+        rows.forEach(row => {
+          const hierarchyIds = Array.from(hierarchyMatchesByRowId.get(row.id) || []);
+          if (!hierarchyIds.length) {
+            fileLevelRows.push(row);
+            return;
+          }
+
+          hierarchyIds.sort((a, b) => getHierarchyPath(b).length - getHierarchyPath(a).length);
+          const hierarchyId = hierarchyIds[0];
+          if (!hierarchyRows.has(hierarchyId)) hierarchyRows.set(hierarchyId, []);
+          hierarchyRows.get(hierarchyId).push(row);
+        });
+
+        const hierarchyGroups = Array.from(hierarchyRows, ([hierarchyId, groupRows]) => ({
+          hierarchyId,
+          rows: groupRows,
+          path: getHierarchyPath(hierarchyId).map(facetLabel).join(' > ')
+        })).sort((a, b) => a.path.localeCompare(b.path));
+        rowList.innerHTML = `
+          <details class="related-match-group" open>
+            <summary><span>File-level matches</span><span class="related-match-count">${fileLevelRows.length}</span></summary>
+            <div class="related-match-items">${fileLevelRows.length
+              ? fileLevelRows.map(renderRow).join('')
+              : '<div class="detail-panel empty">No file-level matches.</div>'}</div>
+          </details>
+          ${hierarchyGroups.map(group => `
+            <details class="related-match-group">
+              <summary><span>${escapeHtml(group.path)}</span><span class="related-match-count">${group.rows.length}</span></summary>
+              <div class="related-match-items">${group.rows.map(renderRow).join('')}</div>
+            </details>
+          `).join('')}
+        `;
+      } else if (hasHierarchySpotlight() && rows.length) {
+        const selectedHierarchyFacets = Array.from(selectedFacetIds)
+          .map(facetId => FACETS_BY_ID.get(facetId))
+          .filter(facet => facet?.kind === 'hierarchy');
+        const hierarchyRows = new Map();
+        rows.forEach(row => {
+          const matchingHierarchyFacets = selectedHierarchyFacets
+            .filter(facet => row.facets.includes(facet.id))
+            .sort((a, b) => getHierarchyPath(b.id).length - getHierarchyPath(a.id).length);
+          const hierarchyFacet = matchingHierarchyFacets[0];
+          if (!hierarchyFacet) return;
+          if (!hierarchyRows.has(hierarchyFacet.id)) hierarchyRows.set(hierarchyFacet.id, []);
+          hierarchyRows.get(hierarchyFacet.id).push(row);
+        });
+
+        const hierarchyGroups = Array.from(hierarchyRows, ([hierarchyId, groupRows]) => ({
+          hierarchyId,
+          rows: groupRows,
+          path: getHierarchyPath(hierarchyId).map(facetLabel).join(' > ')
+        })).sort((a, b) => a.path.localeCompare(b.path));
+        rowList.innerHTML = hierarchyGroups.map(group => `
+          <details class="related-match-group" open>
+            <summary><span>${escapeHtml(group.path)}</span><span class="related-match-count">${group.rows.length}</span></summary>
+            <div class="related-match-items">${group.rows.map(renderRow).join('')}</div>
+          </details>
+        `).join('');
+      } else {
+        rowList.innerHTML = rows.map(renderRow).join('');
+      }
+
+      rowList.querySelectorAll('[data-row-id]').forEach(btn => {
+        const rowId = btn.dataset.rowId;
+        btn.addEventListener('mouseenter', () => {
+          hoveredGroupNodeId = null;
+          hoveredRowId = rowId;
+          spotlightNetworkRow(rowId);
+          renderDetailPanel();
+        });
+        btn.addEventListener('click', () => {
+          selectSpotlightRow(rowId, true);
+        });
+      });
+    }
+
+    function render() {
+      applyTheme(theme, false);
+      const timelineOn = timelineToggle.checked && !!slider.noUiSlider;
+      const { startDate, endDate } = currentRange();
+      const timelineRows = getTimelineRows();
+      const matchingRows = getVisibleRows();
+      const visibleRows = getRowsInExpandedBranches(matchingRows);
+
+      if (selectedRowId && !matchingRows.some(r => r.id === selectedRowId)) selectedRowId = null;
+      if (hoveredRowId && !matchingRows.some(r => r.id === hoveredRowId)) hoveredRowId = null;
+
+      renderFacetList(matchingRows);
+      renderRowList(hasKeywordSpotlight() ? matchingRows : visibleRows, matchingRows.length);
+
+      const data = buildNetworkData(visibleRows, matchingRows);
+      if (!groupedRowsByNodeId.has(hoveredGroupNodeId)) hoveredGroupNodeId = null;
+      clearNetworkRowSpotlight();
+      network.setData({
+        nodes: new vis.DataSet(data.nodes),
+        edges: new vis.DataSet(data.edges)
+      });
+      renderDetailPanel();
+
+      if (!timelineOn) {
+        rangeText.innerHTML = selectedFacetIds.size
+          ? `Timeline disabled - spotlighting <span class="facet-spotlight">${Array.from(selectedFacetIds).join(', ')}</span>.`
+          : 'Timeline disabled - showing everything, including records without dates.';
+      } else {
+        rangeText.innerHTML = selectedFacetIds.size
+          ? `Timeline enabled - ${startDate} to ${endDate} - spotlighting <span class="facet-spotlight">${Array.from(selectedFacetIds).join(', ')}</span>.`
+          : `Timeline enabled - showing records active from ${startDate} to ${endDate}.`;
+      }
+    }
+
+    network.on('click', function(params) {
+      if (params.nodes.length === 1) {
+        const clickedId = params.nodes[0];
+        if (groupedRowsByNodeId.has(clickedId)) {
+          const groupedNode = groupedRowsByNodeId.get(clickedId);
+          selectedFacetIds.clear();
+          expandedTopLevelFacetIds.clear();
+          expandedHierarchyFacetIds.clear();
+          groupedNode.facetIds.forEach(facetId => {
+            selectedFacetIds.add(facetId);
+            expandHierarchyFacet(facetId);
+            const rootId = TOP_LEVEL_FACET_ID_BY_ID.get(facetId);
+            if (COLLAPSIBLE_ROOT_FACET_IDS.has(rootId)) expandedTopLevelFacetIds.add(rootId);
+          });
+          selectedRowId = null;
+          hoveredRowId = null;
+          hoveredGroupNodeId = clickedId;
+          render();
+          return;
+        }
+        const isFacet = getActiveFacets().some(f => f.id === clickedId);
+        if (isFacet) {
+          toggleFacetSelection(clickedId);
+          selectedRowId = null;
+          hoveredRowId = null;
+          hoveredGroupNodeId = null;
+          render();
+          return;
+        }
+
+        selectSpotlightRow(clickedId);
+        return;
+      }
+
+      if (params.nodes.length === 0 && params.edges.length === 0) {
+        if (!selectedFacetIds.size && !expandedTopLevelFacetIds.size && !expandedHierarchyFacetIds.size) return;
+        selectedFacetIds.clear();
+        expandedTopLevelFacetIds.clear();
+        expandedHierarchyFacetIds.clear();
+        selectedRowId = null;
+        hoveredRowId = null;
+        hoveredGroupNodeId = null;
+        render();
+      }
+    });
+
+    network.on('hoverNode', function(params) {
+      const hoveredId = params.node;
+      const isFacet = getActiveFacets().some(f => f.id === hoveredId);
+      if (groupedRowsByNodeId.has(hoveredId)) {
+        hoveredGroupNodeId = hoveredId;
+        hoveredRowId = null;
+        renderDetailPanel();
+      } else if (!isFacet) {
+        hoveredGroupNodeId = null;
+        hoveredRowId = hoveredId;
+        renderDetailPanel();
+      }
+    });
+
+    network.on('blurNode', function(params) {
+      const blurredId = params.node;
+      if (hoveredGroupNodeId === blurredId) {
+        hoveredGroupNodeId = null;
+        renderDetailPanel();
+        return;
+      }
+      if (hoveredRowId === blurredId && selectedRowId !== blurredId) {
+        hoveredRowId = null;
+        renderDetailPanel();
+      }
+    });
+
+    if (themeToggle) {
+      themeToggle.addEventListener('change', function() {
+        applyTheme(this.checked ? 'dark' : 'light');
+        render();
+      });
+    }
+
+    settingsButton.addEventListener('click', () => {
+      const isExpanded = settingsButton.getAttribute('aria-expanded') === 'true';
+      settingsButton.setAttribute('aria-expanded', String(!isExpanded));
+      settingsPanel.hidden = isExpanded;
+    });
+
+    document.addEventListener('click', event => {
+      if (event.target instanceof Node && !settingsPanel.contains(event.target) && event.target !== settingsButton) {
+        settingsPanel.hidden = true;
+        settingsButton.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !settingsPanel.hidden) {
+        settingsPanel.hidden = true;
+        settingsButton.setAttribute('aria-expanded', 'false');
+        settingsButton.focus();
+      }
+    });
+
+    keywordMinHitsInput.addEventListener('change', () => {
+      const nextKeywordMinHits = Number(keywordMinHitsInput.value);
+      if (!Number.isSafeInteger(nextKeywordMinHits) || nextKeywordMinHits < 1) {
+        keywordMinHitsInput.setAttribute('aria-invalid', 'true');
+        keywordMinHitsError.textContent = 'Enter a whole number greater than 0.';
+        return;
+      }
+
+      keywordMinHits = nextKeywordMinHits;
+      keywordMinHitsInput.removeAttribute('aria-invalid');
+      keywordMinHitsError.textContent = '';
+      try {
+        localStorage.setItem(KEYWORD_MIN_HITS_KEY, String(keywordMinHits));
+      } catch (e) {
+        /* ignore */
+      }
+      selectedFacetIds.forEach(facetId => {
+        const facet = FACETS_BY_ID.get(facetId);
+        if (facet?.kind === 'keyword' && facet.count < keywordMinHits) {
+          selectedFacetIds.delete(facetId);
+        }
+      });
+      render();
+    });
+
+    clearFacets.addEventListener('click', function() {
+      selectedFacetIds.clear();
+      expandedTopLevelFacetIds.clear();
+      expandedHierarchyFacetIds.clear();
+      selectedRowId = null;
+      hoveredRowId = null;
+      hoveredGroupNodeId = null;
+      render();
+    });
+
+    keywordFacetSort.addEventListener('change', () => renderFacetList(getVisibleRows()));
+
+    if (slider.noUiSlider) {
+      slider.noUiSlider.on('update', render);
+    }
+
+    timelineToggle.addEventListener('change', function() {
+      slider.style.display = this.checked ? 'block' : 'none';
+      render();
+    });
+
+    timelineToggle.checked = false;
+    slider.style.display = 'none';
+    render();
+
+    let lastModified = null;
+
+    async function checkForUpdate() {
+      try {
+        const response = await fetch(window.location.href, { method: 'HEAD' });
+        const newModified = response.headers.get('Last-Modified');
+        if (lastModified && newModified !== lastModified) {
+          location.reload();
+        }
+        lastModified = newModified;
+      } catch (e) {
+        console.warn('Update check failed', e);
+      }
+    }
+
+    setInterval(checkForUpdate, 2000);
+  </script>
+
+  <div id="copyright">Rhizomatica. Copyright 2026, Evan Brandon.</div>
+</body>
+</html>
