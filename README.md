@@ -204,16 +204,16 @@ It strips XML namespaces, extracts text from relevant elements, and normalizes d
 
 ## Generate a rhizome from the website
 
-The GitHub Pages form in [index.html](./index.html) accepts a University of Michigan EAD ID. It submits to the Python API in [webapp.py](./webapp.py), which fetches the XML, runs the existing generator, and returns the rhizome HTML in a new tab. The API fetches XML server-side, so browser CORS restrictions do not apply.
+The GitHub Pages form in [index.html](./index.html) accepts an EAD XML file from the user's device. It submits the file to the Python API in [webapp.py](./webapp.py), which runs the existing generator and returns the rhizome HTML in a new tab. The file is submitted as a normal browser form, so cross-origin CORS restrictions do not apply.
 
 GitHub Pages cannot run Python, so the API needs a separate host. This repository includes a [Render blueprint](./render.yaml):
 
 1. Deploy this repository as a Blueprint on Render and create the `rhizomatica-api` web service.
 2. Copy the service URL from Render, then edit [site-config.js](./site-config.js) to set `window.RHIZOMATICA_GENERATE_URL` to that URL followed by `/generate` (for example, `https://your-service.onrender.com/generate`).
 3. Ensure GitHub Pages publishes the repository root, including `index.html`, `site.js`, and `site-config.js`.
-4. Open the Pages URL, enter an EAD ID such as `umich-bhl-8740`, and submit. The rhizome opens in a separate tab.
+4. Open the Pages URL, choose an `.xml` finding aid, and submit. The rhizome opens in a separate tab.
 
-The API only accepts IDs, not arbitrary URLs, and only fetches from `findingaids.lib.umich.edu`. Requests are time-limited, and EAD documents larger than 32 MiB are rejected.
+Uploaded files must have an `.xml` extension, contain valid EAD XML, and be no larger than 32 MiB. The API parses XML with external entities disabled.
 
 To run the API locally:
 

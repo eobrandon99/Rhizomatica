@@ -26,6 +26,6 @@
 
   form.action = generateUrl.href;
   form.addEventListener("submit", () => {
-    status.textContent = "Generating your rhizome…";
+    status.textContent = "Uploading the XML and generating your rhizome…";
   });
 })();

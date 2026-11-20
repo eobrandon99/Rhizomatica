@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Generate an interactive Rhizomatica visualization from a University of Michigan finding aid.">
+  <meta name="description" content="Generate an interactive Rhizomatica visualization from an EAD XML finding aid.">
   <title>Rhizomatica</title>
   <style>
     :root {
@@ -69,24 +69,21 @@
 <body>
   <main>
     <h1>Rhizomatica</h1>
-    <p>Explore a University of Michigan finding aid as an interactive network of records, dates, and recurring themes.</p>
-    <form id="ead-form" method="get" target="_blank" rel="noopener">
-      <label for="ead-id">EAD ID</label>
+    <p>Explore a finding aid as an interactive network of records, dates, and recurring themes.</p>
+    <form id="ead-form" method="post" enctype="multipart/form-data" target="_blank" rel="noopener">
+      <label for="ead-file">EAD XML file</label>
       <div class="entry">
         <input
-          id="ead-id"
-          name="ead_id"
-          type="text"
+          id="ead-file"
+          name="ead_file"
+          type="file"
           required
-          maxlength="128"
-          pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,127}"
-          autocomplete="off"
-          placeholder="umich-bhl-8740"
+          accept=".xml,application/xml,text/xml"
           aria-describedby="ead-example"
         >
         <button type="submit">Generate rhizome</button>
       </div>
-      <p id="ead-example" class="example">Enter the ID from the finding aid URL. The generated visualization opens in a new tab.</p>
+      <p id="ead-example" class="example">Choose an EAD XML file from your device. The visualization opens in a new tab.</p>
       <p id="status" role="status" aria-live="polite"></p>
     </form>
   </main>
