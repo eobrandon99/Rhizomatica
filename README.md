@@ -202,6 +202,28 @@ The script is tuned for archival finding aids and is aware of common EAD structu
 
 It strips XML namespaces, extracts text from relevant elements, and normalizes dates so they can be used in the interactive timeline.
 
+## Generate a rhizome from the website
+
+The GitHub Pages form in [index.html](./index.html) accepts a University of Michigan EAD ID. It submits to the Python API in [webapp.py](./webapp.py), which fetches the XML, runs the existing generator, and returns the rhizome HTML in a new tab. The API fetches XML server-side, so browser CORS restrictions do not apply.
+
+GitHub Pages cannot run Python, so the API needs a separate host. This repository includes a [Render blueprint](./render.yaml):
+
+1. Deploy this repository as a Blueprint on Render and create the `rhizomatica-api` web service.
+2. Copy the service URL from Render, then edit [site-config.js](./site-config.js) to set `window.RHIZOMATICA_GENERATE_URL` to that URL followed by `/generate` (for example, `https://your-service.onrender.com/generate`).
+3. Ensure GitHub Pages publishes the repository root, including `index.html`, `site.js`, and `site-config.js`.
+4. Open the Pages URL, enter an EAD ID such as `umich-bhl-8740`, and submit. The rhizome opens in a separate tab.
+
+The API only accepts IDs, not arbitrary URLs, and only fetches from `findingaids.lib.umich.edu`. Requests are time-limited, and EAD documents larger than 32 MiB are rejected.
+
+To run the API locally:
+
+```bash
+python -m pip install -r requirements.txt
+uvicorn webapp:app --reload
+```
+
+Set `window.RHIZOMATICA_GENERATE_URL` in [site-config.js](./site-config.js) to `http://127.0.0.1:8000/generate` for local testing.
+
 ## Troubleshooting
 
 ### No files were found

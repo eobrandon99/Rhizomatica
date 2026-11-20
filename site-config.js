@@ -1,0 +1,1 @@
+window.RHIZOMATICA_GENERATE_URL = "";
