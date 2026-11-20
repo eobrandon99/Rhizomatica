@@ -1,1 +1,1 @@
-window.RHIZOMATICA_GENERATE_URL = "https://rhizomatica-api.onrender.com/generate";
+window.RHIZOMATICA_GENERATE_URL = "https://rhizomatica-api.onrender.com/generate"
