@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Generate an interactive Rhizomatica visualization from an EAD XML finding aid.">
+  <title>Rhizomatica</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #202820;
+      background: #f3f5f0;
+    }
+    body {
+      display: grid;
+      min-height: 100vh;
+      margin: 0;
+      place-items: center;
+    }
+    main {
+      box-sizing: border-box;
+      width: min(100% - 2rem, 42rem);
+      padding: clamp(1.5rem, 6vw, 3.5rem);
+      background: #fff;
+      border: 1px solid #d9e0d5;
+      border-radius: 1rem;
+      box-shadow: 0 1rem 3rem #20282012;
+    }
+    h1 { margin-top: 0; font-size: clamp(2rem, 6vw, 3rem); }
+    p { line-height: 1.6; }
+    label { display: block; margin: 1.75rem 0 .5rem; font-weight: 700; }
+    .entry {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .75rem;
+    }
+    input, button {
+      box-sizing: border-box;
+      min-height: 3rem;
+      border-radius: .4rem;
+      font: inherit;
+    }
+    input {
+      flex: 1 1 16rem;
+      min-width: 0;
+      padding: .65rem .8rem;
+      border: 1px solid #899487;
+    }
+    button {
+      padding: .65rem 1rem;
+      border: 0;
+      background: #315d3b;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:hover { background: #24482d; }
+    input:focus-visible, button:focus-visible {
+      outline: 3px solid #9bbd82;
+      outline-offset: 2px;
+    }
+    #status { min-height: 1.5em; margin-bottom: 0; }
+    .example { color: #526052; font-size: .9rem; }
+  </style>
+  <script src="./site-config.js"></script>
+  <script defer src="./site.js"></script>
+</head>
+<body>
+  <main>
+    <h1>Rhizomatica</h1>
+    <p>Explore a finding aid as an interactive network of records, dates, and recurring themes.</p>
+    <form id="ead-form" method="post" enctype="multipart/form-data" target="_blank" rel="noopener">
+      <label for="ead-file">EAD XML file</label>
+      <div class="entry">
+        <input
+          id="ead-file"
+          name="ead_file"
+          type="file"
+          required
+          accept=".xml,application/xml,text/xml"
+          aria-describedby="ead-example"
+        >
+        <button type="submit">Generate rhizome</button>
+      </div>
+      <p id="ead-example" class="example">Choose an EAD XML file from your device. The visualization opens in a new tab.</p>
+      <p id="status" role="status" aria-live="polite"></p>
+    </form>
+  </main>
+</body>
+</html>

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import calendar
+from html import escape as escape_html
 import json
 import math
 import re
@@ -3614,11 +3615,20 @@ def build_html(collection_title, rows, facets, default_min_keyword_hits=None):
     if default_min_keyword_hits is None:
         default_min_keyword_hits = default_keyword_min_hits(facets)
     dates = sorted({d for row in rows for d in [row['begin'], row['end']] if d})
-    html = HTML_TEMPLATE.replace("__TITLE__", collection_title)
-    html = html.replace("__ROWS__", json.dumps(rows, ensure_ascii=False))
-    html = html.replace("__FACETS__", json.dumps(facets, ensure_ascii=False))
+
+    def script_json(value):
+        return (
+            json.dumps(value, ensure_ascii=False)
+            .replace("&", "\\u0026")
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+        )
+
+    html = HTML_TEMPLATE.replace("__TITLE__", escape_html(collection_title))
+    html = html.replace("__ROWS__", script_json(rows))
+    html = html.replace("__FACETS__", script_json(facets))
     html = html.replace("__DEFAULT_KEYWORD_MIN_HITS__", str(default_min_keyword_hits))
-    html = html.replace("__DATES__", json.dumps(dates, ensure_ascii=False))
+    html = html.replace("__DATES__", script_json(dates))
     return html
 
 
