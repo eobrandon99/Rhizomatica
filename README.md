@@ -2,7 +2,7 @@
 
 Rhizomatica is a cross-platform Python desktop app for turning EAD XML finding aids into interactive, multi-facet archival visualizations. It extracts collection hierarchy, dates, and recurring keywords, then creates a browsable network of records and themes.
 
-The desktop app processes files on your computer without uploading them to a service. Its native GUI lets you choose a finding aid, edit configuration, and generate a visualization. Generated visualizations are HTML files opened in the default browser.
+Its native GUI lets you choose a finding aid, edit configuration, and generate a visualization. Generated visualizations are HTML files opened in the default browser.
 
 ## Features
 
@@ -11,7 +11,6 @@ The desktop app processes files on your computer without uploading them to a ser
 - Timeline filtering and file details
 - Keyword extraction from titles, notes, and scope/content text
 - Direct editing of configuration in the desktop app
-- Local EAD processing with no application server
 
 ## Run from source
 

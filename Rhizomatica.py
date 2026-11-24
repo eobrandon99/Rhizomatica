@@ -53,13 +53,12 @@ DEFAULT_CONFIG = {
 STOPWORDS = frozenset(
     """
     a an the and or but if then than so of in on at by for to from with
-    as is are was were be been being this that these those it its their
-    his her you your our we they he she i not no nor too very can will
+    as is are was were be been being this that these those i not no nor too very can will
     just should now into during about above below between after before
     over under again further once here there when where why how all any
     both each few more most other some such only own same other include includes also see consists consist related relates
     material materials series sub-series sub additionally moreover beyond circa included many specifically specific et al
-    i ii iii iv v vi vii viii ix x xi xii xiii xiv xv xvi xvii xviii xix xx etc
+    i ii iii iv v vi vii viii ix x xi xii xiii xiv xv xvi xvii xviii xix xx etc misc miscellaneous
     vol
     """.split()
 )
@@ -1340,10 +1339,50 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     }
     #container {
       grid-area: network;
+      position: relative;
       width: 100%;
       height: 100%;
       min-width: 0;
       min-height: 0;
+    }
+    #networkLoading {
+      position: absolute;
+      z-index: 2;
+      top: 14px;
+      left: 50%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.94);
+      color: #1f2937;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+    #networkLoading[hidden] {
+      display: none;
+    }
+    .network-loading-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid #cbd5e1;
+      border-top-color: #2563eb;
+      border-radius: 50%;
+      animation: network-loading-spin 0.8s linear infinite;
+    }
+    @keyframes network-loading-spin {
+      to { transform: rotate(360deg); }
+    }
+    body[data-theme="dark"] #networkLoading {
+      background: rgba(15,23,42,0.96);
+      border-color: #475569;
+      color: #e5e7eb;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .network-loading-spinner { animation: none; }
     }
     #facetHeader, #rowHeader, #detailHeader, #timelineHeader {
       font-size: 13px;
@@ -2086,7 +2125,12 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       <div id="rangeText">Timeline disabled - showing everything, including records without dates.</div>
     </section>
 
-    <div id="container"></div>
+    <div id="container">
+      <div id="networkLoading" role="status" aria-live="polite" hidden>
+        <span class="network-loading-spinner" aria-hidden="true"></span>
+        <span>Updating network...</span>
+      </div>
+    </div>
 
     <aside id="rightSidebar">
       <section id="rowSidebar">
@@ -2134,6 +2178,23 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     const rowCount = document.getElementById('rowCount');
     const emptyState = document.getElementById('emptyState');
     const detailPanel = document.getElementById('detailPanel');
+    const networkLoading = document.getElementById('networkLoading');
+    let networkRenderId = 0;
+    let networkRenderStartedAt = 0;
+
+    function showNetworkLoading() {
+      networkRenderId += 1;
+      networkRenderStartedAt = performance.now();
+      networkLoading.hidden = false;
+    }
+
+    function hideNetworkLoading() {
+      const renderId = networkRenderId;
+      const remainingTime = Math.max(0, 200 - (performance.now() - networkRenderStartedAt));
+      window.setTimeout(() => {
+        if (renderId === networkRenderId) networkLoading.hidden = true;
+      }, remainingTime);
+    }
 
     const options = {
       interaction: { hover: true },
@@ -2185,6 +2246,8 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
     let networkNodeDataSet = new vis.DataSet();
     const network = new vis.Network(container, { nodes: networkNodeDataSet, edges: [] }, options);
+    container.appendChild(networkLoading);
+    network.on('stabilizationIterationsDone', hideNetworkLoading);
     let spotlightAnimationPin = null;
     let spotlightFocusAnimating = false;
 
@@ -3393,6 +3456,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     }
 
     function render() {
+      showNetworkLoading();
       applyTheme(theme, false);
       const timelineOn = timelineToggle.checked && !!slider.noUiSlider;
       const { startDate, endDate } = currentRange();
