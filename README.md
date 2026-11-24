@@ -21,6 +21,8 @@ The output is a standalone HTML page that can be opened locally in a browser wit
 Rhizomatica/
 ├── Rhizomatica_v7.py          # Main application entry point
 ├── config.json                # Default keyword and redundancy settings
+├── index.html                 # Browser-based EAD generator
+├── site.js                    # Client-side GUI and generator integration
 ├── input/                     # Source EAD XML files
 ├── output/                    # Generated rhizome HTML files
 ├── lib/                       # Front-end dependencies used by generated pages
@@ -206,25 +208,11 @@ It strips XML namespaces, extracts text from relevant elements, and normalizes d
 
 ## Generate a rhizome from the website
 
-The GitHub Pages form in [index.html](./index.html) accepts an EAD XML file from the user's device. It submits the file to the Python API in [webapp.py](./webapp.py), which runs the existing generator and returns the rhizome HTML in a new tab. The file is submitted as a normal browser form, so cross-origin CORS restrictions do not apply.
+The browser app in [index.html](./index.html) accepts an EAD XML file and runs the existing Python generator locally using Pyodide. The EAD file is not sent to a server. On first use, the browser downloads Pyodide from jsDelivr and the generator source from this repository; the generated rhizome can then be opened in a new tab or downloaded as a standalone HTML file.
 
-GitHub Pages cannot run Python, so the API needs a separate host. This repository includes a [Render blueprint](./render.yaml):
+To publish the app, configure GitHub Pages to serve the repository root and open its Pages URL. For local testing, serve the repository root with any static HTTP server (the browser needs to fetch `config.json` and the Python source); no Python API or separate application host is required.
 
-1. Deploy this repository as a Blueprint on Render and create the `rhizomatica-api` web service.
-2. Copy the service URL from Render, then edit [site-config.js](./site-config.js) to set `window.RHIZOMATICA_GENERATE_URL` to that URL followed by `/generate` (for example, `https://your-service.onrender.com/generate`).
-3. Ensure GitHub Pages publishes the repository root, including `index.html`, `site.js`, and `site-config.js`.
-4. Open the Pages URL, choose an `.xml` finding aid, and submit. The rhizome opens in a separate tab.
-
-Uploaded files must have an `.xml` extension, contain valid EAD XML, and be no larger than 32 MiB. The API parses XML with external entities disabled.
-
-To run the API locally:
-
-```bash
-python -m pip install -r requirements.txt
-uvicorn webapp:app --reload
-```
-
-Set `window.RHIZOMATICA_GENERATE_URL` in [site-config.js](./site-config.js) to `http://127.0.0.1:8000/generate` for local testing.
+Choose **Settings** in the app to change `facet_redundancy_ratio` and `finding_aid_url_base`. Settings are saved in the current browser and applied to future generations. Use **Download config.json** to export the current settings for the command-line app, or **Reset defaults** to restore the repository's [config.json](./config.json). EAD files must have an `.xml` extension, be valid EAD XML, and be no larger than 32 MiB. DTD declarations are rejected.
 
 ## Troubleshooting
 
