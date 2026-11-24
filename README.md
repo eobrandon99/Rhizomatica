@@ -1,110 +1,61 @@
 # Rhizomatica
 
-Rhizomatica is a Python-based archival visualization tool that turns EAD XML finding aids into interactive, multi-facet "rhizome" web pages. The project reads archival hierarchy data, derives facets from collections, series, and recurring keyword patterns, and renders an HTML viewer that lets users explore relationships across a collection.
+Rhizomatica is a cross-platform Python desktop app for turning EAD XML finding aids into interactive, multi-facet archival visualizations. It extracts collection hierarchy, dates, and recurring keywords, then creates a browsable network of records and themes.
 
-The generated pages are designed for archival research, collection browsing, and thematic discovery. They combine a network graph, facet filters, timeline controls, and a list/detail view to support browsing files and series in context.
+The desktop app processes files on your computer without uploading them to a service. Its native GUI lets you choose a finding aid, edit configuration, and generate a visualization. Generated visualizations are HTML files opened in the default browser.
 
-## Project purpose
+## Features
 
-This repository takes archival descriptions in EAD/XML format and transforms them into a browsable web interface. In practice, it is most useful for:
+- Interactive network of archival items and facets
+- Hierarchy and keyword facet filtering
+- Timeline filtering and file details
+- Keyword extraction from titles, notes, and scope/content text
+- Direct editing of configuration in the desktop app
+- Local EAD processing with no application server
 
-- Exploring digital collections as a connected network rather than a flat list
-- Filtering by series, keywords, and date range
-- Sur-facing recurring themes across many files or folders
-- Presenting archival content in a way that supports discovery and interpretation
+## Run from source
 
-The output is a standalone HTML page that can be opened locally in a browser without a backend server.
+Python 3.8+ and Tkinter are required. Tkinter is included with most Python distributions; some Linux distributions package it separately.
 
-## Repository structure
+From the repository root:
 
-```text
-Rhizomatica/
-├── Rhizomatica_v7.py          # Main application entry point
-├── config.json                # Default keyword and redundancy settings
-├── index.html                 # Browser-based EAD generator
-├── site.js                    # Client-side GUI and generator integration
-├── input/                     # Source EAD XML files
-├── output/                    # Generated rhizome HTML files
-├── lib/                       # Front-end dependencies used by generated pages
-│   ├── bindings/
-│   ├── tom-select/
-│   └── vis-9.1.2/
-├── .gitignore
-├── .gitattributes
-└── README.md
+```bash
+python desktop_app.py
 ```
 
-## What the app generates
+In the **Generate** tab, choose an `.xml` finding aid and a location for the generated HTML. The app opens the result in your default browser. Use the **Settings** tab to edit and save the values in `config.json`.
 
-Running the script against files in [input/](./input) produces HTML reports in [output/](./output) named according to the source file prefix, such as:
+The original command-line batch workflow remains available:
 
-- `CEW-rhizome.html`
-- `aflf-rhizome.html`
-- `wallacehouse-rhizome.html`
-
-Each generated page includes:
-
-- An interactive network graph of archival items and facets
-- A facet spotlight / filter panel for narrowing the view
-- Timeline filtering based on dates in the source EAD records
-- A file list for browsing records in the current selection
-- A detail card for selected items or files
-- Keyword facets derived automatically from recurring terms in matching records
-
-## Key features
-
-### Multi-facet browsing
-
-The app builds a hierarchical model out of EAD components and creates facet groups for archival structure. Items are tagged with any relevant parent series or topical cluster so users can filter the network along multiple dimensions at once.
-
-### Keyword extraction
-
-Recurring words, hyphenated terms, phrases, and numerals are extracted from titles, notes, and scope/content text. Candidates with more than half of their tokens consisting of numerals are excluded; the rest become keyword facets when they appear across enough files, allowing thematic connections to emerge without requiring manual cataloging.
-
-Single-word keyword facets are kept separate from longer phrases, even when they occur less often. Their memberships also include files tagged with a longer keyword phrase containing that word.
-
-### Date-aware filtering
-
-Each archival item includes date metadata when it is present. The generated viewer can filter results by timeline range, making it easier to trace how a topic or collection changes over time.
-
-### Standalone, browser-based output
-
-The tool produces static HTML pages using bundled JavaScript libraries from [lib/](./lib). No database or web server is required for the final output.
-
-## Input requirements
-
-The tool expects EAD XML files in the [input/](./input) directory with names matching the pattern:
-
-```text
-*-ead.xml
+```bash
+python Rhizomatica_v7.py
 ```
 
-Example files in this repository include:
+This processes every `*-ead.xml` file in [input/](./input) and writes the corresponding pages to [output/](./output). Add `--open` to open generated pages automatically. Other options include `--keyword-min-count`, `--keyword-min-ratio`, and `--redundancy-ratio`; run `python Rhizomatica_v7.py --help` for details.
 
-- `CEW-ead.xml`
-- `aflf-ead.xml`
-- `angelaMorgan-ead.xml`
-- `wallacehouse-ead.xml`
+## Build a standalone executable
 
-The application processes each XML file independently and writes one HTML output for each input.
+Install PyInstaller and build on each target operating system. PyInstaller does not cross-compile.
 
-## How the script works
+On Windows:
 
-The main workflow in [Rhizomatica_v7.py](./Rhizomatica_v7.py) is:
+```powershell
+python -m pip install pyinstaller
+pyinstaller --noconfirm --onefile --windowed --name Rhizomatica --add-data "config.json;." desktop_app.py
+```
 
-1. Loads the configured defaults from [config.json](./config.json)
-2. Finds every `*-ead.xml` file in [input/](./input)
-3. Parses the XML tree and normalizes element tags
-4. Builds record rows from archival components and down to file-level entries
-5. Derives hierarchical and keyword facets
-6. Generates an HTML file containing the interactive network and filter UI
-7. Optionally opens the generated page in the browser
+On macOS or Linux, use `:` instead of `;` in the `--add-data` argument:
 
-The script is intentionally focused on one file as the primary application entry point, with output and data transformation handled in-process.
+```bash
+python -m pip install pyinstaller
+pyinstaller --noconfirm --onefile --windowed --name Rhizomatica --add-data "config.json:." desktop_app.py
+```
+
+The executable is written to `dist/`. Packaged app settings are stored in the user's platform-specific configuration directory. When running from source, settings are saved directly to [config.json](./config.json).
 
 ## Configuration
 
-The default behavior is controlled by [config.json](./config.json):
+The default settings are:
 
 ```json
 {
@@ -113,135 +64,19 @@ The default behavior is controlled by [config.json](./config.json):
 }
 ```
 
-`facet_redundancy_ratio` controls how redundant facet labels are treated. The former `keyword_min_file_ratio` setting is deprecated and ignored. Each generated rhizome now defaults to the minimum hit count that returns no more than 50 keyword facets; users can change that minimum, along with dark mode, from the page's **Settings** menu.
-`finding_aid_url_base` is prepended to each file's `/catalog/{eadid}_{object-id}#contents` path in the **View in Finding Aid** link.
+- `facet_redundancy_ratio` controls how redundant keyword facets are merged.
+- `finding_aid_url_base` is used to create each file's **View in Finding Aid** link.
 
-The script supports the following command-line overrides:
+In the generated visualization, the **Settings** menu also offers a keyword-hit threshold and dark mode. The former `keyword_min_file_ratio` setting is deprecated and ignored.
 
-- `--open`: opens each generated HTML page in the default browser
-- `--keyword-min-count`: sets the initial minimum number of file hits needed for a keyword facet
-- `--keyword-min-ratio`: sets the initial keyword hit minimum as a ratio of files for a run
-- `--redundancy-ratio`: overrides redundancy handling for facets
+## Generated visualizations
 
-## Usage
+The desktop app writes one HTML file for each generation. The HTML visualization loads its network and timeline libraries from public CDNs, so an internet connection is needed to view the interactive graph. The EAD file itself is not uploaded.
 
-### Prerequisites
-
-- Python 3.8+ recommended
-- A valid EAD XML file set in [input/](./input)
-
-### Run the app
-
-From the repository root:
-
-```bash
-python Rhizomatica_v7.py
-```
-
-This will process every matching file in [input/](./input) and write the corresponding outputs to [output/](./output).
-
-### Open output pages automatically
-
-```bash
-python Rhizomatica_v7.py --open
-```
-
-This will generate the HTML pages and open each one in the system browser.
-
-### Override the initial keyword sensitivity
-
-```bash
-python Rhizomatica_v7.py --keyword-min-ratio 0.05
-```
-
-This sets the initial keyword hit minimum to 5% of each rhizome's files. Users can further adjust it in that page's Settings menu.
-
-### Override redundancy behavior
-
-```bash
-python Rhizomatica_v7.py --redundancy-ratio 0.5
-```
-
-This changes how aggressively the script removes or compresses overlapping facet labels.
-
-## Output behavior
-
-After processing, the script prints output similar to:
-
-```text
-CEW-ead.xml: 135 rows, 24 facets
-Generated: C:\...\output\CEW-rhizome.html
-```
-
-If one file fails to render, the script continues processing the remaining files and reports the failures at the end.
-
-## Data model overview
-
-Each EAD component is normalized into a record with fields such as:
-
-- title
-- date expression
-- begin/end date
-- display date
-- container instance
-- extent information
-
-The app then derives:
-
-- file-level records
-- hierarchical facet tags
-- keyword facet tags
-- network edges between connected archival nodes
-
-This is what allows a collection to be visualized as a "rhizome" rather than a strictly hierarchical tree.
-
-## Notes on archival processing
-
-The script is tuned for archival finding aids and is aware of common EAD structures including:
-
-- nested container components (`c01`, `c02`, etc.)
-- `did` sections with unit title/date/extent information
-- parent-child archival relationships
-- recurring subject-like terminology in notes and summary text
-
-It strips XML namespaces, extracts text from relevant elements, and normalizes dates so they can be used in the interactive timeline.
-
-## Generate a rhizome from the website
-
-The browser app in [index.html](./index.html) accepts an EAD XML file and runs the existing Python generator locally using Pyodide. The EAD file is not sent to a server. On first use, the browser downloads Pyodide from jsDelivr and the generator source from this repository; the generated rhizome can then be opened in a new tab or downloaded as a standalone HTML file.
-
-To publish the app, configure GitHub Pages to serve the repository root and open its Pages URL. For local testing, serve the repository root with any static HTTP server (the browser needs to fetch `config.json` and the Python source); no Python API or separate application host is required.
-
-Choose **Settings** in the app to change `facet_redundancy_ratio` and `finding_aid_url_base`. Settings are saved in the current browser and applied to future generations. Use **Download config.json** to export the current settings for the command-line app, or **Reset defaults** to restore the repository's [config.json](./config.json). EAD files must have an `.xml` extension, be valid EAD XML, and be no larger than 32 MiB. DTD declarations are rejected.
+To batch-process files in [input/](./input), use the command-line entry point [Rhizomatica_v7.py](./Rhizomatica_v7.py). The desktop GUI is [desktop_app.py](./desktop_app.py); it also works with a single EAD file selected from anywhere on the computer.
 
 ## Troubleshooting
 
-### No files were found
-
-If you see an error like `No input files matching *-ead.xml found`, make sure your XML files are placed in [input/](./input) and use the expected naming convention.
-
-### File generation fails
-
-Common causes include:
-
-- invalid or malformed XML
-- missing `did` or title data in some records
-- unusual EAD structure not accounted for by the parser
-
-The script handles parse errors gracefully and continues the rest of the batch.
-
-### Browser does not open
-
-This is usually a local environment issue rather than a project problem. Run without `--open` if automatic browser launching is unavailable in your setup.
-
-## Best practices
-
-- Keep source EAD files clean and well-formed for the most reliable results.
-- Review [config.json](./config.json) before larger batches if you want different keyword sensitivity.
-- Use output pages as discovery tools: they are designed for browsing and interpretation rather than static publication export.
-
-## Summary
-
-Rhizomatica converts archival XML collections into interactive, network-based discovery interfaces. It is designed for researchers, archivists, and digital humanities projects that want to explore relationships between records, series, and recurring themes rather than browse a rigid archival tree alone.
-
-For this repository, the main entry point is [Rhizomatica_v7.py](./Rhizomatica_v7.py), the source data lives under [input/](./input), and the generated visualizations land in [output/](./output).
+- **Tkinter is missing:** install the Tkinter package provided by your operating system or Python distribution.
+- **The app cannot open the result:** the HTML file is saved before opening; navigate to the selected save location and open it manually.
+- **Generation fails:** check that the input is valid EAD XML and includes file-level records.
