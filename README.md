@@ -106,11 +106,13 @@ The default behavior is controlled by [config.json](./config.json):
 
 ```json
 {
-  "facet_redundancy_ratio": 0.0
+  "facet_redundancy_ratio": 0.7,
+  "finding_aid_url_base": "https://findingaids.lib.umich.edu"
 }
 ```
 
 `facet_redundancy_ratio` controls how redundant facet labels are treated. The former `keyword_min_file_ratio` setting is deprecated and ignored. Each generated rhizome now defaults to the minimum hit count that returns no more than 50 keyword facets; users can change that minimum, along with dark mode, from the page's **Settings** menu.
+`finding_aid_url_base` is prepended to each file's `/catalog/{eadid}_{object-id}#contents` path in the **View in Finding Aid** link.
 
 The script supports the following command-line overrides:
 

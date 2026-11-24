@@ -44,6 +44,7 @@ OUTPUT_DIR = Path(__file__).with_name("output")
 
 DEFAULT_CONFIG = {
     "facet_redundancy_ratio": 0.7,
+    "finding_aid_url_base": "https://findingaids.lib.umich.edu",
 }
 
 # Stopwords affect keyword candidate selection and acronym matching, not the
@@ -271,6 +272,7 @@ def walk(
         rows.append(
             {
                 "id": row_id,
+                "object_id": node.get("id", ""),
                 "title": file_title,
                 "display_date": date_fields["display_date"],
                 "date_expr": date_fields["date_expr"],
@@ -1240,6 +1242,9 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       border: 1px solid #475569;
       color: #e5e7eb;
     }
+    body[data-theme="dark"] .finding-aid-link {
+      color: #93c5fd;
+    }
     .facet-spotlight {
       display: inline-block;
       padding: 1px 6px;
@@ -1358,6 +1363,16 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     .panel-heading .toolbar-btn {
       flex: 0 0 auto;
       width: auto !important;
+    }
+    .detail-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .finding-aid-link {
+      font-size: 13px;
+      white-space: nowrap;
     }
     #facetSections {
       display: flex;
@@ -2081,7 +2096,10 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       </section>
 
       <section id="detailSidebar">
-        <div id="detailHeader">File spotlight</div>
+        <div class="detail-header-row">
+          <div id="detailHeader">File spotlight</div>
+          <a id="findingAidLink" class="finding-aid-link" hidden target="_blank" rel="noopener">View file in finding aid</a>
+        </div>
         <div id="detailPanel" class="detail-panel empty">Hover or click a file node or row to preview details.</div>
       </section>
     </aside>
@@ -2099,6 +2117,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
     const rangeText = document.getElementById('rangeText');
     const timelineToggle = document.getElementById('timelineToggle');
     const clearFacets = document.getElementById('clearFacets');
+    const findingAidLink = document.getElementById('findingAidLink');
     const themeToggle = document.getElementById('themeToggle');
     const settingsButton = document.getElementById('settingsButton');
     const settingsPanel = document.getElementById('settingsPanel');
@@ -2163,7 +2182,33 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       }
     };
 
-    const network = new vis.Network(container, { nodes: [], edges: [] }, options);
+    let networkNodeDataSet = new vis.DataSet();
+    const network = new vis.Network(container, { nodes: networkNodeDataSet, edges: [] }, options);
+    let spotlightAnimationPin = null;
+    let spotlightFocusAnimating = false;
+
+    function releaseSpotlightAnimationPin() {
+      const pin = spotlightAnimationPin;
+      spotlightAnimationPin = null;
+      spotlightFocusAnimating = false;
+      if (pin) {
+        const { dataSet, nodeId, fixed } = pin;
+        if (dataSet.get(nodeId)) {
+          dataSet.update({ id: nodeId, fixed: fixed === undefined ? false : fixed });
+        }
+      }
+    }
+
+    network.on('animationFinished', () => {
+      if (spotlightFocusAnimating) releaseSpotlightAnimationPin();
+    });
+
+    function releaseSpotlightCamera() {
+      if (spotlightFocusAnimating) releaseSpotlightAnimationPin();
+      network.releaseNode();
+    }
+    network.on('dragStart', releaseSpotlightCamera);
+    network.on('zoom', releaseSpotlightCamera);
 
     let selectedFacetIds = new Set();
     let selectedRowId = null;
@@ -2888,9 +2933,20 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       return ROWS.find(r => r.id === selectedRowId) || ROWS.find(r => r.id === hoveredRowId) || null;
     }
 
+    function updateFindingAidLink(row) {
+      if (row?.finding_aid_url) {
+        findingAidLink.href = row.finding_aid_url;
+        findingAidLink.hidden = false;
+      } else {
+        findingAidLink.removeAttribute('href');
+        findingAidLink.hidden = true;
+      }
+    }
+
     function renderDetailPanel() {
       const groupedNode = selectedRowId ? null : groupedRowsByNodeId.get(hoveredGroupNodeId);
       if (groupedNode) {
+        updateFindingAidLink(null);
         detailPanel.classList.remove('empty');
         detailPanel.innerHTML = `
           <div class="detail-row"><span class="detail-label">Files within:</span> <span class="detail-value">${groupedNode.rows.length}</span></div>
@@ -2901,11 +2957,13 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
       const row = getCurrentDetailRow();
       if (!row) {
+        updateFindingAidLink(null);
         detailPanel.classList.add('empty');
         detailPanel.innerHTML = 'Hover or click a file node or row to preview details.';
         return;
       }
 
+      updateFindingAidLink(row);
       const relatedHierarchy = (row.facets || [])
         .filter(fid => FACETS_BY_ID.get(fid)?.kind === 'hierarchy')
         .map(fid => ({ id: fid, label: facetLabel(fid) }));
@@ -2972,7 +3030,21 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
 
       const nodeId = networkNodeIdForRow(rowId);
       network.selectNodes([nodeId]);
-      if (focus) network.focus(nodeId, { scale: 1.2, animation: true });
+      if (focus) {
+        releaseSpotlightAnimationPin();
+        const node = networkNodeDataSet.get(nodeId);
+        if (node) {
+          spotlightAnimationPin = {
+            dataSet: networkNodeDataSet,
+            nodeId,
+            fixed: node.fixed
+          };
+          networkNodeDataSet.update({ id: nodeId, fixed: true });
+        }
+        spotlightFocusAnimating = false;
+        network.focus(nodeId, { scale: 1.2, animation: true, locked: true });
+        spotlightFocusAnimating = true;
+      }
 
       rowList.querySelectorAll('[data-row-id]').forEach(btn => {
         btn.classList.toggle('selected', btn.dataset.rowId === rowId);
@@ -3065,6 +3137,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
             toggleFacetSelection(fid);
             selectedRowId = null;
             hoveredRowId = null;
+            network.releaseNode();
             render();
           });
         });
@@ -3234,8 +3307,87 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
           renderDetailPanel();
         });
         btn.addEventListener('click', () => {
-          selectSpotlightRow(rowId, true);
+          if (selectedRowId === rowId) {
+            selectedRowId = null;
+            hoveredRowId = null;
+            releaseSpotlightAnimationPin();
+            network.releaseNode();
+            network.selectNodes([]);
+            rowList.querySelectorAll('[data-row-id]').forEach(rowButton => {
+              rowButton.classList.remove('selected');
+            });
+            renderDetailPanel();
+          } else {
+            selectSpotlightRow(rowId, true);
+          }
         });
+      });
+    }
+
+    function seedNetworkNodePositions(nodes, edges) {
+      const positions = new Map();
+      const transientGroupPrefix = '__rhizomatica_file_group_';
+      const currentPositions = network.getPositions();
+      const currentNodeIds = new Set(networkNodeDataSet.getIds());
+
+      nodes.forEach(node => {
+        if (Number.isFinite(node.x) && Number.isFinite(node.y)) {
+          positions.set(node.id, { x: node.x, y: node.y });
+        }
+      });
+      currentNodeIds.forEach(nodeId => {
+        if (String(nodeId).startsWith(transientGroupPrefix)) return;
+        const position = currentPositions[nodeId];
+        if (position && Number.isFinite(position.x) && Number.isFinite(position.y)) {
+          positions.set(nodeId, position);
+        }
+      });
+
+      const neighbors = new Map(nodes.map(node => [node.id, []]));
+      edges.forEach(edge => {
+        if (neighbors.has(edge.from)) neighbors.get(edge.from).push(edge.to);
+        if (neighbors.has(edge.to)) neighbors.get(edge.to).push(edge.from);
+      });
+
+      let pendingNodes = nodes.filter(node => !positions.has(node.id));
+      while (pendingNodes.length) {
+        const nextPendingNodes = [];
+        let positionedNode = false;
+        pendingNodes.forEach(node => {
+          const adjacentPositions = (neighbors.get(node.id) || [])
+            .map(neighborId => positions.get(neighborId))
+            .filter(Boolean);
+          if (!adjacentPositions.length) {
+            nextPendingNodes.push(node);
+            return;
+          }
+
+          const center = adjacentPositions.reduce(
+            (sum, position) => ({ x: sum.x + position.x, y: sum.y + position.y }),
+            { x: 0, y: 0 }
+          );
+          center.x /= adjacentPositions.length;
+          center.y /= adjacentPositions.length;
+
+          const hash = Array.from(String(node.id)).reduce(
+            (value, character) => (value * 31 + character.charCodeAt(0)) >>> 0,
+            0
+          );
+          const angle = (hash / 0x100000000) * Math.PI * 2;
+          const radius = 30 + (hash % 20);
+          positions.set(node.id, {
+            x: center.x + Math.cos(angle) * radius,
+            y: center.y + Math.sin(angle) * radius
+          });
+          positionedNode = true;
+        });
+        if (!positionedNode) break;
+        pendingNodes = nextPendingNodes;
+      }
+
+      return nodes.map(node => {
+        const position = positions.get(node.id);
+        return position ? { ...node, x: position.x, y: position.y } : node;
       });
     }
 
@@ -3247,7 +3399,10 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       const matchingRows = getVisibleRows();
       const visibleRows = getRowsInExpandedBranches(matchingRows);
 
-      if (selectedRowId && !matchingRows.some(r => r.id === selectedRowId)) selectedRowId = null;
+      if (selectedRowId && !matchingRows.some(r => r.id === selectedRowId)) {
+        selectedRowId = null;
+        network.releaseNode();
+      }
       if (hoveredRowId && !matchingRows.some(r => r.id === hoveredRowId)) hoveredRowId = null;
 
       renderFacetList(matchingRows);
@@ -3256,8 +3411,11 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       const data = buildNetworkData(visibleRows, matchingRows);
       if (!groupedRowsByNodeId.has(hoveredGroupNodeId)) hoveredGroupNodeId = null;
       clearNetworkRowSpotlight();
+      releaseSpotlightAnimationPin();
+      const positionedNodes = seedNetworkNodePositions(data.nodes, data.edges);
+      networkNodeDataSet = new vis.DataSet(positionedNodes);
       network.setData({
-        nodes: new vis.DataSet(data.nodes),
+        nodes: networkNodeDataSet,
         edges: new vis.DataSet(data.edges)
       });
       renderDetailPanel();
@@ -3289,6 +3447,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
           });
           selectedRowId = null;
           hoveredRowId = null;
+          network.releaseNode();
           hoveredGroupNodeId = clickedId;
           render();
           return;
@@ -3298,12 +3457,13 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
           toggleFacetSelection(clickedId);
           selectedRowId = null;
           hoveredRowId = null;
+          network.releaseNode();
           hoveredGroupNodeId = null;
           render();
           return;
         }
 
-        selectSpotlightRow(clickedId);
+        selectSpotlightRow(clickedId, true);
         return;
       }
 
@@ -3314,6 +3474,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
         expandedHierarchyFacetIds.clear();
         selectedRowId = null;
         hoveredRowId = null;
+        network.releaseNode();
         hoveredGroupNodeId = null;
         render();
       }
@@ -3405,6 +3566,7 @@ HTML_TEMPLATE = r'''<!DOCTYPE html>
       expandedHierarchyFacetIds.clear();
       selectedRowId = null;
       hoveredRowId = null;
+      network.releaseNode();
       hoveredGroupNodeId = null;
       render();
     });
@@ -3460,6 +3622,12 @@ def build_html(collection_title, rows, facets, default_min_keyword_hits=None):
     return html
 
 
+def finding_aid_url(base_url, ead_id, object_id):
+    if not base_url or not ead_id or not object_id:
+        return ""
+    return f"{base_url.rstrip('/')}/catalog/{ead_id}_{object_id}"
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Generate multifacet network HTML pages from input/*-ead.xml")
     parser.add_argument("--open", action="store_true", help="Open each generated HTML page in your default browser")
@@ -3507,6 +3675,11 @@ def main(argv=None):
             title, rows, facets = build_records(root, facet_redundancy_ratio)
             if not rows:
                 raise ValueError("input produced no file-level rows to render")
+            ead_id = text_of(root.find(".//eadid"))
+            for row in rows:
+                row["finding_aid_url"] = finding_aid_url(
+                    config["finding_aid_url_base"], ead_id, row["object_id"]
+                )
 
             default_min_keyword_hits = default_keyword_min_hits(facets)
             if args.keyword_min_count is not None:

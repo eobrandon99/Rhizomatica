@@ -122,6 +122,9 @@
       border: 1px solid #475569;
       color: #e5e7eb;
     }
+    body[data-theme="dark"] .finding-aid-link {
+      color: #93c5fd;
+    }
     .facet-spotlight {
       display: inline-block;
       padding: 1px 6px;
@@ -240,6 +243,16 @@
     .panel-heading .toolbar-btn {
       flex: 0 0 auto;
       width: auto !important;
+    }
+    .detail-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .finding-aid-link {
+      font-size: 13px;
+      white-space: nowrap;
     }
     #facetSections {
       display: flex;
@@ -963,15 +976,18 @@
       </section>
 
       <section id="detailSidebar">
-        <div id="detailHeader">File spotlight</div>
+        <div class="detail-header-row">
+          <div id="detailHeader">File spotlight</div>
+          <a id="findingAidLink" class="finding-aid-link" hidden target="_blank" rel="noopener">View file in finding aid</a>
+        </div>
         <div id="detailPanel" class="detail-panel empty">Hover or click a file node or row to preview details.</div>
       </section>
     </aside>
   </div>
 
   <script>
-    const ROWS = [{"id": "ao_1101965", "title": "Physical materials", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 6.0, "extents": ["6 folders"], "facets": ["series_ao_1101885"]}, {"id": "ao_1101956", "title": "Wallace House dedication recording", "display_date": "April 14, 1993", "date_expr": "April 14, 1993", "begin": "1993-04-14", "end": "1993-04-14", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101885"]}, {"id": "ao_1101852", "title": "", "display_date": "1972-1976", "date_expr": "1972-1976", "begin": "1972-01-01", "end": "1976-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1099817", "kw_correspondence"]}, {"id": "ao_1101853", "title": "", "display_date": "1976-1980", "date_expr": "1976-1980", "begin": "1976-01-01", "end": "1980-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1099817", "kw_correspondence"]}, {"id": "ao_1101854", "title": "", "display_date": "1981-1989", "date_expr": "1981-1989", "begin": "1981-01-01", "end": "1989-12-31", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1099817", "kw_correspondence"]}, {"id": "ao_1101855", "title": "", "display_date": "1989-1993", "date_expr": "1989-1993", "begin": "1989-01-01", "end": "1993-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1099817", "kw_correspondence"]}, {"id": "ao_1101856", "title": "", "display_date": "1999-2014", "date_expr": "1999-2014", "begin": "1999-01-01", "end": "2014-12-31", "container_instance": "Box 6", "box": "[Box 6]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1099817", "kw_correspondence"]}, {"id": "ao_1101955", "title": "Digital correspondence and emails", "display_date": "1988-1993", "date_expr": "1988-1993", "begin": "1988-01-01", "end": "1993-12-31", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1099817", "kw_correspondence"]}, {"id": "ao_1101857", "title": "Foundation files, NEH reports, budgets", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 7", "box": "[Box 7]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101843", "kw_foundation"]}, {"id": "ao_1101858", "title": "Kellogg Foundation records, Wallace House property files", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 8", "box": "[Box 8]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 17.0, "extents": ["17 folders"], "facets": ["series_ao_1101843", "kw_foundation"]}, {"id": "ao_1101850", "title": "Newsletter and the Journal of Michigan Fellows", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 8", "box": "[Box 8]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 10.0, "extents": ["10 folders"], "facets": ["series_ao_1101844", "kw_journal_of_michigan_fellow", "kw_publication"]}, {"id": "ao_1101851", "title": "The Journal of Michigan Fellows and the Michigan Journalist", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 9", "box": "[Box 9]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101844", "kw_journal_of_michigan_fellow", "kw_publication"]}, {"id": "ao_1101859", "title": "", "display_date": "1997-1999", "date_expr": "1997-1999", "begin": "1997-01-01", "end": "1999-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845"]}, {"id": "ao_1101968", "title": "Physical materials", "display_date": "2000-2007", "date_expr": "2000-2007", "begin": "2000-01-01", "end": "2007-12-31", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 9.0, "extents": ["9 folders"], "facets": ["series_ao_1101845"]}, {"id": "ao_1101957", "title": "Digital conference documents", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845", "kw_digital_conference"]}, {"id": "ao_1101864", "title": "Covering Assisted Death: The Press, the Law and Public Policy. Part 1", "display_date": "1999", "date_expr": "1999", "begin": "1999-01-01", "end": "1999-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_press", "kw_law_and_public_policy", "kw_part_1"]}, {"id": "ao_1101865", "title": "Covering Assisted Death: The Press, the Law and Public Policy. Part 2", "display_date": "1999", "date_expr": "1999", "begin": "1999-01-01", "end": "1999-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_press", "kw_law_and_public_policy", "kw_part_2"]}, {"id": "ao_1101866", "title": "Covering Managed Care: The Press and Public Policy. Tape 1", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_press_and_public_policy", "kw_covering_managed_care", "kw_press"]}, {"id": "ao_1101867", "title": "Covering Managed Care: The Press and Public Policy. Tape 2", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_press_and_public_policy", "kw_covering_managed_care", "kw_press"]}, {"id": "ao_1101868", "title": "Covering Managed Care: The Press and Public Policy. Tape 3", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_press_and_public_policy", "kw_covering_managed_care", "kw_press"]}, {"id": "ao_1101862", "title": "Quality Pays: The Press and Public Policy. Part 1", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_part_1", "kw_press_and_public_policy", "kw_quality_pay", "kw_press"]}, {"id": "ao_1101863", "title": "Quality Pays: The Press and Public Policy. Part 2", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_part_2", "kw_press_and_public_policy", "kw_quality_pay", "kw_press"]}, {"id": "ao_1101861", "title": "Covering Race Then and Now: The Press and Public Policy", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_press_and_public_policy", "kw_press"]}, {"id": "ao_1101894", "title": "\"The Food Page: The Press and Public Policy.\" Part one", "display_date": "September 15, 2003", "date_expr": "September 15, 2003", "begin": "2003-09-15", "end": "2003-09-15", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_press_and_public_policy", "kw_food_page", "kw_press"]}, {"id": "ao_1101895", "title": "\"The Food Page: The Press and Public Policy.\" Part two", "display_date": "September 15, 2003", "date_expr": "September 15, 2003", "begin": "2003-09-15", "end": "2003-09-15", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_press_and_public_policy", "kw_food_page", "kw_press"]}, {"id": "ao_1101892", "title": "\"Women's Health: The Press and Public Policy.\" Session one", "display_date": "November 7, 2005", "date_expr": "November 7, 2005", "begin": "2005-11-07", "end": "2005-11-07", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_press_and_public_policy", "kw_session_one", "kw_woman_health", "kw_press"]}, {"id": "ao_1101893", "title": "\"Women's Health: The Press and Public Policy.\" Session two", "display_date": "November 7, 2005", "date_expr": "November 7, 2005", "begin": "2005-11-07", "end": "2005-11-07", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_press_and_public_policy", "kw_woman_health", "kw_session_two", "kw_press"]}, {"id": "ao_1101896", "title": "\"Covering New Secrecy.\" Session one", "display_date": "January 8, 2007", "date_expr": "January 8, 2007", "begin": "2007-01-08", "end": "2007-01-08", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_session_one", "kw_covering_new_secrecy"]}, {"id": "ao_1101897", "title": "\"Covering New Secrecy.\" Session two", "display_date": "January 8, 2007", "date_expr": "January 8, 2007", "begin": "2008-01-08", "end": "2008-01-08", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_session_two", "kw_covering_new_secrecy"]}, {"id": "ao_1101969", "title": "Physical materials", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 5.0, "extents": ["5 folders"], "facets": ["series_ao_1101846"]}, {"id": "ao_1101898", "title": "Professor Eisendrath. Wallace House. Audiocassette", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 audiocassettes"], "facets": ["series_ao_1101846"]}, {"id": "ao_1101889", "title": "Digital conference materials", "display_date": "2008", "date_expr": "2008", "begin": "2008-01-01", "end": "2008-12-31", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101846", "kw_digital_conference"]}, {"id": "ao_1101886", "title": "\"Serious Stuff About Humor: What is it? Why is it?\" Session one", "display_date": "March 10, 2008", "date_expr": "March 10, 2008", "begin": "2008-03-10", "end": "2008-03-10", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101846", "kw_session_one", "kw_serious_stuff_about_humor"]}, {"id": "ao_1101887", "title": "\"Serious Stuff About Humor: What is it? Why is it?\" Session two", "display_date": "March 10, 2008", "date_expr": "March 10, 2008", "begin": "2008-03-01", "end": "2008-03-01", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101846", "kw_session_two", "kw_serious_stuff_about_humor"]}, {"id": "ao_1101888", "title": "\"Sculpture Event Loop\"", "display_date": "March 4, 2008", "date_expr": "March 4, 2008", "begin": "2008-03-04", "end": "2008-03-04", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101846"]}, {"id": "ao_1101848", "title": "Interviews", "display_date": "1994-2000", "date_expr": "1994-2000", "begin": "1994-01-01", "end": "2000-12-31", "container_instance": "Box 12", "box": "[Box 12]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 9.0, "extents": ["9 folders"], "facets": ["series_ao_1101847"]}, {"id": "ao_1101849", "title": "Attaboy files", "display_date": "1990-2013", "date_expr": "1990-2013", "begin": "1990-01-01", "end": "2013-12-31", "container_instance": "Box 12", "box": "[Box 12]", "general_note": "(Consists of fellowship alumni accomplishments, publications, and correspondence.)", "scope_content": "", "physical_desc": "", "extent_value": 23.0, "extents": ["23 folders"], "facets": ["series_ao_1101847", "kw_correspondence", "kw_publication"]}];
-    const FACETS = [{"id": "series_ao_1101885", "label": "Organizational history", "count": 2, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_ao_1099817", "label": "Correspondence", "count": 6, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_ao_1101843", "label": "Financial and development records", "count": 2, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_ao_1101844", "label": "Publications", "count": 2, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_ao_1101845", "label": "Conferences", "count": 17, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_ao_1101970", "label": "Conference recordings", "count": 14, "kind": "hierarchy", "parent_id": "series_ao_1101845", "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_ao_1101846", "label": "Humor at Michigan program", "count": 6, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_ao_1101847", "label": "Fellows records", "count": 2, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_correspondence", "label": "correspondence", "count": 7, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": ["series_ao_1099817"], "direct_file_row_ids": ["ao_1101849", "ao_1101955"]}, {"id": "kw_foundation", "label": "Foundation", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_journal_of_michigan_fellow", "label": "Journal of Michigan Fellows", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_digital_conference", "label": "Digital conference", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_press", "label": "Press", "count": 12, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_law_and_public_policy", "label": "Law and Public Policy", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_part_1", "label": "Part 1", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_part_2", "label": "Part 2", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_press_and_public_policy", "label": "Press and Public Policy", "count": 10, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_covering_managed_care", "label": "Covering Managed Care", "count": 3, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_quality_pay", "label": "Quality Pays", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_food_page", "label": "Food Page", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_session_one", "label": "Session one", "count": 3, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_woman_health", "label": "Women's Health", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_session_two", "label": "Session two", "count": 3, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_covering_new_secrecy", "label": "Covering New Secrecy", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_serious_stuff_about_humor", "label": "Serious Stuff About Humor", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_publication", "label": "publications", "count": 3, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": ["series_ao_1101844"], "direct_file_row_ids": ["ao_1101849"]}];
+    const ROWS = [{"id": "ao_1101965", "object_id": "aspace_2eb099415f4d40837abc28ca72bee6e5", "title": "Physical materials", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 1", "box": "[Box 1]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 6.0, "extents": ["6 folders"], "facets": ["series_ao_1101885"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_2eb099415f4d40837abc28ca72bee6e5"}, {"id": "ao_1101956", "object_id": "aspace_99e1412aec82762398b22217a90d16c6", "title": "Wallace House dedication recording", "display_date": "April 14, 1993", "date_expr": "April 14, 1993", "begin": "1993-04-14", "end": "1993-04-14", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101885"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_99e1412aec82762398b22217a90d16c6"}, {"id": "ao_1101852", "object_id": "aspace_3e7cca45a390583c52a5ab4b7b4cd889", "title": "", "display_date": "1972-1976", "date_expr": "1972-1976", "begin": "1972-01-01", "end": "1976-12-31", "container_instance": "Box 2", "box": "[Box 2]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1099817", "kw_correspondence"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_3e7cca45a390583c52a5ab4b7b4cd889"}, {"id": "ao_1101853", "object_id": "aspace_7ff891ffc4388f67f72beda688661b7c", "title": "", "display_date": "1976-1980", "date_expr": "1976-1980", "begin": "1976-01-01", "end": "1980-12-31", "container_instance": "Box 3", "box": "[Box 3]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1099817", "kw_correspondence"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_7ff891ffc4388f67f72beda688661b7c"}, {"id": "ao_1101854", "object_id": "aspace_cd7d947fde8278c1da251ea172119c02", "title": "", "display_date": "1981-1989", "date_expr": "1981-1989", "begin": "1981-01-01", "end": "1989-12-31", "container_instance": "Box 4", "box": "[Box 4]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1099817", "kw_correspondence"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_cd7d947fde8278c1da251ea172119c02"}, {"id": "ao_1101855", "object_id": "aspace_d583bbeff0a5dd8d431ec64e48fa8282", "title": "", "display_date": "1989-1993", "date_expr": "1989-1993", "begin": "1989-01-01", "end": "1993-12-31", "container_instance": "Box 5", "box": "[Box 5]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1099817", "kw_correspondence"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_d583bbeff0a5dd8d431ec64e48fa8282"}, {"id": "ao_1101856", "object_id": "aspace_f072f43cbdb3fe2916ff7baca4eef35d", "title": "", "display_date": "1999-2014", "date_expr": "1999-2014", "begin": "1999-01-01", "end": "2014-12-31", "container_instance": "Box 6", "box": "[Box 6]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1099817", "kw_correspondence"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_f072f43cbdb3fe2916ff7baca4eef35d"}, {"id": "ao_1101955", "object_id": "aspace_1cb76c60dd743d86cae1f9656046fbf0", "title": "Digital correspondence and emails", "display_date": "1988-1993", "date_expr": "1988-1993", "begin": "1988-01-01", "end": "1993-12-31", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1099817", "kw_correspondence"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_1cb76c60dd743d86cae1f9656046fbf0"}, {"id": "ao_1101857", "object_id": "aspace_3d4fdd5deb1621eb7d33b5360210a116", "title": "Foundation files, NEH reports, budgets", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 7", "box": "[Box 7]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101843", "kw_foundation"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_3d4fdd5deb1621eb7d33b5360210a116"}, {"id": "ao_1101858", "object_id": "aspace_3a0f107733d0912b867b7c3eeff65a8c", "title": "Kellogg Foundation records, Wallace House property files", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 8", "box": "[Box 8]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 17.0, "extents": ["17 folders"], "facets": ["series_ao_1101843", "kw_foundation"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_3a0f107733d0912b867b7c3eeff65a8c"}, {"id": "ao_1101850", "object_id": "aspace_4a1ee3b94dc81187ba727724a49a7643", "title": "Newsletter and the Journal of Michigan Fellows", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 8", "box": "[Box 8]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 10.0, "extents": ["10 folders"], "facets": ["series_ao_1101844", "kw_journal_of_michigan_fellow", "kw_publication"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_4a1ee3b94dc81187ba727724a49a7643"}, {"id": "ao_1101851", "object_id": "aspace_ebffa47d055128c004f4f5b5075266ce", "title": "The Journal of Michigan Fellows and the Michigan Journalist", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 9", "box": "[Box 9]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101844", "kw_journal_of_michigan_fellow", "kw_publication"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_ebffa47d055128c004f4f5b5075266ce"}, {"id": "ao_1101859", "object_id": "aspace_5310ddf0eef179ecb9195e41048055bb", "title": "", "display_date": "1997-1999", "date_expr": "1997-1999", "begin": "1997-01-01", "end": "1999-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_5310ddf0eef179ecb9195e41048055bb"}, {"id": "ao_1101968", "object_id": "aspace_a9020f318e95822c88ae7eff02cd8da8", "title": "Physical materials", "display_date": "2000-2007", "date_expr": "2000-2007", "begin": "2000-01-01", "end": "2007-12-31", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 9.0, "extents": ["9 folders"], "facets": ["series_ao_1101845"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_a9020f318e95822c88ae7eff02cd8da8"}, {"id": "ao_1101957", "object_id": "aspace_6d3b853286fb8420888738ac7423a199", "title": "Digital conference documents", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845", "kw_digital_conference"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_6d3b853286fb8420888738ac7423a199"}, {"id": "ao_1101864", "object_id": "aspace_0572e3780d8d83263e612ea5780e9203", "title": "Covering Assisted Death: The Press, the Law and Public Policy. Part 1", "display_date": "1999", "date_expr": "1999", "begin": "1999-01-01", "end": "1999-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_part_1", "kw_law_and_public_policy", "kw_press"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_0572e3780d8d83263e612ea5780e9203"}, {"id": "ao_1101865", "object_id": "aspace_a58080235bee601dd74629d15b7a00f0", "title": "Covering Assisted Death: The Press, the Law and Public Policy. Part 2", "display_date": "1999", "date_expr": "1999", "begin": "1999-01-01", "end": "1999-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_law_and_public_policy", "kw_press", "kw_part_2"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_a58080235bee601dd74629d15b7a00f0"}, {"id": "ao_1101866", "object_id": "aspace_5849bd47863842467c81f7ff0412b41d", "title": "Covering Managed Care: The Press and Public Policy. Tape 1", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_covering_managed_care", "kw_press_and_public_policy", "kw_press"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_5849bd47863842467c81f7ff0412b41d"}, {"id": "ao_1101867", "object_id": "aspace_54f65cfb1f994c90a2c6a05cfa306620", "title": "Covering Managed Care: The Press and Public Policy. Tape 2", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_covering_managed_care", "kw_press_and_public_policy", "kw_press"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_54f65cfb1f994c90a2c6a05cfa306620"}, {"id": "ao_1101868", "object_id": "aspace_d173088d7a8a6367b52869909eee2517", "title": "Covering Managed Care: The Press and Public Policy. Tape 3", "display_date": "2000", "date_expr": "2000", "begin": "2000-01-01", "end": "2000-12-31", "container_instance": "Box 10", "box": "[Box 10]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_covering_managed_care", "kw_press_and_public_policy", "kw_press"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_d173088d7a8a6367b52869909eee2517"}, {"id": "ao_1101862", "object_id": "aspace_a19bd258c63a4843a6862f55369ec651", "title": "Quality Pays: The Press and Public Policy. Part 1", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_part_1", "kw_press_and_public_policy", "kw_quality_pay", "kw_press"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_a19bd258c63a4843a6862f55369ec651"}, {"id": "ao_1101863", "object_id": "aspace_a0df6b8ca9d2ddec1df93afc126fe018", "title": "Quality Pays: The Press and Public Policy. Part 2", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_part_2", "kw_press_and_public_policy", "kw_quality_pay", "kw_press"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_a0df6b8ca9d2ddec1df93afc126fe018"}, {"id": "ao_1101861", "object_id": "aspace_ef1823d190c5ae951b9cc2ce9f6f9551", "title": "Covering Race Then and Now: The Press and Public Policy", "display_date": "2001", "date_expr": "2001", "begin": "2001-01-01", "end": "2001-12-31", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 videocassettes (VHS)"], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_press_and_public_policy", "kw_press"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_ef1823d190c5ae951b9cc2ce9f6f9551"}, {"id": "ao_1101894", "object_id": "aspace_634be84c23fc5adb37cc92e8a1eb0f74", "title": "\"The Food Page: The Press and Public Policy.\" Part one", "display_date": "September 15, 2003", "date_expr": "September 15, 2003", "begin": "2003-09-15", "end": "2003-09-15", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_press_and_public_policy", "kw_food_page", "kw_press"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_634be84c23fc5adb37cc92e8a1eb0f74"}, {"id": "ao_1101895", "object_id": "aspace_cc7fae2deabbfb94c1fc81160445a93c", "title": "\"The Food Page: The Press and Public Policy.\" Part two", "display_date": "September 15, 2003", "date_expr": "September 15, 2003", "begin": "2003-09-15", "end": "2003-09-15", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_press_and_public_policy", "kw_food_page", "kw_press"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_cc7fae2deabbfb94c1fc81160445a93c"}, {"id": "ao_1101892", "object_id": "aspace_b588c21127d67d0b0495474c89d8adb7", "title": "\"Women's Health: The Press and Public Policy.\" Session one", "display_date": "November 7, 2005", "date_expr": "November 7, 2005", "begin": "2005-11-07", "end": "2005-11-07", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_press_and_public_policy", "kw_session_one", "kw_woman_health", "kw_press"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_b588c21127d67d0b0495474c89d8adb7"}, {"id": "ao_1101893", "object_id": "aspace_5d998af3fe116b0d86953f42af4bdc0e", "title": "\"Women's Health: The Press and Public Policy.\" Session two", "display_date": "November 7, 2005", "date_expr": "November 7, 2005", "begin": "2005-11-07", "end": "2005-11-07", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_press_and_public_policy", "kw_woman_health", "kw_session_two", "kw_press"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_5d998af3fe116b0d86953f42af4bdc0e"}, {"id": "ao_1101896", "object_id": "aspace_f185d12c18e4186002f7dc96e33d60cf", "title": "\"Covering New Secrecy.\" Session one", "display_date": "January 8, 2007", "date_expr": "January 8, 2007", "begin": "2007-01-08", "end": "2007-01-08", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_session_one", "kw_covering_new_secrecy"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_f185d12c18e4186002f7dc96e33d60cf"}, {"id": "ao_1101897", "object_id": "aspace_dda7c33708b9c3a38db3c910536c7787", "title": "\"Covering New Secrecy.\" Session two", "display_date": "January 8, 2007", "date_expr": "January 8, 2007", "begin": "2008-01-08", "end": "2008-01-08", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101845", "series_ao_1101970", "kw_session_two", "kw_covering_new_secrecy"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_dda7c33708b9c3a38db3c910536c7787"}, {"id": "ao_1101969", "object_id": "aspace_91bc8c735752f8391fdde494b78054c8", "title": "Physical materials", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 5.0, "extents": ["5 folders"], "facets": ["series_ao_1101846"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_91bc8c735752f8391fdde494b78054c8"}, {"id": "ao_1101898", "object_id": "aspace_1fda8a7be26e1d0110be057a44d26046", "title": "Professor Eisendrath. Wallace House. Audiocassette", "display_date": "undated", "date_expr": "", "begin": "", "end": "", "container_instance": "Box 11", "box": "[Box 11]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 1.0, "extents": ["1 audiocassettes"], "facets": ["series_ao_1101846"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_1fda8a7be26e1d0110be057a44d26046"}, {"id": "ao_1101889", "object_id": "aspace_19d02de32163d4287995a188ff04e4e3", "title": "Digital conference materials", "display_date": "2008", "date_expr": "2008", "begin": "2008-01-01", "end": "2008-12-31", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101846", "kw_digital_conference"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_19d02de32163d4287995a188ff04e4e3"}, {"id": "ao_1101886", "object_id": "aspace_c35c8457071e768f28d4b94588fe34fb", "title": "\"Serious Stuff About Humor: What is it? Why is it?\" Session one", "display_date": "March 10, 2008", "date_expr": "March 10, 2008", "begin": "2008-03-10", "end": "2008-03-10", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101846", "kw_session_one", "kw_serious_stuff_about_humor"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_c35c8457071e768f28d4b94588fe34fb"}, {"id": "ao_1101887", "object_id": "aspace_9b46d03217b55d90fc396bd906061a21", "title": "\"Serious Stuff About Humor: What is it? Why is it?\" Session two", "display_date": "March 10, 2008", "date_expr": "March 10, 2008", "begin": "2008-03-01", "end": "2008-03-01", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101846", "kw_session_two", "kw_serious_stuff_about_humor"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_9b46d03217b55d90fc396bd906061a21"}, {"id": "ao_1101888", "object_id": "aspace_34f2ec68ec2c6101e64a81da0ce419d1", "title": "\"Sculpture Event Loop\"", "display_date": "March 4, 2008", "date_expr": "March 4, 2008", "begin": "2008-03-04", "end": "2008-03-04", "container_instance": "", "box": "", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": null, "extents": [], "facets": ["series_ao_1101846"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_34f2ec68ec2c6101e64a81da0ce419d1"}, {"id": "ao_1101848", "object_id": "aspace_b1520c5d0a36d0540efeb59a1e2cfa18", "title": "Interviews", "display_date": "1994-2000", "date_expr": "1994-2000", "begin": "1994-01-01", "end": "2000-12-31", "container_instance": "Box 12", "box": "[Box 12]", "general_note": "", "scope_content": "", "physical_desc": "", "extent_value": 9.0, "extents": ["9 folders"], "facets": ["series_ao_1101847"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_b1520c5d0a36d0540efeb59a1e2cfa18"}, {"id": "ao_1101849", "object_id": "aspace_ce602a2be458a96d77a76099be7b0213", "title": "Attaboy files", "display_date": "1990-2013", "date_expr": "1990-2013", "begin": "1990-01-01", "end": "2013-12-31", "container_instance": "Box 12", "box": "[Box 12]", "general_note": "(Consists of fellowship alumni accomplishments, publications, and correspondence.)", "scope_content": "", "physical_desc": "", "extent_value": 23.0, "extents": ["23 folders"], "facets": ["series_ao_1101847", "kw_correspondence", "kw_publication"], "finding_aid_url": "https://findingaids.lib.umich.edu/catalog/umich-bhl-2026043_aspace_ce602a2be458a96d77a76099be7b0213"}];
+    const FACETS = [{"id": "series_ao_1101885", "label": "Organizational history", "count": 2, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_ao_1099817", "label": "Correspondence", "count": 6, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_ao_1101843", "label": "Financial and development records", "count": 2, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_ao_1101844", "label": "Publications", "count": 2, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_ao_1101845", "label": "Conferences", "count": 17, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_ao_1101970", "label": "Conference recordings", "count": 14, "kind": "hierarchy", "parent_id": "series_ao_1101845", "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_ao_1101846", "label": "Humor at Michigan program", "count": 6, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "series_ao_1101847", "label": "Fellows records", "count": 2, "kind": "hierarchy", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_correspondence", "label": "correspondence", "count": 7, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": ["series_ao_1099817"], "direct_file_row_ids": ["ao_1101849", "ao_1101955"]}, {"id": "kw_foundation", "label": "Foundation", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_journal_of_michigan_fellow", "label": "Journal of Michigan Fellows", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_digital_conference", "label": "Digital conference", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_part_1", "label": "Part 1", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_law_and_public_policy", "label": "Law and Public Policy", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_press", "label": "Press", "count": 12, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_part_2", "label": "Part 2", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_covering_managed_care", "label": "Covering Managed Care", "count": 3, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_press_and_public_policy", "label": "Press and Public Policy", "count": 10, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_quality_pay", "label": "Quality Pays", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_food_page", "label": "Food Page", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_session_one", "label": "Session one", "count": 3, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_woman_health", "label": "Women's Health", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_session_two", "label": "Session two", "count": 3, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_covering_new_secrecy", "label": "Covering New Secrecy", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_serious_stuff_about_humor", "label": "Serious Stuff About Humor", "count": 2, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": [], "direct_file_row_ids": []}, {"id": "kw_publication", "label": "publications", "count": 3, "kind": "keyword", "parent_id": null, "matched_hierarchy_ids": ["series_ao_1101844"], "direct_file_row_ids": ["ao_1101849"]}];
     const DEFAULT_KEYWORD_MIN_HITS = 1;
     const FACETS_BY_ID = new Map(FACETS.map(facet => [facet.id, facet]));
     const availableDates = ["1972-01-01", "1976-01-01", "1976-12-31", "1980-12-31", "1981-01-01", "1988-01-01", "1989-01-01", "1989-12-31", "1990-01-01", "1993-04-14", "1993-12-31", "1994-01-01", "1997-01-01", "1999-01-01", "1999-12-31", "2000-01-01", "2000-12-31", "2001-01-01", "2001-12-31", "2003-09-15", "2005-11-07", "2007-01-08", "2007-12-31", "2008-01-01", "2008-01-08", "2008-03-01", "2008-03-04", "2008-03-10", "2008-12-31", "2013-12-31", "2014-12-31"];
@@ -981,6 +997,7 @@
     const rangeText = document.getElementById('rangeText');
     const timelineToggle = document.getElementById('timelineToggle');
     const clearFacets = document.getElementById('clearFacets');
+    const findingAidLink = document.getElementById('findingAidLink');
     const themeToggle = document.getElementById('themeToggle');
     const settingsButton = document.getElementById('settingsButton');
     const settingsPanel = document.getElementById('settingsPanel');
@@ -1045,7 +1062,33 @@
       }
     };
 
-    const network = new vis.Network(container, { nodes: [], edges: [] }, options);
+    let networkNodeDataSet = new vis.DataSet();
+    const network = new vis.Network(container, { nodes: networkNodeDataSet, edges: [] }, options);
+    let spotlightAnimationPin = null;
+    let spotlightFocusAnimating = false;
+
+    function releaseSpotlightAnimationPin() {
+      const pin = spotlightAnimationPin;
+      spotlightAnimationPin = null;
+      spotlightFocusAnimating = false;
+      if (pin) {
+        const { dataSet, nodeId, fixed } = pin;
+        if (dataSet.get(nodeId)) {
+          dataSet.update({ id: nodeId, fixed: fixed === undefined ? false : fixed });
+        }
+      }
+    }
+
+    network.on('animationFinished', () => {
+      if (spotlightFocusAnimating) releaseSpotlightAnimationPin();
+    });
+
+    function releaseSpotlightCamera() {
+      if (spotlightFocusAnimating) releaseSpotlightAnimationPin();
+      network.releaseNode();
+    }
+    network.on('dragStart', releaseSpotlightCamera);
+    network.on('zoom', releaseSpotlightCamera);
 
     let selectedFacetIds = new Set();
     let selectedRowId = null;
@@ -1770,9 +1813,20 @@
       return ROWS.find(r => r.id === selectedRowId) || ROWS.find(r => r.id === hoveredRowId) || null;
     }
 
+    function updateFindingAidLink(row) {
+      if (row?.finding_aid_url) {
+        findingAidLink.href = row.finding_aid_url;
+        findingAidLink.hidden = false;
+      } else {
+        findingAidLink.removeAttribute('href');
+        findingAidLink.hidden = true;
+      }
+    }
+
     function renderDetailPanel() {
       const groupedNode = selectedRowId ? null : groupedRowsByNodeId.get(hoveredGroupNodeId);
       if (groupedNode) {
+        updateFindingAidLink(null);
         detailPanel.classList.remove('empty');
         detailPanel.innerHTML = `
           <div class="detail-row"><span class="detail-label">Files within:</span> <span class="detail-value">${groupedNode.rows.length}</span></div>
@@ -1783,11 +1837,13 @@
 
       const row = getCurrentDetailRow();
       if (!row) {
+        updateFindingAidLink(null);
         detailPanel.classList.add('empty');
         detailPanel.innerHTML = 'Hover or click a file node or row to preview details.';
         return;
       }
 
+      updateFindingAidLink(row);
       const relatedHierarchy = (row.facets || [])
         .filter(fid => FACETS_BY_ID.get(fid)?.kind === 'hierarchy')
         .map(fid => ({ id: fid, label: facetLabel(fid) }));
@@ -1854,7 +1910,21 @@
 
       const nodeId = networkNodeIdForRow(rowId);
       network.selectNodes([nodeId]);
-      if (focus) network.focus(nodeId, { scale: 1.2, animation: true });
+      if (focus) {
+        releaseSpotlightAnimationPin();
+        const node = networkNodeDataSet.get(nodeId);
+        if (node) {
+          spotlightAnimationPin = {
+            dataSet: networkNodeDataSet,
+            nodeId,
+            fixed: node.fixed
+          };
+          networkNodeDataSet.update({ id: nodeId, fixed: true });
+        }
+        spotlightFocusAnimating = false;
+        network.focus(nodeId, { scale: 1.2, animation: true, locked: true });
+        spotlightFocusAnimating = true;
+      }
 
       rowList.querySelectorAll('[data-row-id]').forEach(btn => {
         btn.classList.toggle('selected', btn.dataset.rowId === rowId);
@@ -1947,6 +2017,7 @@
             toggleFacetSelection(fid);
             selectedRowId = null;
             hoveredRowId = null;
+            network.releaseNode();
             render();
           });
         });
@@ -2116,8 +2187,87 @@
           renderDetailPanel();
         });
         btn.addEventListener('click', () => {
-          selectSpotlightRow(rowId, true);
+          if (selectedRowId === rowId) {
+            selectedRowId = null;
+            hoveredRowId = null;
+            releaseSpotlightAnimationPin();
+            network.releaseNode();
+            network.selectNodes([]);
+            rowList.querySelectorAll('[data-row-id]').forEach(rowButton => {
+              rowButton.classList.remove('selected');
+            });
+            renderDetailPanel();
+          } else {
+            selectSpotlightRow(rowId, true);
+          }
         });
+      });
+    }
+
+    function seedNetworkNodePositions(nodes, edges) {
+      const positions = new Map();
+      const transientGroupPrefix = '__rhizomatica_file_group_';
+      const currentPositions = network.getPositions();
+      const currentNodeIds = new Set(networkNodeDataSet.getIds());
+
+      nodes.forEach(node => {
+        if (Number.isFinite(node.x) && Number.isFinite(node.y)) {
+          positions.set(node.id, { x: node.x, y: node.y });
+        }
+      });
+      currentNodeIds.forEach(nodeId => {
+        if (String(nodeId).startsWith(transientGroupPrefix)) return;
+        const position = currentPositions[nodeId];
+        if (position && Number.isFinite(position.x) && Number.isFinite(position.y)) {
+          positions.set(nodeId, position);
+        }
+      });
+
+      const neighbors = new Map(nodes.map(node => [node.id, []]));
+      edges.forEach(edge => {
+        if (neighbors.has(edge.from)) neighbors.get(edge.from).push(edge.to);
+        if (neighbors.has(edge.to)) neighbors.get(edge.to).push(edge.from);
+      });
+
+      let pendingNodes = nodes.filter(node => !positions.has(node.id));
+      while (pendingNodes.length) {
+        const nextPendingNodes = [];
+        let positionedNode = false;
+        pendingNodes.forEach(node => {
+          const adjacentPositions = (neighbors.get(node.id) || [])
+            .map(neighborId => positions.get(neighborId))
+            .filter(Boolean);
+          if (!adjacentPositions.length) {
+            nextPendingNodes.push(node);
+            return;
+          }
+
+          const center = adjacentPositions.reduce(
+            (sum, position) => ({ x: sum.x + position.x, y: sum.y + position.y }),
+            { x: 0, y: 0 }
+          );
+          center.x /= adjacentPositions.length;
+          center.y /= adjacentPositions.length;
+
+          const hash = Array.from(String(node.id)).reduce(
+            (value, character) => (value * 31 + character.charCodeAt(0)) >>> 0,
+            0
+          );
+          const angle = (hash / 0x100000000) * Math.PI * 2;
+          const radius = 30 + (hash % 20);
+          positions.set(node.id, {
+            x: center.x + Math.cos(angle) * radius,
+            y: center.y + Math.sin(angle) * radius
+          });
+          positionedNode = true;
+        });
+        if (!positionedNode) break;
+        pendingNodes = nextPendingNodes;
+      }
+
+      return nodes.map(node => {
+        const position = positions.get(node.id);
+        return position ? { ...node, x: position.x, y: position.y } : node;
       });
     }
 
@@ -2129,7 +2279,10 @@
       const matchingRows = getVisibleRows();
       const visibleRows = getRowsInExpandedBranches(matchingRows);
 
-      if (selectedRowId && !matchingRows.some(r => r.id === selectedRowId)) selectedRowId = null;
+      if (selectedRowId && !matchingRows.some(r => r.id === selectedRowId)) {
+        selectedRowId = null;
+        network.releaseNode();
+      }
       if (hoveredRowId && !matchingRows.some(r => r.id === hoveredRowId)) hoveredRowId = null;
 
       renderFacetList(matchingRows);
@@ -2138,8 +2291,11 @@
       const data = buildNetworkData(visibleRows, matchingRows);
       if (!groupedRowsByNodeId.has(hoveredGroupNodeId)) hoveredGroupNodeId = null;
       clearNetworkRowSpotlight();
+      releaseSpotlightAnimationPin();
+      const positionedNodes = seedNetworkNodePositions(data.nodes, data.edges);
+      networkNodeDataSet = new vis.DataSet(positionedNodes);
       network.setData({
-        nodes: new vis.DataSet(data.nodes),
+        nodes: networkNodeDataSet,
         edges: new vis.DataSet(data.edges)
       });
       renderDetailPanel();
@@ -2171,6 +2327,7 @@
           });
           selectedRowId = null;
           hoveredRowId = null;
+          network.releaseNode();
           hoveredGroupNodeId = clickedId;
           render();
           return;
@@ -2180,12 +2337,13 @@
           toggleFacetSelection(clickedId);
           selectedRowId = null;
           hoveredRowId = null;
+          network.releaseNode();
           hoveredGroupNodeId = null;
           render();
           return;
         }
 
-        selectSpotlightRow(clickedId);
+        selectSpotlightRow(clickedId, true);
         return;
       }
 
@@ -2196,6 +2354,7 @@
         expandedHierarchyFacetIds.clear();
         selectedRowId = null;
         hoveredRowId = null;
+        network.releaseNode();
         hoveredGroupNodeId = null;
         render();
       }
@@ -2287,6 +2446,7 @@
       expandedHierarchyFacetIds.clear();
       selectedRowId = null;
       hoveredRowId = null;
+      network.releaseNode();
       hoveredGroupNodeId = null;
       render();
     });
